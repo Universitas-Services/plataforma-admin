@@ -3,3 +3,6 @@
 *.png binary
 *.ico binary
 *.webp binary
+
+# Scripts de las skills de Claude: no cuentan para el lenguaje del repo en GitHub.
+.claude/** linguist-vendored

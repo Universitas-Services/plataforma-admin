@@ -2,6 +2,8 @@
 
 Panel administrativo de la plataforma de participación ciudadana multi-alcaldía. Lo usan el Super Admin, los Representantes (AVIPRI y Universitas) y el personal de cada alcaldía (administrador, Operador y Revisor). El menú se arma según los permisos del usuario y, dentro de una alcaldía, el panel toma su logo, sus colores y su lema.
 
+> **¿Retomas el proyecto en otro equipo o en una conversación nueva?** Lee primero [`docs/CONTEXTO.md`](docs/CONTEXTO.md): estado, decisiones, pendientes del portal y del admin, y el contrato supuesto con la API.
+
 La aplicación no llama a la API desde el navegador: lo hace desde su propio servidor Next.js (BFF), que habla con `plataforma-api`.
 
 ## Requisitos

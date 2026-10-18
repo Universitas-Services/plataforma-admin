@@ -338,6 +338,14 @@ El estado se dibuja con el lenguaje de la línea, legible sin color (`TramoEstad
 
 Formulario por secciones separadas por una línea (Formato, Datos, Portada, el medio del formato, Cuerpo, Puntos de análisis, Botón al final) y, desde 1024 px, el panel «Publicación» fijo a la derecha con la acción principal en `--marca` y las demás en secundario; en el teléfono la acción principal queda en una barra fija al pie. Formato como cinco tarjetas con icono (la elegida con borde `--marca` y fondo `--marca-suave`). La barra de Tiptap es un `toolbar` con tabulador itinerante. El resumen de lo que falta para publicar va arriba, en `peligro-suave`, con enlaces a cada campo.
 
+### Banners
+
+Tarjetas en el orden del carrusel con su posición, asa de arrastre y flechas «Subir»/«Bajar»; la vigencia usa el mismo tramo que las noticias (vigente lleno en turquesa, programado hasta estación hueca, vencido cortado). La vista previa (`VistaBanner`) aproxima los tonos del portal: color de la alcaldía, oscuro `#232A36` y cálido `#ECA52B` (tokens `banner-oscuro` y `banner-calido`, solo para esta vista previa); con foto, velo oscuro de abajo hacia arriba.
+
+### Documentos
+
+Estado con forma propia: «Oficial» con sello lleno en turquesa suave; «Borrador de trabajo» con contorno discontinuo. El historial de versiones es una línea vertical: la vigente es el círculo de correspondencia en `--marca`, las anteriores estaciones huecas y la primera cierra con el remate de fin de línea. En la lista de banners, los que no se muestran hoy (programados y vencidos) llevan la posición en anillo hueco y la miniatura en gris.
+
 ### Aviso (toast)
 
 Abajo a la derecha (abajo al centro en el teléfono), papel con borde turquesa o rojo, icono y botón para cerrar; región `role="status"` presente desde el inicio. Los de éxito se van solos a los 6 s salvo con el puntero o el foco encima; los de error esperan.

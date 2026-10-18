@@ -180,3 +180,95 @@ export type Medio = {
 };
 
 export const urlMedio = (id: string) => `/medios/${id}`;
+
+/* ---------- Banners del Inicio (backlog 1.14) ---------- */
+
+/** Tonos del portal: «rojo» es el color de marca de la alcaldía; «tinta», oscuro; «cálido», claro. */
+export const TONOS_BANNER = ["rojo", "tinta", "calido"] as const;
+export type TonoBanner = (typeof TONOS_BANNER)[number];
+
+export const NOMBRE_TONO: Record<TonoBanner, string> = {
+  rojo: "Color de la alcaldía",
+  tinta: "Oscuro",
+  calido: "Claro cálido",
+};
+
+export type Banner = {
+  id: string;
+  alcaldiaId: string;
+  titulo: string;
+  texto: string;
+  enlace: { href: string; etiqueta: string };
+  tono: TonoBanner;
+  imagen?: Imagen;
+  /** Posición en el carrusel, de menor a mayor. */
+  orden: number;
+  /** Días «AAAA-MM-DD» (hora de Venezuela), ambos incluidos; sin uno, no hay ese límite. */
+  vigencia?: { desde?: string; hasta?: string };
+  creadoEl: string;
+  actualizadoEl: string;
+  eliminadoEl?: string;
+  ejemplo?: boolean;
+};
+
+export type CamposBanner = Pick<
+  Banner,
+  "titulo" | "texto" | "enlace" | "tono" | "imagen" | "vigencia"
+>;
+
+export const VIGENCIAS = ["VIGENTE", "FUTURO", "VENCIDO"] as const;
+export type Vigencia = (typeof VIGENCIAS)[number];
+
+/* ---------- Repositorio de documentos (backlog 1.15) ---------- */
+
+export const DOC_CATEGORIAS = [
+  "Decretos y normativa",
+  "Plan de trabajo",
+  "Informes técnicos",
+  "Cartografía",
+  "Minutas",
+] as const;
+export type DocCategoria = (typeof DOC_CATEGORIAS)[number];
+
+/** Borrador de trabajo o documento oficializado (lo dice el portal junto al documento). */
+export const DOC_ESTADOS = ["BORRADOR", "OFICIAL"] as const;
+export type DocEstado = (typeof DOC_ESTADOS)[number];
+
+export const NOMBRE_DOC_ESTADO: Record<DocEstado, string> = {
+  BORRADOR: "Borrador de trabajo",
+  OFICIAL: "Oficial",
+};
+
+export type VersionDocumento = {
+  version: string;
+  fecha: string;
+  nota: string;
+  /** El PDF de esa versión (el portal solo muestra el de la vigente). */
+  archivo: Adjunto;
+};
+
+export type Documento = {
+  id: string;
+  alcaldiaId: string;
+  slug: string;
+  titulo: string;
+  descripcion: string;
+  categoria: DocCategoria;
+  estado: DocEstado;
+  /** Visible en el portal; oculto, solo lo ve el equipo. */
+  publico: boolean;
+  /** Versión vigente, p. ej. «1.2». */
+  version: string;
+  archivo: Adjunto;
+  /** De la más reciente a la más antigua; la primera es la vigente. */
+  versiones: VersionDocumento[];
+  publicadoEl: string;
+  actualizadoEl: string;
+  eliminadoEl?: string;
+  ejemplo?: boolean;
+};
+
+export type CamposDocumento = Pick<
+  Documento,
+  "titulo" | "descripcion" | "categoria" | "estado" | "publico"
+>;

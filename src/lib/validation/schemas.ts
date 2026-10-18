@@ -1,6 +1,14 @@
 import { z } from "zod";
 import { cedulaSchema, contrasenaSchema, correoSchema, nombreSchema } from "./common";
-import { CATEGORIAS, FORMATOS, FUENTES_VIDEO, TIPOS_NOTICIA } from "@/lib/contenido/tipos";
+import {
+  CATEGORIAS,
+  DOC_CATEGORIAS,
+  DOC_ESTADOS,
+  FORMATOS,
+  FUENTES_VIDEO,
+  TIPOS_NOTICIA,
+  TONOS_BANNER,
+} from "@/lib/contenido/tipos";
 
 /** CU-01 Iniciar sesión (personal interno). */
 export const loginSchema = z.object({
@@ -179,6 +187,82 @@ export const noticiaSchema = z.object({
   destacada: z.boolean(),
 });
 
+/* ---------- Banners (backlog 1.14) ---------- */
+
+const diaSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Usa el formato AAAA-MM-DD.")
+  .optional()
+  .or(z.literal("").transform(() => undefined));
+
+export const bannerSchema = z
+  .object({
+    titulo: z
+      .string()
+      .trim()
+      .min(1, "Escribe el título.")
+      .max(80, "El título no puede superar 80 caracteres."),
+    texto: z
+      .string()
+      .trim()
+      .min(1, "Escribe el texto.")
+      .max(200, "El texto no puede superar 200 caracteres."),
+    enlace: z.object({
+      href: enlaceBoton,
+      etiqueta: z
+        .string()
+        .trim()
+        .min(1, "Escribe el texto del botón.")
+        .max(40, "El texto del botón no puede superar 40 caracteres."),
+    }),
+    tono: z.enum(TONOS_BANNER),
+    imagen: imagenSchema.optional(),
+    vigencia: z.object({ desde: diaSchema, hasta: diaSchema }).optional(),
+  })
+  .refine((b) => !b.imagen || b.imagen.alt.trim().length > 0, {
+    path: ["imagen", "alt"],
+    error: "Describe qué muestra la foto.",
+  })
+  .refine((b) => !b.vigencia?.desde || !b.vigencia?.hasta || b.vigencia.hasta >= b.vigencia.desde, {
+    path: ["vigencia"],
+    error: "La fecha final tiene que ser igual o posterior a la inicial.",
+  });
+
+/* ---------- Documentos (backlog 1.15) ---------- */
+
+export const documentoSchema = z.object({
+  titulo: z
+    .string()
+    .trim()
+    .min(1, "Escribe el título.")
+    .max(160, "El título no puede superar 160 caracteres."),
+  descripcion: z
+    .string()
+    .trim()
+    .min(1, "Escribe una descripción breve.")
+    .max(500, "La descripción no puede superar 500 caracteres."),
+  categoria: z.enum(DOC_CATEGORIAS, { error: "Elige la categoría." }),
+  estado: z.enum(DOC_ESTADOS),
+  publico: z.boolean(),
+});
+
+export const adjuntoSchema = z.object({
+  nombre: z.string().trim().min(1).max(160),
+  url: z.string().max(300),
+  tipo: z.literal("application/pdf"),
+  pesoBytes: z.number().int().nonnegative(),
+  paginas: z.number().int().positive().optional(),
+});
+
+export const versionSchema = z.object({
+  nota: z
+    .string()
+    .trim()
+    .min(5, "Cuenta en una frase qué cambió (mínimo 5 caracteres).")
+    .max(300, "La nota no puede superar 300 caracteres."),
+  tipo: z.enum(["menor", "mayor"]),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type AceptarInvitacionInput = z.infer<typeof aceptarInvitacionSchema>;
 export type CrearAlcaldiaInput = z.infer<typeof crearAlcaldiaSchema>;
@@ -186,3 +270,5 @@ export type BrandingInput = z.infer<typeof brandingSchema>;
 export type InvitarUsuarioInput = z.infer<typeof invitarUsuarioSchema>;
 export type TransicionParticipacionInput = z.infer<typeof transicionParticipacionSchema>;
 export type NoticiaInput = z.infer<typeof noticiaSchema>;
+export type BannerInput = z.infer<typeof bannerSchema>;
+export type DocumentoInput = z.infer<typeof documentoSchema>;

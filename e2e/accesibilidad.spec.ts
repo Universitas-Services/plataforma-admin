@@ -59,6 +59,14 @@ const POR_ROL: [string, string[]][] = [
       "/contenido/noticias/n-ejemplo-video",
       "/contenido/noticias/n-ejemplo-documento",
       "/contenido/noticias/n-ejemplo-puntos",
+      "/contenido/banners",
+      "/contenido/banners?vigencia=VENCIDO",
+      "/contenido/banners/b-ejemplo-diagnostico",
+      "/contenido/banners/nuevo",
+      "/contenido/documentos",
+      "/contenido/documentos?visibilidad=oculto",
+      "/contenido/documentos/d-ejemplo-plan",
+      "/contenido/documentos/nuevo",
     ],
   ],
   [
@@ -143,6 +151,15 @@ test.describe("panel", () => {
     await auditar(page);
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Enlace" }).click();
+    await auditar(page);
+  });
+
+  test("documento: diálogo de nueva versión", async ({ page }) => {
+    await ingresar(page, "operador@iribarren.test");
+    await page.goto("/contenido/documentos/d-ejemplo-plan");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: "Nueva versión" }).click();
+    await expect(page.getByRole("dialog", { name: "Nueva versión" })).toBeVisible();
     await auditar(page);
   });
 });

@@ -25,13 +25,13 @@ const VENTANA_EDICION = 30 * MINUTO;
 export const MAX_TITULO = 160;
 export const MAX_RESUMEN = 300;
 
-type Editor =
+export type Editor =
   | { estado: "OK"; usuario: UsuarioInterno; alcaldia: Alcaldia }
   | { estado: "SIN_SESION" }
   | { estado: "SIN_PERMISO" };
 
 /** Edita contenido quien tiene `contenido.editar` en la alcaldía activa (Operador o Admin). */
-function editor(alm: Almacen, sesion?: string): Editor {
+export function editor(alm: Almacen, sesion?: string): Editor {
   const s = sesion ? alm.sesiones.get(sesion) : undefined;
   const u = s ? alm.usuarios.get(s.usuarioId) : undefined;
   const a = s?.alcaldiaId ? alm.alcaldias.get(s.alcaldiaId) : undefined;
@@ -227,7 +227,7 @@ export function crearNoticia(
 }
 
 /** Un archivo del propio panel: de los medios de esta alcaldía o de los ejemplos. */
-function medioPropio(alm: Almacen, alcaldiaId: string, url: string | undefined) {
+export function medioPropio(alm: Almacen, alcaldiaId: string, url: string | undefined) {
   if (!url) return true;
   if (/^\/ejemplos\/[\w.-]+$/.test(url)) return true;
   const id = url.match(/^\/medios\/([\w-]+)$/)?.[1];

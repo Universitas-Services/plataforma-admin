@@ -28,6 +28,9 @@
   --color-ambar-texto: #8a5a12;
   --color-peligro: #b42318;
   --color-peligro-suave: #fdecea;
+  /* Tonos de los banners del portal, solo para su vista previa en el editor. */
+  --color-banner-calido: #eca52b;
+  --color-banner-oscuro: #232a36;
 
   --font-sans: var(--font-archivo), system-ui, sans-serif;
 

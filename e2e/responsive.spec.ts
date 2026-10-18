@@ -45,6 +45,10 @@ test.describe("responsive", () => {
         "/contenido/noticias/n-ejemplo-mesas",
         "/contenido/noticias/n-ejemplo-galeria",
         "/contenido/noticias/n-ejemplo-video",
+        "/contenido/banners",
+        "/contenido/banners/b-ejemplo-diagnostico",
+        "/contenido/documentos",
+        "/contenido/documentos/d-ejemplo-plan",
       ])
         await sinDesborde(page, ruta);
     });

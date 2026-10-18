@@ -35,6 +35,8 @@ export const crearAlmacen = (): Almacen => ({
   participaciones: new Map(),
   noticias: new Map(),
   medios: new Map(),
+  banners: new Map(),
+  documentos: new Map(),
 });
 
 /* ---------- Contraseñas (scrypt con sal, comparación en tiempo constante) ---------- */

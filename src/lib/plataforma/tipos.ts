@@ -1,4 +1,4 @@
-import type { Medio, Noticia } from "@/lib/contenido/tipos";
+import type { Banner, Documento, Medio, Noticia } from "@/lib/contenido/tipos";
 
 /*
  * Modelo del panel interno (backlog 1.2, 1.3, 1.5, 1.7, 1.10 y 1.19). Mientras no exista
@@ -134,4 +134,8 @@ export type Almacen = {
   noticias: Map<string, Noticia>;
   /** Archivos subidos desde el editor: imágenes, PDF, videos y subtítulos. */
   medios: Map<string, Medio>;
+  /** Banners del carrusel del Inicio (backlog 1.14). */
+  banners: Map<string, Banner>;
+  /** Repositorio de documentos (backlog 1.15). */
+  documentos: Map<string, Documento>;
 };

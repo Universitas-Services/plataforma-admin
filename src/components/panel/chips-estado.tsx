@@ -23,6 +23,7 @@ export function ChipsEstado<E extends string = EstadoChip>({
   ruta = "/participaciones",
   conservar = {},
   final = "PUBLICADA",
+  parametro = "estado",
 }: {
   conteos: Record<string, number>;
   activo?: E;
@@ -32,10 +33,12 @@ export function ChipsEstado<E extends string = EstadoChip>({
   /** Otros filtros de la URL que se mantienen al cambiar de estado. */
   conservar?: Record<string, string | undefined>;
   final?: string;
+  /** Nombre del parámetro de la URL (banners usan «vigencia»). */
+  parametro?: string;
 }) {
   const href = (e: E) => {
     const p = new URLSearchParams();
-    if (e !== activo) p.set("estado", e);
+    if (e !== activo) p.set(parametro, e);
     if (q) p.set("q", q);
     for (const [k, v] of Object.entries(conservar)) if (v) p.set(k, v);
     const s = p.toString();

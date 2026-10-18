@@ -1,4 +1,4 @@
-import type { Imagen, Noticia } from "@/lib/contenido/tipos";
+import type { Adjunto, Banner, Documento, Imagen, Noticia } from "@/lib/contenido/tipos";
 
 /*
  * Noticias de demostración (backlog 2.9). Son contenido de EJEMPLO, no textos oficiales: llevan
@@ -250,4 +250,151 @@ export function noticiasDemo(ahora: number): Noticia[] {
       });
     }),
   );
+}
+
+/* ---------- Banners y documentos de ejemplo ---------- */
+
+const dia = (ahora: number, dias: number) =>
+  new Date(ahora + dias * DIA - 4 * 3_600_000).toISOString().slice(0, 10);
+
+export function bannersDemo(ahora: number): Banner[] {
+  const fecha = new Date(ahora - 5 * DIA).toISOString();
+  const base = { alcaldiaId: "iribarren", creadoEl: fecha, actualizadoEl: fecha, ejemplo: true };
+  return structuredClone<Banner[]>([
+    {
+      ...base,
+      id: "b-ejemplo-propuestas",
+      titulo: "Ejemplo: tu propuesta puede llegar al plan",
+      texto: "Banner de ejemplo con el color de la alcaldía y un enlace a participar.",
+      enlace: { href: "/participa", etiqueta: "Enviar una propuesta" },
+      tono: "rojo",
+      orden: 1,
+      vigencia: { desde: dia(ahora, -10) },
+    },
+    {
+      ...base,
+      id: "b-ejemplo-diagnostico",
+      titulo: "Ejemplo: así se prepara el diagnóstico",
+      texto: "Banner de ejemplo con foto de fondo y tono oscuro.",
+      enlace: { href: "/noticias", etiqueta: "Leer las noticias" },
+      tono: "tinta",
+      imagen: { ...FOTOS.skyline, ilustrativa: undefined },
+      orden: 2,
+    },
+    {
+      ...base,
+      id: "b-ejemplo-documentos",
+      titulo: "Ejemplo: consulta los documentos",
+      texto: "Banner de ejemplo en tono claro, programado para empezar dentro de tres días.",
+      enlace: { href: "/documentos", etiqueta: "Ver el repositorio" },
+      tono: "calido",
+      orden: 3,
+      vigencia: { desde: dia(ahora, 3), hasta: dia(ahora, 30) },
+    },
+    {
+      ...base,
+      id: "b-ejemplo-vencido",
+      titulo: "Ejemplo: jornada que ya pasó",
+      texto: "Banner de ejemplo cuya vigencia terminó: ya no se muestra en el portal.",
+      enlace: { href: "/noticias", etiqueta: "Ver más" },
+      tono: "tinta",
+      orden: 4,
+      vigencia: { desde: dia(ahora, -20), hasta: dia(ahora, -2) },
+    },
+  ]);
+}
+
+const pdf = (nombre: string, archivo: string, pesoBytes: number): Adjunto => ({
+  nombre,
+  url: `/ejemplos/${archivo}`,
+  tipo: "application/pdf",
+  pesoBytes,
+});
+
+export function documentosDemo(ahora: number): Documento[] {
+  const f = (dias: number) => iso(ahora, dias);
+  const base = { alcaldiaId: "iribarren", ejemplo: true };
+  const plan = pdf("Plan de trabajo (ejemplo).pdf", "plan-de-trabajo-pdul-ejemplo.pdf", 4346);
+  const decreto = pdf("Decreto (ejemplo).pdf", "decreto-48-2026-ejemplo.pdf", 3219);
+  const metodo = pdf("Metodología (ejemplo).pdf", "metodologia-diagnostico-ejemplo.pdf", 4161);
+  const minuta = pdf("Minuta (ejemplo).pdf", "minuta-mesa-tecnica-catedral-ejemplo.pdf", 3355);
+  return structuredClone<Documento[]>([
+    {
+      ...base,
+      id: "d-ejemplo-plan",
+      slug: "ejemplo-plan-de-trabajo",
+      titulo: "Ejemplo: plan de trabajo",
+      descripcion: "Documento de ejemplo con tres versiones en su historial.",
+      categoria: "Plan de trabajo",
+      estado: "BORRADOR",
+      publico: true,
+      version: "2.1",
+      archivo: plan,
+      versiones: [
+        {
+          version: "2.1",
+          fecha: f(-3),
+          nota: "Ejemplo: corrección del cronograma.",
+          archivo: plan,
+        },
+        {
+          version: "2.0",
+          fecha: f(-12),
+          nota: "Ejemplo: nueva estructura por fases.",
+          archivo: plan,
+        },
+        { version: "1.0", fecha: f(-30), nota: "Primera versión.", archivo: plan },
+      ],
+      publicadoEl: f(-30),
+      actualizadoEl: f(-3),
+    },
+    {
+      ...base,
+      id: "d-ejemplo-decreto",
+      slug: "ejemplo-decreto",
+      titulo: "Ejemplo: decreto de inicio",
+      descripcion: "Documento oficial de ejemplo (no es el decreto real).",
+      categoria: "Decretos y normativa",
+      estado: "OFICIAL",
+      publico: true,
+      version: "1.0",
+      archivo: decreto,
+      versiones: [{ version: "1.0", fecha: f(-35), nota: "Primera versión.", archivo: decreto }],
+      publicadoEl: f(-35),
+      actualizadoEl: f(-35),
+    },
+    {
+      ...base,
+      id: "d-ejemplo-metodologia",
+      slug: "ejemplo-metodologia",
+      titulo: "Ejemplo: metodología del diagnóstico",
+      descripcion: "Informe técnico de ejemplo.",
+      categoria: "Informes técnicos",
+      estado: "BORRADOR",
+      publico: true,
+      version: "1.1",
+      archivo: metodo,
+      versiones: [
+        { version: "1.1", fecha: f(-6), nota: "Ejemplo: se añadió un anexo.", archivo: metodo },
+        { version: "1.0", fecha: f(-15), nota: "Primera versión.", archivo: metodo },
+      ],
+      publicadoEl: f(-15),
+      actualizadoEl: f(-6),
+    },
+    {
+      ...base,
+      id: "d-ejemplo-minuta",
+      slug: "ejemplo-minuta",
+      titulo: "Ejemplo: minuta de mesa técnica",
+      descripcion: "Minuta de ejemplo aún oculta: solo la ve el equipo.",
+      categoria: "Minutas",
+      estado: "BORRADOR",
+      publico: false,
+      version: "1.0",
+      archivo: minuta,
+      versiones: [{ version: "1.0", fecha: f(-1), nota: "Primera versión.", archivo: minuta }],
+      publicadoEl: f(-1),
+      actualizadoEl: f(-1),
+    },
+  ]);
 }

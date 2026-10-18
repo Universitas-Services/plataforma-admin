@@ -150,6 +150,7 @@ export function CampoImagenRecortada({
   error,
   errorAlt,
   aspecto = 16 / 9,
+  conIlustrativa = true,
 }: {
   id: string;
   etiqueta: string;
@@ -158,6 +159,8 @@ export function CampoImagenRecortada({
   error?: string;
   errorAlt?: string;
   aspecto?: number;
+  /** «Foto ilustrativa» solo tiene sentido en noticias. */
+  conIlustrativa?: boolean;
 }) {
   const [archivo, setArchivo] = useState<{ file: File; url: string }>();
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -310,7 +313,13 @@ export function CampoImagenRecortada({
               </button>
             </div>
           </div>
-          <DatosImagen id={id} imagen={valor} onCambio={onCambio} errorAlt={errorAlt} />
+          <DatosImagen
+            id={id}
+            imagen={valor}
+            onCambio={onCambio}
+            errorAlt={errorAlt}
+            conIlustrativa={conIlustrativa}
+          />
           <MensajeError id={id} error={falla} />
         </div>
       ) : (

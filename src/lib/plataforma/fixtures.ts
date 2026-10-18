@@ -1,5 +1,5 @@
 import { HORAS_INVITACION, cifrar, crearAlmacen, registrar } from "./servicio";
-import { noticiasDemo } from "./fixtures-contenido";
+import { bannersDemo, documentosDemo, noticiasDemo } from "./fixtures-contenido";
 import type { Alcaldia, Almacen, ParticipacionDemo, UsuarioInterno } from "./tipos";
 
 /*
@@ -268,6 +268,8 @@ export function almacenDemo(): Almacen {
   });
 
   for (const n of noticiasDemo(ahora)) alm.noticias.set(n.id, n);
+  for (const b of bannersDemo(ahora)) alm.banners.set(b.id, b);
+  for (const d of documentosDemo(ahora)) alm.documentos.set(d.id, d);
 
   registrar(
     alm,
@@ -296,4 +298,12 @@ export function reiniciarOnboarding(alm: Almacen, id: string) {
 export function borrarNoticiaDePrueba(alm: Almacen, id: string) {
   if (id.startsWith("n-ejemplo-")) return false;
   return alm.noticias.delete(id);
+}
+
+/** Solo en desarrollo: borra del todo un banner o documento creado por una prueba E2E. */
+export function borrarContenidoDePrueba(alm: Almacen, tipo: string, id: string) {
+  if (id.includes("-ejemplo-")) return false;
+  if (tipo === "banners") return alm.banners.delete(id);
+  if (tipo === "documentos") return alm.documentos.delete(id);
+  return false;
 }

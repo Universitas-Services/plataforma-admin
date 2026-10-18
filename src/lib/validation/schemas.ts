@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { cedulaSchema, contrasenaSchema, correoSchema, nombreSchema } from "./common";
+import { CATEGORIAS, FORMATOS, FUENTES_VIDEO, TIPOS_NOTICIA } from "@/lib/contenido/tipos";
 
 /** CU-01 Iniciar sesión (personal interno). */
 export const loginSchema = z.object({
@@ -98,9 +99,90 @@ export const transicionParticipacionSchema = z.discriminatedUnion("to", [
   }),
 ]);
 
+/* ---------- Noticias (backlog 1.13 y 2.9) ---------- */
+
+/** URL http(s) o ruta del propio sitio, para el botón opcional de la noticia. */
+const enlaceBoton = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((v) => /^https?:\/\/[^\s]+$/i.test(v) || /^\/(?!\/)[^\s]*$/.test(v), {
+    error: "Escribe un enlace que empiece por https:// o por /.",
+  });
+
+const imagenSchema = z.object({
+  src: z.string().max(300),
+  alt: z.string().trim().max(250, "El texto alternativo no puede superar 250 caracteres."),
+  ancho: z.number().int().positive().max(20_000),
+  alto: z.number().int().positive().max(20_000),
+  credito: z
+    .object({
+      autor: z.string().trim().max(120),
+      licencia: z.string().trim().max(60),
+      fuente: z.string().trim().max(500),
+    })
+    .optional(),
+  ilustrativa: z.boolean().optional(),
+});
+
+/**
+ * Lo que guarda el editor (borrador o cambios). Solo forma y largos: lo que exige cada formato
+ * para publicar lo revisa el servidor (faltantesPublicacion en contenido.ts).
+ */
+export const noticiaSchema = z.object({
+  tipo: z.enum(TIPOS_NOTICIA),
+  formato: z.enum(FORMATOS),
+  titulo: z.string().trim().max(160, "El título no puede superar 160 caracteres."),
+  resumen: z.string().trim().max(300, "El resumen no puede superar 300 caracteres."),
+  categoria: z.enum(CATEGORIAS).optional(),
+  parroquia: z.string().trim().max(80).optional(),
+  portada: imagenSchema.optional(),
+  cuerpo: z.string().max(200_000, "El cuerpo es demasiado largo."),
+  imagenes: z.array(imagenSchema).max(30, "Una galería admite hasta 30 imágenes."),
+  adjunto: z
+    .object({
+      nombre: z.string().trim().max(160),
+      url: z.string().max(300),
+      tipo: z.literal("application/pdf"),
+      pesoBytes: z.number().int().nonnegative(),
+      paginas: z.number().int().positive().optional(),
+    })
+    .optional(),
+  video: z
+    .object({
+      fuente: z.enum(FUENTES_VIDEO),
+      url: z.string().trim().max(500),
+      portada: imagenSchema.optional(),
+      duracionSeg: z.number().nonnegative().optional(),
+      subtitulos: z.string().max(300).optional(),
+    })
+    .optional(),
+  puntos: z
+    .object({
+      titulo: z.string().trim().max(120).optional(),
+      items: z
+        .array(
+          z.object({
+            titulo: z.string().trim().max(120),
+            texto: z.string().trim().max(600),
+          }),
+        )
+        .max(12, "Hasta 12 puntos de análisis."),
+    })
+    .optional(),
+  boton: z
+    .object({
+      texto: z.string().trim().min(1, "Escribe el texto del botón.").max(40),
+      href: enlaceBoton,
+    })
+    .optional(),
+  destacada: z.boolean(),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type AceptarInvitacionInput = z.infer<typeof aceptarInvitacionSchema>;
 export type CrearAlcaldiaInput = z.infer<typeof crearAlcaldiaSchema>;
 export type BrandingInput = z.infer<typeof brandingSchema>;
 export type InvitarUsuarioInput = z.infer<typeof invitarUsuarioSchema>;
 export type TransicionParticipacionInput = z.infer<typeof transicionParticipacionSchema>;
+export type NoticiaInput = z.infer<typeof noticiaSchema>;

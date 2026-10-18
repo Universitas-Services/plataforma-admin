@@ -1,4 +1,5 @@
 import { HORAS_INVITACION, cifrar, crearAlmacen, registrar } from "./servicio";
+import { noticiasDemo } from "./fixtures-contenido";
 import type { Alcaldia, Almacen, ParticipacionDemo, UsuarioInterno } from "./tipos";
 
 /*
@@ -266,6 +267,8 @@ export function almacenDemo(): Almacen {
     cola: [],
   });
 
+  for (const n of noticiasDemo(ahora)) alm.noticias.set(n.id, n);
+
   registrar(
     alm,
     {
@@ -287,4 +290,10 @@ export function reiniciarOnboarding(alm: Almacen, id: string) {
   alm.logos.delete(id);
   alm.logos.delete(`${id}:borrador`);
   return true;
+}
+
+/** Solo en desarrollo: borra del todo una noticia que creó una prueba E2E. */
+export function borrarNoticiaDePrueba(alm: Almacen, id: string) {
+  if (id.startsWith("n-ejemplo-")) return false;
+  return alm.noticias.delete(id);
 }

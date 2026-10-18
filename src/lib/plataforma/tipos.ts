@@ -1,3 +1,5 @@
+import type { Medio, Noticia } from "@/lib/contenido/tipos";
+
 /*
  * Modelo del panel interno (backlog 1.2, 1.3, 1.5, 1.7, 1.10 y 1.19). Mientras no exista
  * plataforma-api, el panel trabaja contra un almacén en memoria con estas formas.
@@ -128,4 +130,8 @@ export type Almacen = {
   logos: Map<string, Uint8Array>;
   /** Conteos por estado de cada alcaldía y las pendientes más antiguas (demostración). */
   participaciones: Map<string, { conteos: Record<string, number>; cola: ParticipacionDemo[] }>;
+  /** Noticias e información de todas las alcaldías (backlog 1.13). */
+  noticias: Map<string, Noticia>;
+  /** Archivos subidos desde el editor: imágenes, PDF, videos y subtítulos. */
+  medios: Map<string, Medio>;
 };

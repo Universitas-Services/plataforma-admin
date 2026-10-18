@@ -38,6 +38,15 @@ test.describe("responsive", () => {
       await ingresar(page, "superadmin@plataforma.test");
       for (const ruta of ["/plataforma", "/alcaldia", "/plataforma/representantes"])
         await sinDesborde(page, ruta);
+      await page.context().clearCookies();
+      await ingresar(page, "operador@iribarren.test");
+      for (const ruta of [
+        "/contenido/noticias",
+        "/contenido/noticias/n-ejemplo-mesas",
+        "/contenido/noticias/n-ejemplo-galeria",
+        "/contenido/noticias/n-ejemplo-video",
+      ])
+        await sinDesborde(page, ruta);
     });
   }
 });

@@ -198,3 +198,34 @@ export function EsqueletoSeccion() {
     </div>
   );
 }
+
+/** Editor de una noticia: formulario a la izquierda y panel de publicación a la derecha. */
+export function EsqueletoEditor() {
+  return (
+    <div>
+      <EstadoCarga />
+      <div aria-hidden="true" className="mb-6">
+        <B className="h-4 w-24" />
+        <B className="mt-4 h-8 w-full max-w-lg" />
+        <B className="mt-3 h-4 w-48" />
+      </div>
+      <div
+        aria-hidden="true"
+        className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_19rem] xl:grid-cols-[minmax(0,1fr)_21rem]"
+      >
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {Array.from({ length: 5 }, (_, i) => (
+              <B key={i} className="h-16 rounded-lg" />
+            ))}
+          </div>
+          <B className="h-11 w-full rounded-control" />
+          <B className="h-24 w-full rounded-control" />
+          <B className="h-36 w-full rounded-lg" />
+          <B className="h-64 w-full rounded-control" />
+        </div>
+        <B className="hidden h-72 rounded-lg lg:block" />
+      </div>
+    </div>
+  );
+}

@@ -13,12 +13,15 @@ export function Dialogo({
   titulo,
   descripcion,
   children,
+  ancho = "max-w-md",
 }: {
   abierto: boolean;
   onCerrar: () => void;
   titulo: string;
   descripcion?: string;
   children: ReactNode;
+  /** Clase de ancho máximo (la vista previa de una noticia necesita más que una confirmación). */
+  ancho?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const idTitulo = useId();
@@ -41,7 +44,7 @@ export function Dialogo({
         // Clic en el fondo: cierra.
         if (e.target === ref.current) onCerrar();
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-lg bg-papel p-0 text-cuerpo shadow-panel backdrop:bg-tinta/50"
+      className={`m-auto w-[calc(100%-2rem)] ${ancho} rounded-lg bg-papel p-0 text-cuerpo shadow-panel backdrop:bg-tinta/50`}
     >
       <div className="p-6">
         <h2 id={idTitulo} className="text-lg font-bold">

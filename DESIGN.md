@@ -326,6 +326,22 @@ Densa: celdas de 12 × 14 px, filas separadas por `fila`, cabecera en `cabecera`
 
 Pasos como una línea horizontal de cuatro estaciones (`LineaPasos`): la actual es el círculo de correspondencia, las hechas se rellenan y enlazan, las siguientes van huecas. Cada paso: formulario a la izquierda y **vista previa en vivo** a la derecha (`VistaPreviaMarca`, fija arriba en escritorio, debajo en el teléfono), que aplica `variablesMarca()` igual que el marco real. El contraste se muestra con su relación numérica y, si no cumple, un botón «Usar el tono sugerido». Acciones al pie: «Atrás» (secundario) y la principal en `--marca`.
 
+### Selector de color
+
+Espectro de saturación y brillo a todo el ancho, con la barra de tono debajo (`SelectorColor`, sobre `react-colorful`, etiquetas ARIA traducidas) y el campo hexadecimal sincronizado al lado de la muestra. El secundario se pliega tras «Añadir color secundario».
+
+### Estado de una noticia (tramo)
+
+El estado se dibuja con el lenguaje de la línea, legible sin color (`TramoEstado`): borrador = tramo discontinuo sin estación; programada = discontinuo hasta una estación hueca, en tinta, con la fecha; publicada = tramo lleno hasta la estación llena, en turquesa; despublicada = tramo lleno cortado con un remate. Va junto al nombre del estado en la tabla, la lista del teléfono y el encabezado del editor.
+
+### Editor de noticias
+
+Formulario por secciones separadas por una línea (Formato, Datos, Portada, el medio del formato, Cuerpo, Puntos de análisis, Botón al final) y, desde 1024 px, el panel «Publicación» fijo a la derecha con la acción principal en `--marca` y las demás en secundario; en el teléfono la acción principal queda en una barra fija al pie. Formato como cinco tarjetas con icono (la elegida con borde `--marca` y fondo `--marca-suave`). La barra de Tiptap es un `toolbar` con tabulador itinerante. El resumen de lo que falta para publicar va arriba, en `peligro-suave`, con enlaces a cada campo.
+
+### Aviso (toast)
+
+Abajo a la derecha (abajo al centro en el teléfono), papel con borde turquesa o rojo, icono y botón para cerrar; región `role="status"` presente desde el inicio. Los de éxito se van solos a los 6 s salvo con el puntero o el foco encima; los de error esperan.
+
 ### Esqueletos de carga
 
 Cada pantalla tiene el suyo con su forma real (`esqueletos.tsx`): encabezado, chips, tabla que en el teléfono pasa a lista, filas con sigla, formularios y asistente. Un solo `role="status"` «Cargando…» por pantalla; los bloques son `aria-hidden`.

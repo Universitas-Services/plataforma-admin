@@ -21,6 +21,6 @@ export function proxy(request: NextRequest) {
 export const config = {
   // Todo menos las pantallas de acceso, la API de Next y los archivos estáticos.
   matcher: [
-    "/((?!ingresar|invitacion|recuperar|restablecer|_next|marca/|favicon|icon|apple-icon).*)",
+    "/((?!ingresar|invitacion|recuperar|restablecer|_next|marca/|ejemplos/|favicon|icon|apple-icon).*)",
   ],
 };

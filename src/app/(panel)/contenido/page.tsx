@@ -1,32 +1,6 @@
-import type { Metadata } from "next";
-import { Suspense } from "react";
-import { EsqueletoSeccion } from "@/components/ui/esqueletos";
-import { PendienteDeBloque } from "@/components/panel/pendiente-bloque";
-import { exigirEnAlcaldia } from "@/lib/plataforma/sesion";
+import { RedirectType, redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Contenido" };
-
+/** «Contenido» abre en Noticias; banners y documentos llegan en la siguiente pasada del 2.9. */
 export default function ContenidoPage() {
-  return (
-    <Suspense fallback={<EsqueletoSeccion />}>
-      <Contenido />
-    </Suspense>
-  );
-}
-
-// Backlog 2.9 (feat/contenido-operador).
-async function Contenido() {
-  await exigirEnAlcaldia("contenido.editar", "/contenido");
-  return (
-    <PendienteDeBloque
-      titulo="Contenido"
-      bajada="Noticias, banners y documentos del portal de tu alcaldía."
-      incluye={[
-        "Noticias en 5 formatos: texto, imagen, galería, documento y video (archivo, YouTube o Instagram)",
-        "Puntos de análisis, botón opcional, destacada y texto alternativo obligatorio",
-        "Banners con vigencia y orden",
-        "Documentos con versiones, borrador u oficial",
-      ]}
-    />
-  );
+  redirect("/contenido/noticias", RedirectType.replace);
 }

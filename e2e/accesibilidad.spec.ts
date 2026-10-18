@@ -46,7 +46,21 @@ test.describe("acceso", () => {
 const POR_ROL: [string, string[]][] = [
   ["revisor@iribarren.test", ["/tablero", "/participaciones", "/ciudadanos"]],
   ["admin@iribarren.test", ["/tablero", "/contenido", "/equipo", "/configuracion", "/bitacora"]],
-  ["operador@iribarren.test", ["/tablero", "/bitacora"]],
+  [
+    "operador@iribarren.test",
+    [
+      "/tablero",
+      "/bitacora",
+      "/contenido/noticias",
+      "/contenido/noticias?estado=BORRADOR&formato=IMAGEN",
+      "/contenido/noticias?q=no-existe-nada",
+      "/contenido/noticias/n-ejemplo-mesas",
+      "/contenido/noticias/n-ejemplo-galeria",
+      "/contenido/noticias/n-ejemplo-video",
+      "/contenido/noticias/n-ejemplo-documento",
+      "/contenido/noticias/n-ejemplo-puntos",
+    ],
+  ],
   [
     "superadmin@plataforma.test",
     ["/plataforma", "/plataforma/alcaldias", "/plataforma/representantes", "/alcaldia"],
@@ -108,6 +122,27 @@ test.describe("panel", () => {
     await auditar(page);
     await page.getByRole("button", { name: "Cambiar contraseña" }).click();
     await expect(page.getByRole("dialog", { name: "Cambiar contraseña" })).toBeVisible();
+    await auditar(page);
+  });
+
+  test("editor de noticias: errores, diálogos y vista previa", async ({ page }) => {
+    test.slow();
+    await ingresar(page, "operador@iribarren.test");
+    await page.goto("/contenido/noticias/n-ejemplo-incompleta");
+    await expect(page.locator("#cuerpo")).toBeVisible({ timeout: 30_000 });
+    // Solo se abren diálogos y se intenta publicar: el ejemplo sigue como borrador.
+    await page.getByRole("button", { name: "Publicar ahora" }).click();
+    await auditar(page);
+    await page.getByRole("dialog").getByRole("button", { name: "Publicar" }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "falta" })).toBeVisible();
+    await auditar(page);
+    await page.getByRole("button", { name: "Programar" }).click();
+    await auditar(page);
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Vista previa" }).click();
+    await auditar(page);
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Enlace" }).click();
     await auditar(page);
   });
 });

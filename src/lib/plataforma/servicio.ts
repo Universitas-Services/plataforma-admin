@@ -33,6 +33,8 @@ export const crearAlmacen = (): Almacen => ({
   bitacora: [],
   logos: new Map(),
   participaciones: new Map(),
+  noticias: new Map(),
+  medios: new Map(),
 });
 
 /* ---------- Contraseñas (scrypt con sal, comparación en tiempo constante) ---------- */
@@ -50,7 +52,7 @@ function coincide(contrasena: string, hash: string) {
   return guardado.length === calculado.length && timingSafeEqual(guardado, calculado);
 }
 
-const nuevoId = () => randomBytes(18).toString("base64url");
+export const nuevoId = () => randomBytes(18).toString("base64url");
 
 const porCorreo = (alm: Almacen, correo: string) =>
   [...alm.usuarios.values()].find((u) => u.correo === correo.trim().toLowerCase());

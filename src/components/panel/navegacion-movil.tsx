@@ -9,6 +9,7 @@ export function NavegacionMovil(props: {
   estaciones: Estacion[];
   sigla: string;
   nombreLinea: string;
+  logo?: string;
 }) {
   const [abierto, setAbierto] = useState(false);
   const ref = useRef<HTMLDialogElement>(null);

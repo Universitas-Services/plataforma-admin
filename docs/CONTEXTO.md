@@ -183,7 +183,7 @@ Los dos repos traen en `.claude/skills/` las skills `flujo-git` (la regla de los
 
 ## 6. Admin (`plataforma-admin`): qué hay y cómo seguir
 
-**Estado actual (rama `feat/fundaciones-admin`, sale de `chore/tooling-base`):**
+**Estado actual (ramas `feat/fundaciones-admin` → `feat/onboarding-admin`):**
 
 - Bloques 2.1 a 2.5 hechos sobre una API simulada: acceso, roles, protección de rutas, marco del panel y tema por alcaldía.
 - **Diseño «Línea y estación»**, elegido con Impeccable entre 5 direcciones:
@@ -206,19 +206,22 @@ Los dos repos traen en `.claude/skills/` las skills `flujo-git` (la regla de los
   - `admin@iribarren.test`, `operador@iribarren.test`, `revisor@iribarren.test` y `equipo@iribarren.test` (Operador y Revisor);
   - `multi@lara.test` (dos alcaldías);
   - `admin@palavecino.test` (onboarding pendiente);
-  - `desactivado@iribarren.test`.
+  - `desactivado@iribarren.test`;
+  - `admin@crespo.test`, `admin@moran.test` y `admin@urdaneta.test`: alcaldías pendientes para probar el asistente (una por tamaño en las pruebas E2E). `DELETE /api/desarrollo/onboarding/{id}` (solo desarrollo) las devuelve a «pendiente».
   - Invitaciones: `/invitacion?token=demo-invitacion` y `demo-invitacion-vencida`.
 - **Pantallas:**
   - `/ingresar`, `/recuperar`, `/restablecer` e `/invitacion`;
   - `/plataforma` (alcaldías y actividad);
   - `/alcaldia` (selector);
   - `/tablero` (chips de estado, las pendientes que más esperan con su recorrido, accesos por rol);
-  - `/participaciones` (bandeja de lectura con recorrido);
-  - `/onboarding` (bloqueo y pasos).
+  - `/participaciones` (bandeja de lectura con recorrido, chips de estado, búsqueda y filtros por tipo, parroquia y categoría; en el teléfono los filtros se pliegan tras «Filtros»);
+  - `/onboarding` (**2.6, hecho**): asistente `?paso=logo|colores|lema|resumen` con la línea de pasos, borrador guardado en `Alcaldia.borradorMarca`, logo PNG/JPG con recorte (`react-easy-crop`, PNG de 512 px) o SVG sin recorte servido por `/logos/[id]` con CSP, colores evaluados con `evaluarMarca()` (texto 4.5:1 y línea 3:1 contra blanco, con tono sugerido), lema de hasta 120 y vista previa en vivo. Al confirmar, la alcaldía queda ACTIVA, se anota en la bitácora y el marco toma color y logo.
+  - 404 propia «Esta estación no existe»: dentro del panel (`(panel)/[...resto]` y `(panel)/not-found.tsx`) conserva el marco y sugiere las estaciones del usuario; fuera, con la marca neutra. 403 y 500 usan el mismo dibujo de línea cortada.
+  - Esqueletos de carga con la forma de cada pantalla (`src/components/ui/esqueletos.tsx`) y `loading.tsx` en `(panel)` y `(acceso)`.
   - El resto de las secciones (contenido, ciudadanos, equipo, configuración, bitácora, alcaldías, representantes y bitácora global) ya están protegidas y anuncian su bloque.
 - **Pruebas:**
   - Vitest: permisos, bloqueo, invitaciones, contraseñas, alcaldía en uso, cadena de la bitácora y contraste de marca.
-  - Playwright (`pnpm test:e2e`, puerto 3001) en escritorio, tablet y 375 px: destinos por rol, 403 por rol, historial, bloqueo, invitación, cambio de marca y axe WCAG 2.1 AA.
+  - Playwright (`pnpm test:e2e`, puerto 3001) en escritorio, tablet y 375 px: destinos por rol, 403 por rol, historial, bloqueo, invitación, cambio de marca, asistente completo, axe WCAG 2.1 AA (incluidos los pasos del asistente y la 404) y responsive sin desborde de 320 a 1920 px.
 
 **Patrón de cada pantalla (backlog 2):**
 

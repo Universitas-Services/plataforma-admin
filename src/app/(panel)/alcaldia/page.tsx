@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { EsqueletoEncabezado, EsqueletoLista } from "@/components/ui/esqueletos";
 import { BotonEntrar } from "@/components/panel/boton-entrar";
 import { SiglaAlcaldia } from "@/components/panel/sigla-alcaldia";
 import { EncabezadoPagina, InsigniaEstado } from "@/components/ui/piezas";
@@ -13,7 +14,14 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default function AlcaldiaPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <Suspense fallback={<div className="skeleton h-80 rounded-lg" />}>
+    <Suspense
+      fallback={
+        <>
+          <EsqueletoEncabezado />
+          <EsqueletoLista />
+        </>
+      }
+    >
       <Contenido searchParams={searchParams} />
     </Suspense>
   );
@@ -72,7 +80,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
                     : roles.map((r) => NOMBRE_ROL[r]).join(" y ")}
                 </p>
               </div>
-              <div className="col-start-2 flex items-center justify-between gap-3 sm:contents">
+              <div className="col-span-2 flex flex-wrap items-center justify-between gap-3 sm:col-span-1 sm:contents">
                 {a.estado !== "ACTIVA" ? <InsigniaEstado estado={a.estado} /> : <span />}
                 <BotonEntrar
                   alcaldia={a.id}

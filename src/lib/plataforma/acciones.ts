@@ -1,10 +1,12 @@
 "use server";
 
 import { refresh } from "next/cache";
+import { evaluarMarca, explicarContraste } from "@/lib/marca";
 import { RedirectType, redirect } from "next/navigation";
 import type { z } from "zod";
 import {
   aceptarInvitacionSchema,
+  brandingSchema,
   cambiarContrasenaSchema,
   loginSchema,
   recuperarSchema,
@@ -15,7 +17,11 @@ import {
   cambiarContrasena,
   cerrarSesion,
   cerrarTodas,
+  completarOnboarding,
   elegirAlcaldia,
+  guardarColores,
+  guardarLema,
+  guardarLogo,
   iniciarSesion,
   recuperar,
   reenviarInvitacion,
@@ -245,4 +251,84 @@ export async function reenviarInvitacionAccion(
     },
     enlaceDesarrollo: enlace("/invitacion", nuevo),
   };
+}
+
+/* ---------- Onboarding de la alcaldía (backlog 2.6) ---------- */
+
+const SIN_PERMISO: EstadoFormulario = {
+  mensaje: {
+    tipo: "error",
+    texto: "Solo el administrador de la alcaldía puede configurar su marca.",
+  },
+};
+
+export async function guardarLogoAccion(
+  _p: EstadoFormulario,
+  fd: FormData,
+): Promise<EstadoFormulario> {
+  const archivo = fd.get("logo");
+  if (!(archivo instanceof File) || archivo.size === 0)
+    return { errores: { logo: "Elige el logo de la alcaldía." } };
+  const r = guardarLogo(almacen(), await idSesion(), new Uint8Array(await archivo.arrayBuffer()));
+  if (r.estado === "SIN_SESION") ir("/ingresar?volver=/onboarding");
+  if (r.estado === "SIN_PERMISO") return SIN_PERMISO;
+  if (r.estado === "MUY_GRANDE") return { errores: { logo: "El logo no puede superar 1 MB." } };
+  if (r.estado === "FORMATO" || r.estado === "VACIO")
+    return { errores: { logo: "Usa un logo PNG, JPG o SVG." } };
+  ir("/onboarding?paso=colores");
+}
+
+export async function guardarColoresAccion(
+  _p: EstadoFormulario,
+  fd: FormData,
+): Promise<EstadoFormulario> {
+  const datos = leer(fd);
+  const p = brandingSchema.pick({ colorPrimario: true, colorSecundario: true }).safeParse({
+    colorPrimario: datos.colorPrimario,
+    colorSecundario: datos.colorSecundario || undefined,
+  });
+  if (!p.success) return conErrores(p.error, datos);
+  const r = guardarColores(
+    almacen(),
+    await idSesion(),
+    p.data.colorPrimario,
+    p.data.colorSecundario,
+  );
+  if (r.estado === "SIN_SESION") ir("/ingresar?volver=/onboarding");
+  if (r.estado === "SIN_PERMISO") return SIN_PERMISO;
+  if (r.estado === "CONTRASTE")
+    return {
+      valores: valoresDe(datos),
+      errores: {
+        colorPrimario: explicarContraste(evaluarMarca(p.data.colorPrimario)),
+      },
+    };
+  ir("/onboarding?paso=lema");
+}
+
+export async function guardarLemaAccion(
+  _p: EstadoFormulario,
+  fd: FormData,
+): Promise<EstadoFormulario> {
+  const datos = leer(fd);
+  const r = guardarLema(almacen(), await idSesion(), String(datos.lema ?? ""));
+  if (r.estado === "SIN_SESION") ir("/ingresar?volver=/onboarding");
+  if (r.estado === "SIN_PERMISO") return SIN_PERMISO;
+  if (r.estado === "MUY_LARGO")
+    return {
+      valores: valoresDe(datos),
+      errores: { lema: "El lema no puede superar 120 caracteres." },
+    };
+  ir("/onboarding?paso=resumen");
+}
+
+export async function completarOnboardingAccion(_p?: EstadoFormulario): Promise<EstadoFormulario> {
+  const r = completarOnboarding(almacen(), await idSesion());
+  if (r.estado === "SIN_SESION") ir("/ingresar?volver=/onboarding");
+  if (r.estado === "SIN_PERMISO") return SIN_PERMISO;
+  if (r.estado === "FALTA") ir(`/onboarding?paso=${r.paso}`);
+  await guardarAviso("Listo: el panel ya usa la marca de tu alcaldía.");
+  // La marca vive en el layout (sidebar y franja): hay que refrescarlo.
+  refresh();
+  ir("/tablero");
 }

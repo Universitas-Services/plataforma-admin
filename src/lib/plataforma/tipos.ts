@@ -25,13 +25,18 @@ export const NOMBRE_ROL: Record<RolPlataforma | RolAlcaldia, string> = {
 export const ESTADOS_ALCALDIA = ["ONBOARDING_PENDIENTE", "ACTIVA", "SUSPENDIDA"] as const;
 export type EstadoAlcaldia = (typeof ESTADOS_ALCALDIA)[number];
 
+export const TIPOS_LOGO = ["image/png", "image/jpeg", "image/svg+xml"] as const;
+export type TipoLogo = (typeof TIPOS_LOGO)[number];
+
+/** Metadatos del logo; los bytes viven aparte (Almacen.logos) y se sirven por su ruta. */
+export type LogoAlcaldia = { tipo: TipoLogo; tamano: number; version: number };
+
 /** Capa de marca que configura el administrador en el onboarding (backlog 2.6). */
 export type MarcaAlcaldia = {
   /** Color primario en hex (#RRGGBB). */
   primario: string;
   secundario?: string;
-  /** Ruta pública del logo. */
-  logo?: string;
+  logo?: LogoAlcaldia;
   lema?: string;
 };
 
@@ -42,6 +47,8 @@ export type Alcaldia = {
   nombre: string;
   estado: EstadoAlcaldia;
   marca?: MarcaAlcaldia;
+  /** Lo que lleva guardado el asistente de onboarding (se confirma al final). */
+  borradorMarca?: Partial<MarcaAlcaldia>;
   motivoSuspension?: string;
 };
 
@@ -117,6 +124,8 @@ export type Almacen = {
   tokens: Map<string, Token>;
   sesiones: Map<string, Sesion>;
   bitacora: EventoBitacora[];
+  /** Bytes de los logos por alcaldía: `${alcaldiaId}` (vigente) y `${alcaldiaId}:borrador`. */
+  logos: Map<string, Uint8Array>;
   /** Conteos por estado de cada alcaldía y las pendientes más antiguas (demostración). */
   participaciones: Map<string, { conteos: Record<string, number>; cola: ParticipacionDemo[] }>;
 };

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { EsqueletoFormulario } from "@/components/ui/esqueletos";
 import { FormIngreso } from "@/components/acceso/formularios";
 import { AvisoEstado, MarcoAcceso } from "@/components/acceso/marco-acceso";
 import { leerAviso, soloInvitados } from "@/lib/plataforma/sesion";
@@ -14,7 +15,7 @@ export default function IngresarPage({ searchParams }: { searchParams: SearchPar
       titulo="Iniciar sesión"
       bajada="Panel interno para el equipo de la plataforma y de cada alcaldía."
     >
-      <Suspense fallback={<div className="skeleton h-72 rounded-lg" />}>
+      <Suspense fallback={<EsqueletoFormulario campos={2} />}>
         <Contenido searchParams={searchParams} />
       </Suspense>
     </MarcoAcceso>

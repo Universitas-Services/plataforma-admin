@@ -1,4 +1,5 @@
 import {
+  CircleCheck,
   ClipboardList,
   FileText,
   Image as ImagenIcono,
@@ -11,17 +12,18 @@ import {
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { EsqueletoTablero } from "@/components/ui/esqueletos";
 import { ChipsEstado } from "@/components/panel/chips-estado";
 import { LeyendaRecorrido } from "@/components/panel/recorrido";
 import { TablaCola } from "@/components/panel/tabla-cola";
 import { EncabezadoPagina } from "@/components/ui/piezas";
-import { almacen, exigirEnAlcaldia } from "@/lib/plataforma/sesion";
+import { almacen, exigirEnAlcaldia, leerAviso } from "@/lib/plataforma/sesion";
 
 export const metadata: Metadata = { title: "Tablero" };
 
 export default function TableroPage() {
   return (
-    <Suspense fallback={<div className="skeleton h-96 rounded-lg" />}>
+    <Suspense fallback={<EsqueletoTablero />}>
       <Contenido />
     </Suspense>
   );
@@ -30,6 +32,7 @@ export default function TableroPage() {
 async function Contenido() {
   const c = await exigirEnAlcaldia("tablero.ver", "/tablero");
   const datos = almacen().participaciones.get(c.alcaldia.id);
+  const aviso = await leerAviso();
   const evalua = c.permisos.has("participaciones.evaluar");
   const accesos = [
     evalua && {
@@ -76,6 +79,16 @@ async function Contenido() {
         titulo="Tablero"
         bajada={`${c.alcaldia.nombre}${c.alcaldia.marca?.lema ? ` · ${c.alcaldia.marca.lema}` : ""}`}
       />
+
+      {aviso && (
+        <p
+          role="status"
+          className="mb-6 flex items-center gap-3 rounded-lg bg-turquesa/10 p-4 text-sm text-tinta ring-1 ring-turquesa/30 ring-inset"
+        >
+          <CircleCheck size={18} aria-hidden="true" className="shrink-0 text-turquesa-texto" />
+          {aviso}
+        </p>
+      )}
 
       {evalua && datos && (
         <section aria-labelledby="estados" className="mb-8">

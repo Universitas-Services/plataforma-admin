@@ -1,12 +1,16 @@
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { permisosDe, rolesEn, seccionesDe } from "./permisos";
-import type {
-  Alcaldia,
-  Almacen,
-  EventoBitacora,
-  RolAlcaldia,
-  TipoToken,
-  UsuarioInterno,
+import { evaluarMarca } from "@/lib/marca";
+import {
+  TIPOS_LOGO,
+  type Alcaldia,
+  type Almacen,
+  type EventoBitacora,
+  type MarcaAlcaldia,
+  type RolAlcaldia,
+  type TipoLogo,
+  type TipoToken,
+  type UsuarioInterno,
 } from "./tipos";
 
 /*
@@ -27,6 +31,7 @@ export const crearAlmacen = (): Almacen => ({
   tokens: new Map(),
   sesiones: new Map(),
   bitacora: [],
+  logos: new Map(),
   participaciones: new Map(),
 });
 
@@ -361,3 +366,186 @@ export function restablecer(
   registrar(alm, { actorId: u.id, accion: "RESTABLECER_CONTRASENA", entidad: "usuario" }, ahora);
   return "OK";
 }
+
+/* ---------- Onboarding de la alcaldía (backlog 2.6) ---------- */
+
+export const MAX_LOGO = 1024 * 1024;
+export const MAX_LEMA = 120;
+
+type Configurable =
+  | { estado: "OK"; usuario: UsuarioInterno; alcaldia: Alcaldia }
+  | { estado: "SIN_SESION" }
+  | { estado: "SIN_PERMISO" };
+
+/** Configura la marca el administrador de la alcaldía, o la plataforma operando en ella. */
+function configurable(alm: Almacen, sesion?: string): Configurable {
+  const s = sesion ? alm.sesiones.get(sesion) : undefined;
+  const u = s ? alm.usuarios.get(s.usuarioId) : undefined;
+  const a = s?.alcaldiaId ? alm.alcaldias.get(s.alcaldiaId) : undefined;
+  if (!u || !a) return { estado: "SIN_SESION" };
+  if (!u.rolPlataforma && !rolesEn(u, a.id).includes("ADMIN")) return { estado: "SIN_PERMISO" };
+  return { estado: "OK", usuario: u, alcaldia: a };
+}
+
+/** Comprueba el tipo real por la firma del archivo, no solo por lo que declara el navegador. */
+export function tipoReal(bytes: Uint8Array): TipoLogo | undefined {
+  const b = (i: number) => bytes[i] ?? -1;
+  if (b(0) === 0x89 && b(1) === 0x50 && b(2) === 0x4e && b(3) === 0x47) return "image/png";
+  if (b(0) === 0xff && b(1) === 0xd8 && b(2) === 0xff) return "image/jpeg";
+  const inicio = new TextDecoder().decode(bytes.slice(0, 512)).trimStart().toLowerCase();
+  if ((inicio.startsWith("<?xml") || inicio.startsWith("<svg")) && inicio.includes("<svg"))
+    return "image/svg+xml";
+  return undefined;
+}
+
+export type ResultadoLogo =
+  { estado: "OK" } | { estado: "SIN_SESION" | "SIN_PERMISO" | "VACIO" | "MUY_GRANDE" | "FORMATO" };
+
+export function guardarLogo(
+  alm: Almacen,
+  sesion: string | undefined,
+  bytes: Uint8Array,
+  ahora = Date.now(),
+): ResultadoLogo {
+  const c = configurable(alm, sesion);
+  if (c.estado !== "OK") return c;
+  if (!bytes.length) return { estado: "VACIO" };
+  if (bytes.length > MAX_LOGO) return { estado: "MUY_GRANDE" };
+  const tipo = tipoReal(bytes);
+  if (!tipo || !TIPOS_LOGO.includes(tipo)) return { estado: "FORMATO" };
+  const a = c.alcaldia;
+  const version = (a.borradorMarca?.logo?.version ?? a.marca?.logo?.version ?? 0) + 1;
+  alm.logos.set(`${a.id}:borrador`, bytes);
+  a.borradorMarca = { ...a.borradorMarca, logo: { tipo, tamano: bytes.length, version } };
+  registrar(
+    alm,
+    {
+      actorId: c.usuario.id,
+      alcaldiaId: a.id,
+      accion: "MARCA_LOGO",
+      entidad: "alcaldia",
+      despues: { tipo, tamano: bytes.length },
+    },
+    ahora,
+  );
+  return { estado: "OK" };
+}
+
+export type ResultadoColores =
+  | { estado: "OK" }
+  | { estado: "SIN_SESION" | "SIN_PERMISO" }
+  | { estado: "CONTRASTE"; sugerencia: string };
+
+export function guardarColores(
+  alm: Almacen,
+  sesion: string | undefined,
+  primario: string,
+  secundario?: string,
+  ahora = Date.now(),
+): ResultadoColores {
+  const c = configurable(alm, sesion);
+  if (c.estado !== "OK") return c;
+  const e = evaluarMarca(primario);
+  if (!e.ok) return { estado: "CONTRASTE", sugerencia: e.sugerencia! };
+  const a = c.alcaldia;
+  a.borradorMarca = {
+    ...a.borradorMarca,
+    primario: primario.toUpperCase(),
+    secundario: secundario ? secundario.toUpperCase() : undefined,
+  };
+  registrar(
+    alm,
+    {
+      actorId: c.usuario.id,
+      alcaldiaId: a.id,
+      accion: "MARCA_COLORES",
+      entidad: "alcaldia",
+      despues: { primario, secundario },
+    },
+    ahora,
+  );
+  return { estado: "OK" };
+}
+
+export function guardarLema(
+  alm: Almacen,
+  sesion: string | undefined,
+  lema: string,
+  ahora = Date.now(),
+) {
+  const c = configurable(alm, sesion);
+  if (c.estado !== "OK") return c;
+  const limpio = lema.trim().replace(/\s+/g, " ");
+  if (limpio.length > MAX_LEMA) return { estado: "MUY_LARGO" as const };
+  c.alcaldia.borradorMarca = { ...c.alcaldia.borradorMarca, lema: limpio || undefined };
+  registrar(
+    alm,
+    {
+      actorId: c.usuario.id,
+      alcaldiaId: c.alcaldia.id,
+      accion: "MARCA_LEMA",
+      entidad: "alcaldia",
+      despues: { lema: limpio },
+    },
+    ahora,
+  );
+  return { estado: "OK" as const };
+}
+
+/** Qué falta para poder confirmar (logo y color primario son obligatorios). */
+export function faltanteOnboarding(a: Alcaldia): "logo" | "colores" | undefined {
+  if (!a.borradorMarca?.logo) return "logo";
+  if (!a.borradorMarca.primario) return "colores";
+  return undefined;
+}
+
+export type ResultadoCompletar =
+  | { estado: "OK" }
+  | { estado: "SIN_SESION" | "SIN_PERMISO" | "YA_ACTIVA" }
+  | { estado: "FALTA"; paso: "logo" | "colores" };
+
+/** Confirma el asistente: la marca entra en vigor y la alcaldía queda ACTIVA (con bitácora). */
+export function completarOnboarding(
+  alm: Almacen,
+  sesion?: string,
+  ahora = Date.now(),
+): ResultadoCompletar {
+  const c = configurable(alm, sesion);
+  if (c.estado !== "OK") return c;
+  const a = c.alcaldia;
+  if (a.estado !== "ONBOARDING_PENDIENTE") return { estado: "YA_ACTIVA" };
+  const falta = faltanteOnboarding(a);
+  if (falta) return { estado: "FALTA", paso: falta };
+  const antes = { estado: a.estado, marca: a.marca };
+  a.marca = { ...(a.borradorMarca as MarcaAlcaldia) };
+  a.borradorMarca = undefined;
+  a.estado = "ACTIVA";
+  const bytes = alm.logos.get(`${a.id}:borrador`);
+  if (bytes) alm.logos.set(a.id, bytes);
+  alm.logos.delete(`${a.id}:borrador`);
+  registrar(
+    alm,
+    {
+      actorId: c.usuario.id,
+      alcaldiaId: a.id,
+      accion: "ONBOARDING_COMPLETADO",
+      entidad: "alcaldia",
+      antes,
+      despues: { estado: a.estado, marca: a.marca },
+    },
+    ahora,
+  );
+  return { estado: "OK" };
+}
+
+/** Bytes y tipo del logo de una alcaldía (vigente o borrador). */
+export function logoDe(alm: Almacen, alcaldiaId: string, borrador = false) {
+  const a = alm.alcaldias.get(alcaldiaId);
+  const meta = borrador ? a?.borradorMarca?.logo : a?.marca?.logo;
+  const bytes = alm.logos.get(borrador ? `${alcaldiaId}:borrador` : alcaldiaId);
+  return meta && bytes ? { meta, bytes } : undefined;
+}
+
+/** URL del logo de una alcaldía (vigente o del borrador), con la versión para la caché. */
+export const urlLogo = (alcaldiaId: string, version: number, borrador = false) =>
+  `/logos/${alcaldiaId}?${borrador ? "borrador=1&" : ""}v=${version}`;

@@ -18,7 +18,7 @@ export function SiglaAlcaldia({
     <span
       aria-hidden="true"
       className={`grid shrink-0 place-items-center rounded-md font-bold tracking-wider ${
-        tamano === "md" ? "h-10 w-12 text-xs" : "h-6 px-1.5 text-[0.6875rem]"
+        tamano === "md" ? "h-10 w-12 text-xs" : "h-6 px-1.5 text-xs"
       }`}
       style={
         v

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { EsqueletoFormulario } from "@/components/ui/esqueletos";
 import { FormRestablecer } from "@/components/acceso/formularios";
 import { MarcoAcceso } from "@/components/acceso/marco-acceso";
 import { estadoRestablecer } from "@/lib/plataforma/servicio";
@@ -16,7 +17,7 @@ export default function RestablecerPage({ searchParams }: { searchParams: Search
       titulo="Crea tu contraseña nueva"
       bajada="Al guardarla, cerramos tus sesiones abiertas."
     >
-      <Suspense fallback={<div className="skeleton h-60 rounded-lg" />}>
+      <Suspense fallback={<EsqueletoFormulario campos={2} />}>
         <Contenido searchParams={searchParams} />
       </Suspense>
     </MarcoAcceso>

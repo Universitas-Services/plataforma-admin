@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { EsqueletoFormulario } from "@/components/ui/esqueletos";
 import { FormInvitacion, FormReenviarInvitacion } from "@/components/acceso/formularios";
 import { MarcoAcceso } from "@/components/acceso/marco-acceso";
 import { verInvitacion } from "@/lib/plataforma/servicio";
@@ -13,7 +14,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 export default function InvitacionPage({ searchParams }: { searchParams: SearchParams }) {
   return (
     <MarcoAcceso titulo="Activa tu cuenta">
-      <Suspense fallback={<div className="skeleton h-96 rounded-lg" />}>
+      <Suspense fallback={<EsqueletoFormulario campos={5} />}>
         <Contenido searchParams={searchParams} />
       </Suspense>
     </MarcoAcceso>

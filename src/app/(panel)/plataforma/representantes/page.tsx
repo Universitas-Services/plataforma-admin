@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { EsqueletoSeccion } from "@/components/ui/esqueletos";
 import { PendienteDeBloque } from "@/components/panel/pendiente-bloque";
 import { exigirPermiso } from "@/lib/plataforma/sesion";
 
@@ -7,7 +8,7 @@ export const metadata: Metadata = { title: "Representantes" };
 
 export default function RepresentantesPage() {
   return (
-    <Suspense fallback={<div className="skeleton h-80 rounded-lg" />}>
+    <Suspense fallback={<EsqueletoSeccion />}>
       <Contenido />
     </Suspense>
   );

@@ -7,6 +7,7 @@ export default function Prohibido() {
     <PaginaError
       codigo="403"
       titulo="Esta sección no es para tu rol"
+      conLogo={false}
       acciones={
         <Link href="/" className={claseAccionError}>
           Ir a mi inicio

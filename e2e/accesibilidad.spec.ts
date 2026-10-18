@@ -68,6 +68,37 @@ test.describe("panel", () => {
     });
   }
 
+  test("asistente de onboarding, paso a paso", async ({ page }) => {
+    test.slow();
+    await ingresar(page, "admin@palavecino.test");
+    await page.goto("/onboarding?paso=logo");
+    await auditar(page);
+    // Esperar la hidratación: antes, el cambio del archivo no llega a React.
+    await page.waitForLoadState("networkidle");
+    await page.locator("#logo").setInputFiles("public/marca/isotipo-256px.png");
+    await expect(page.getByLabel("Acercar")).toBeVisible();
+    await auditar(page);
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await expect(page).toHaveURL(/paso=colores/, { timeout: 30_000 });
+    await page.locator("#colorPrimario").fill("#ECA52B");
+    await expect(page.getByText("No cumple el contraste AA")).toBeVisible();
+    await auditar(page);
+    await page.locator("#colorPrimario").fill("#0B4F8A");
+    await page.getByRole("button", { name: "Guardar y continuar" }).click();
+    await expect(page).toHaveURL(/paso=lema/);
+    await auditar(page);
+    await page.getByRole("button", { name: /Guardar y continuar|Continuar sin lema/ }).click();
+    await expect(page).toHaveURL(/paso=resumen/);
+    await auditar(page);
+  });
+
+  test("404 dentro del panel", async ({ page }) => {
+    await ingresar(page, "revisor@iribarren.test");
+    await page.goto("/esta-pagina-no-existe");
+    await expect(page.getByRole("heading", { name: "Esta estación no existe" })).toBeVisible();
+    await auditar(page);
+  });
+
   test("menú de usuario y diálogo de contraseña abiertos", async ({ page }) => {
     await ingresar(page, "revisor@iribarren.test");
     await page.getByRole("button", { name: "Menú de la cuenta" }).click();

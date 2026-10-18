@@ -322,9 +322,17 @@ Densa: celdas de 12 × 14 px, filas separadas por `fila`, cabecera en `cabecera`
 
 `dialog` nativo, máximo 448 px, papel, 8 px, sombra panel, fondo tinta al 50 %. Solo para confirmar acciones irreversibles o formularios cortos.
 
-### Página de error
+### Asistente de onboarding
 
-El código (403, 404) como rótulo de línea en tinta al final de un tramo discontinuo que sale de una estación hueca: el recorrido interrumpido.
+Pasos como una línea horizontal de cuatro estaciones (`LineaPasos`): la actual es el círculo de correspondencia, las hechas se rellenan y enlazan, las siguientes van huecas. Cada paso: formulario a la izquierda y **vista previa en vivo** a la derecha (`VistaPreviaMarca`, fija arriba en escritorio, debajo en el teléfono), que aplica `variablesMarca()` igual que el marco real. El contraste se muestra con su relación numérica y, si no cumple, un botón «Usar el tono sugerido». Acciones al pie: «Atrás» (secundario) y la principal en `--marca`.
+
+### Esqueletos de carga
+
+Cada pantalla tiene el suyo con su forma real (`esqueletos.tsx`): encabezado, chips, tabla que en el teléfono pasa a lista, filas con sigla, formularios y asistente. Un solo `role="status"` «Cargando…» por pantalla; los bloques son `aria-hidden`.
+
+### Página de error (403, 404, 500)
+
+«Estación fuera de servicio»: tramo lleno en `--marca`, la estación como círculo de correspondencia, un tramo discontinuo y el remate de fin de línea con el código (403, 404, 500) como rótulo en tinta. Dentro del panel conserva el marco y ofrece las estaciones del usuario (la primera como acción principal); fuera, lleva el logo neutro de la plataforma.
 
 ## Do's and Don'ts
 

@@ -27,11 +27,14 @@ export function Linea({
   estaciones,
   sigla,
   nombreLinea,
+  logo,
   alNavegar,
 }: {
   estaciones: Estacion[];
   sigla: string;
   nombreLinea: string;
+  /** Logo de la alcaldía (tras el onboarding), junto al rótulo de la línea. */
+  logo?: string;
   alNavegar?: () => void;
 }) {
   const ruta = usePathname();
@@ -48,6 +51,15 @@ export function Linea({
         </span>
       </Link>
       <p className="flex items-center gap-2.5 px-5 pt-5 pb-2">
+        {logo && (
+          // eslint-disable-next-line @next/next/no-img-element -- logo servido por /logos con su versión
+          <img
+            src={logo}
+            alt=""
+            aria-hidden="true"
+            className="size-8 shrink-0 rounded object-contain"
+          />
+        )}
         <span className="rounded-md bg-marca px-2 py-1 text-[0.8125rem] font-bold tracking-wider text-sobre-marca">
           {sigla}
         </span>

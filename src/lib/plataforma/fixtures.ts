@@ -29,6 +29,25 @@ const ALCALDIAS: Alcaldia[] = [
     nombre: "Alcaldía del Municipio Palavecino",
     estado: "ONBOARDING_PENDIENTE",
   },
+  // Tres alcaldías pendientes más, una por tamaño de pantalla en las pruebas del asistente.
+  {
+    id: "crespo",
+    sigla: "CRE",
+    nombre: "Alcaldía del Municipio Crespo",
+    estado: "ONBOARDING_PENDIENTE",
+  },
+  {
+    id: "moran",
+    sigla: "MOR",
+    nombre: "Alcaldía del Municipio Morán",
+    estado: "ONBOARDING_PENDIENTE",
+  },
+  {
+    id: "urdaneta",
+    sigla: "URD",
+    nombre: "Alcaldía del Municipio Urdaneta",
+    estado: "ONBOARDING_PENDIENTE",
+  },
   {
     id: "torres",
     sigla: "TOR",
@@ -111,6 +130,13 @@ const USUARIOS: Base[] = [
     apellidos: "Sequera",
     membresias: [{ alcaldiaId: "palavecino", roles: ["ADMIN"], activa: true }],
   },
+  ...(["crespo", "moran", "urdaneta"] as const).map((id) => ({
+    id: `u-admin-${id}`,
+    correo: `admin@${id}.test`,
+    nombres: "Administración",
+    apellidos: id[0]!.toUpperCase() + id.slice(1),
+    membresias: [{ alcaldiaId: id, roles: ["ADMIN" as const], activa: true }],
+  })),
   {
     id: "u-inactivo",
     correo: "desactivado@iribarren.test",
@@ -251,4 +277,14 @@ export function almacenDemo(): Almacen {
     ahora - 86_400_000,
   );
   return alm;
+}
+
+/** Solo en desarrollo: devuelve una alcaldía a «onboarding pendiente» (pruebas repetibles). */
+export function reiniciarOnboarding(alm: Almacen, id: string) {
+  const base = ALCALDIAS.find((a) => a.id === id);
+  if (!base || base.estado !== "ONBOARDING_PENDIENTE") return false;
+  alm.alcaldias.set(id, structuredClone(base));
+  alm.logos.delete(id);
+  alm.logos.delete(`${id}:borrador`);
+  return true;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MARCA_PLATAFORMA, contraste, marcaLegible, variablesMarca } from "./marca";
+import { MARCA_PLATAFORMA, contraste, evaluarMarca, marcaLegible, variablesMarca } from "./marca";
 
 describe("capa de marca", () => {
   it("sin alcaldía usa el azul de la plataforma con texto blanco", () => {
@@ -26,5 +26,20 @@ describe("capa de marca", () => {
 
   it("ignora valores inválidos", () => {
     expect(variablesMarca("rojo")["--marca"]).toBe(MARCA_PLATAFORMA);
+  });
+});
+
+describe("evaluación de una marca", () => {
+  it("acepta rojos y verdes institucionales", () => {
+    expect(evaluarMarca("#C32026").ok).toBe(true);
+    expect(evaluarMarca("#0B6E4F").ok).toBe(true);
+  });
+
+  it("rechaza tonos pálidos o medios y sugiere uno que cumple", () => {
+    for (const c of ["#ECA52B", "#777777", "#F4F4F4", "#7FB3E0"]) {
+      const e = evaluarMarca(c);
+      expect(e.ok, c).toBe(false);
+      expect(evaluarMarca(e.sugerencia!).ok, `${c} → ${e.sugerencia}`).toBe(true);
+    }
   });
 });

@@ -1,18 +1,20 @@
 import Link from "next/link";
-import { PaginaError, claseAccionError } from "@/components/ui/pagina-error";
+import { PaginaError, claseAccionErrorPrimaria } from "@/components/ui/pagina-error";
 
+/** 404 fuera del panel (sin sesión o en las pantallas de acceso), con la marca neutra. */
 export default function NoEncontrada() {
   return (
     <PaginaError
       codigo="404"
-      titulo="Esta página no existe"
+      titulo="Esta estación no existe"
       acciones={
-        <Link href="/" className={claseAccionError}>
-          Ir a mi inicio
+        <Link href="/" className={claseAccionErrorPrimaria}>
+          Ir al inicio
         </Link>
       }
     >
-      Revisa la dirección o vuelve al inicio del panel.
+      La dirección que buscaste no lleva a ninguna pantalla del panel. Revisa el enlace o vuelve al
+      inicio.
     </PaginaError>
   );
 }

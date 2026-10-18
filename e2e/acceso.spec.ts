@@ -12,7 +12,7 @@ const DESTINOS = [
   ["admin@iribarren.test", /\/tablero$/],
   ["operador@iribarren.test", /\/tablero$/],
   ["revisor@iribarren.test", /\/tablero$/],
-  ["admin@palavecino.test", /\/onboarding$/],
+  ["admin@palavecino.test", /\/onboarding(\?paso=\w+)?$/],
   ["multi@lara.test", /\/alcaldia$/],
 ] as const;
 
@@ -67,7 +67,7 @@ test.describe("protección por rol", () => {
   test("con onboarding pendiente, el administrador no sale del asistente", async ({ page }) => {
     await ingresar(page, "admin@palavecino.test");
     await page.goto("/tablero");
-    await expect(page).toHaveURL(/\/onboarding$/);
+    await expect(page).toHaveURL(/\/onboarding(\?paso=\w+)?$/);
     await esperarMarca(page, "#1F3864");
   });
 });

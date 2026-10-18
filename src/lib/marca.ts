@@ -80,3 +80,36 @@ export const marcaLegible = (primario: string) => {
   const v = variablesMarca(primario);
   return contraste(v["--marca"], v["--sobre-marca"]) >= 4.5;
 };
+
+export type EvaluacionMarca = {
+  /** Relación del texto sobre la marca (blanco o tinta, el mejor). */
+  texto: number;
+  /** Relación de la marca contra el fondo blanco: la línea, bordes y marcadores (1.4.11). */
+  contraFondo: number;
+  ok: boolean;
+  /** Si no cumple, el tono más cercano que sí cumple (oscurecido). */
+  sugerencia?: string;
+};
+
+/**
+ * ¿Sirve este color como marca del panel? El texto encima debe llegar a 4.5:1 y la marca
+ * misma a 3:1 contra el blanco, para que la línea y los marcadores se vean.
+ */
+export function evaluarMarca(primario: string): EvaluacionMarca {
+  const v = variablesMarca(primario);
+  const texto = contraste(v["--marca"], v["--sobre-marca"]);
+  const contraFondo = contraste(v["--marca"], BLANCO);
+  const ok = texto >= 4.5 && contraFondo >= 3;
+  return { texto, contraFondo, ok, sugerencia: ok ? undefined : oscurecerHasta(v["--marca"]) };
+}
+
+const coma = (n: number) => n.toFixed(1).replace(".", ",");
+
+/** Explica qué falla de una marca, solo con los chequeos que no cumple. */
+export function explicarContraste(e: EvaluacionMarca) {
+  const fallas = [
+    e.texto < 4.5 && `el texto sobre el color no se lee bien (${coma(e.texto)}:1 de 4,5)`,
+    e.contraFondo < 3 && `la línea no se distingue del fondo (${coma(e.contraFondo)}:1 de 3)`,
+  ].filter(Boolean);
+  return `Con este color ${fallas.join(" y ")}.${e.sugerencia ? ` Prueba con ${e.sugerencia}.` : ""}`;
+}

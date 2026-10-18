@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { EsqueletoPlataforma } from "@/components/ui/esqueletos";
 import { BotonEntrar } from "@/components/panel/boton-entrar";
 import { SiglaAlcaldia } from "@/components/panel/sigla-alcaldia";
 import { EncabezadoPagina, InsigniaEstado } from "@/components/ui/piezas";
@@ -11,7 +12,7 @@ export const metadata: Metadata = { title: "Plataforma" };
 
 export default function PlataformaPage() {
   return (
-    <Suspense fallback={<div className="skeleton h-96 rounded-lg" />}>
+    <Suspense fallback={<EsqueletoPlataforma />}>
       <Contenido />
     </Suspense>
   );
@@ -74,7 +75,7 @@ async function Contenido() {
                         : `${espera} participaciones por atender`}
                     </p>
                   </div>
-                  <div className="col-start-2 flex items-center justify-between gap-3 sm:contents">
+                  <div className="col-span-2 flex flex-wrap items-center justify-between gap-3 sm:col-span-1 sm:contents">
                     <InsigniaEstado estado={a.estado} />
                     <BotonEntrar alcaldia={a.id} nombre={a.nombre} />
                   </div>

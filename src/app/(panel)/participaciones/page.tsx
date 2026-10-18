@@ -2,6 +2,7 @@ import { ClipboardList, Search } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { EsqueletoBandeja } from "@/components/ui/esqueletos";
 import { ChipsEstado, ESTADOS_CHIP, type EstadoChip } from "@/components/panel/chips-estado";
 import { FiltrosPlegables } from "@/components/panel/filtros-plegables";
 import { LeyendaRecorrido } from "@/components/panel/recorrido";
@@ -16,7 +17,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default function ParticipacionesPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <Suspense fallback={<div className="skeleton h-96 rounded-lg" />}>
+    <Suspense fallback={<EsqueletoBandeja />}>
       <Contenido searchParams={searchParams} />
     </Suspense>
   );

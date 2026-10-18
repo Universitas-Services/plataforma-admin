@@ -5,9 +5,16 @@ import {
   aceptarInvitacion,
   cambiarContrasena,
   cerrarTodas,
+  completarOnboarding,
   contextoDe,
   elegirAlcaldia,
+  guardarColores,
+  guardarLema,
+  guardarLogo,
   iniciarSesion,
+  logoDe,
+  MAX_LEMA,
+  MAX_LOGO,
   recuperar,
   reenviarInvitacion,
   restablecer,
@@ -208,5 +215,63 @@ describe("bitácora", () => {
     expect(verificarIntegridad(alm)).toEqual({ ok: true });
     alm.bitacora[1]!.accion = "OTRA_COSA";
     expect(verificarIntegridad(alm)).toEqual({ ok: false, eventoId: 2 });
+  });
+});
+
+describe("onboarding de la alcaldía", () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+  const SVG = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
+
+  function adminPalavecino() {
+    const alm = almacenDemo();
+    return { alm, s: entrar(alm, "admin@palavecino.test").sesion };
+  }
+
+  it("acepta PNG y SVG por su firma real y rechaza lo demás", () => {
+    const { alm, s } = adminPalavecino();
+    expect(guardarLogo(alm, s, PNG).estado).toBe("OK");
+    expect(alm.alcaldias.get("palavecino")?.borradorMarca?.logo).toMatchObject({
+      tipo: "image/png",
+      version: 1,
+    });
+    expect(guardarLogo(alm, s, SVG).estado).toBe("OK");
+    expect(guardarLogo(alm, s, new TextEncoder().encode("hola")).estado).toBe("FORMATO");
+    expect(guardarLogo(alm, s, new Uint8Array()).estado).toBe("VACIO");
+    expect(guardarLogo(alm, s, new Uint8Array(MAX_LOGO + 1).fill(0x89)).estado).toBe("MUY_GRANDE");
+  });
+
+  it("solo configura el administrador o la plataforma operando en la alcaldía", () => {
+    const alm = almacenDemo();
+    const op = entrar(alm, "operador@iribarren.test").sesion;
+    expect(guardarLogo(alm, op, PNG).estado).toBe("SIN_PERMISO");
+    const rep = entrar(alm, "avipri@plataforma.test").sesion;
+    elegirAlcaldia(alm, rep, "palavecino");
+    expect(guardarLogo(alm, rep, PNG).estado).toBe("OK");
+  });
+
+  it("rechaza colores sin contraste y sugiere uno que cumple", () => {
+    const { alm, s } = adminPalavecino();
+    const r = guardarColores(alm, s, "#ECA52B");
+    expect(r.estado).toBe("CONTRASTE");
+    if (r.estado === "CONTRASTE") expect(guardarColores(alm, s, r.sugerencia).estado).toBe("OK");
+    expect(guardarLema(alm, s, "x".repeat(MAX_LEMA + 1)).estado).toBe("MUY_LARGO");
+    expect(guardarLema(alm, s, "  Cabudare   participa ").estado).toBe("OK");
+    expect(alm.alcaldias.get("palavecino")?.borradorMarca?.lema).toBe("Cabudare participa");
+  });
+
+  it("confirma solo con logo y color, activa la alcaldía y deja bitácora", () => {
+    const { alm, s } = adminPalavecino();
+    expect(completarOnboarding(alm, s)).toEqual({ estado: "FALTA", paso: "logo" });
+    guardarLogo(alm, s, PNG);
+    expect(completarOnboarding(alm, s)).toEqual({ estado: "FALTA", paso: "colores" });
+    guardarColores(alm, s, "#0B4F8A");
+    expect(completarOnboarding(alm, s)).toEqual({ estado: "OK" });
+    const a = alm.alcaldias.get("palavecino")!;
+    expect(a.estado).toBe("ACTIVA");
+    expect(a.marca).toMatchObject({ primario: "#0B4F8A", logo: { tipo: "image/png" } });
+    expect(logoDe(alm, "palavecino")?.bytes).toEqual(PNG);
+    expect(alm.bitacora.at(-1)?.accion).toBe("ONBOARDING_COMPLETADO");
+    expect(completarOnboarding(alm, s).estado).toBe("YA_ACTIVA");
+    expect(verificarIntegridad(alm)).toEqual({ ok: true });
   });
 });

@@ -28,6 +28,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     ".claude/**",
     ".agents/**",
+    ".impeccable/**",
   ]),
 ]);
 

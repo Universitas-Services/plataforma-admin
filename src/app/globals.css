@@ -1,26 +1,119 @@
 @import "tailwindcss";
 
+/*
+ * «Línea y estación». Interfaz neutra con la marca de la plataforma; dentro de una alcaldía,
+ * las variables --marca* las fija el layout con el color que eligió su administrador
+ * (src/lib/marca.ts). Uso de oficina con luz de tubo: fondo claro.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --marca: #1f3864;
+  --sobre-marca: #ffffff;
+  --marca-texto: #1f3864;
+  --marca-suave: #e9ebf0;
+}
+
+@theme {
+  --color-tinta: #1f3864;
+  --color-cuerpo: #2b3852;
+  --color-gris: #4b5b7c;
+  --color-tenue: #8592a8;
+  --color-linea: #dce1e9;
+  --color-fila: #e7ebf1;
+  --color-superficie: #eef1f5;
+  --color-cabecera: #f6f7fa;
+  --color-papel: #ffffff;
+  --color-turquesa: #17a398;
+  --color-turquesa-texto: #0e7a71;
+  --color-ambar: #b7791f;
+  --color-ambar-texto: #8a5a12;
+  --color-peligro: #b42318;
+  --color-peligro-suave: #fdecea;
+
+  --font-sans: var(--font-archivo), system-ui, sans-serif;
+
+  --radius-control: 0.375rem;
+  --shadow-panel: 0 1px 2px rgb(31 56 100 / 0.06), 0 8px 24px -12px rgb(31 56 100 / 0.18);
+  --ease-salida: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-marca: var(--marca);
+  --color-sobre-marca: var(--sobre-marca);
+  --color-marca-texto: var(--marca-texto);
+  --color-marca-suave: var(--marca-suave);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color: var(--color-cuerpo);
+  background: var(--color-papel);
+  font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent;
+  scrollbar-color: var(--color-tenue) var(--color-superficie);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+h1,
+h2,
+h3 {
+  color: var(--color-tinta);
+  text-wrap: balance;
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background: var(--marca-suave);
+  color: var(--color-tinta);
+}
+
+:focus-visible {
+  outline: 3px solid var(--marca-texto);
+  outline-offset: 2px;
+}
+
+a {
+  text-underline-offset: 3px;
+}
+
+/* Esqueletos de carga: brillo suave, estático si se pidió reducir el movimiento. */
+.skeleton {
+  background: linear-gradient(90deg, #e9edf2 0%, #f4f6f9 50%, #e9edf2 100%) 0 0 / 200% 100%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton {
+    animation: brillo 1.4s ease-in-out infinite;
+  }
+}
+@keyframes brillo {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Recorrido de estados (la firma): trazo lleno = completado; discontinuo = en espera. */
+.tramo-espera {
+  stroke-dasharray: 5 3;
+}
+
+/* Cajón de navegación y menús: entran en 200 ms con salida exponencial. */
+@keyframes entrar {
+  from {
+    transform: translateX(-1rem);
+    opacity: 0;
+  }
+}
+@keyframes aparecer {
+  from {
+    transform: translateY(-0.25rem);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::backdrop {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

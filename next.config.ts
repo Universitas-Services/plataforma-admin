@@ -1,8 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   cacheComponents: true,
+  experimental: {
+    // forbidden() para las rutas que el rol no puede ver (página 403).
+    authInterrupts: true,
+  },
   partialPrefetching: true,
   turbopack: {
     rules: {

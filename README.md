@@ -31,6 +31,14 @@ pnpm dev                     # http://localhost:3001
 
 Al hacer commit, Husky ejecuta lint-staged: ESLint y Prettier sobre los archivos modificados.
 
+## Panel con API simulada
+
+Mientras no exista `plataforma-api`, el panel usa una API simulada en memoria (`src/lib/plataforma/`). Se reinicia al reiniciar el servidor. Cuentas de demostración con la contraseña `Plataforma#2026`: `superadmin@plataforma.test`, `avipri@plataforma.test`, `admin@iribarren.test`, `operador@iribarren.test`, `revisor@iribarren.test`, `multi@lara.test`, `admin@palavecino.test` (onboarding pendiente) y `desactivado@iribarren.test`. Detalle en [`docs/CONTEXTO.md`](docs/CONTEXTO.md), sección 6.
+
+| Comando         | Qué hace                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| `pnpm test:e2e` | Playwright: roles, rutas protegidas, historial y WCAG 2.1 AA (escritorio, tablet y 375 px) |
+
 ## Variables de entorno
 
 Ver [`.env.example`](.env.example). Los archivos `.env*` no se suben al repositorio, salvo `.env.example`.

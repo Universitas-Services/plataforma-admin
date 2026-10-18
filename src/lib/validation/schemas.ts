@@ -21,6 +21,33 @@ export const aceptarInvitacionSchema = z
     error: "Las contraseñas no coinciden.",
   });
 
+const contrasenasIguales = {
+  check: (d: { contrasena: string; confirmarContrasena: string }) =>
+    d.contrasena === d.confirmarContrasena,
+  params: { path: ["confirmarContrasena"], error: "Las contraseñas no coinciden." },
+};
+
+/** Olvidé mi contraseña: la respuesta es neutra exista o no la cuenta. */
+export const recuperarSchema = z.object({ correo: correoSchema });
+
+/** Restablecer contraseña desde el enlace del correo (válido 1 hora). */
+export const restablecerSchema = z
+  .object({
+    token: z.string().min(1, "El enlace no es válido."),
+    contrasena: contrasenaSchema,
+    confirmarContrasena: z.string(),
+  })
+  .refine(contrasenasIguales.check, contrasenasIguales.params);
+
+/** Cambiar la contraseña con la sesión abierta (menú de usuario). */
+export const cambiarContrasenaSchema = z
+  .object({
+    contrasenaActual: z.string().min(1, "Ingresa tu contraseña actual."),
+    contrasena: contrasenaSchema,
+    confirmarContrasena: z.string(),
+  })
+  .refine(contrasenasIguales.check, contrasenasIguales.params);
+
 /** CU-03 Crear alcaldía. */
 export const crearAlcaldiaSchema = z.object({
   nombre: z.string().trim().min(3, "Ingresa el nombre de la alcaldía.").max(120),

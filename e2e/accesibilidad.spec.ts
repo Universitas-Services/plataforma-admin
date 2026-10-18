@@ -1,0 +1,79 @@
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Page } from "@playwright/test";
+import { ingresar } from "./utilidades";
+
+/* Backlog 2.15: WCAG 2.1 A y AA con axe-core, en escritorio, tablet y 375 px. */
+
+test.use({ reducedMotion: "reduce" });
+
+async function auditar(page: Page) {
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator(".skeleton")).toHaveCount(0);
+  await expect(page.locator('main img[alt=""]:not([aria-hidden])')).toHaveCount(0);
+  const { violations } = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .exclude("nextjs-portal")
+    .analyze();
+  const resumen = violations.map((v) => ({
+    regla: v.id,
+    nodos: v.nodes.map((n) => `${n.target.join(" ")} → ${n.any[0]?.message ?? n.failureSummary}`),
+  }));
+  expect(resumen, JSON.stringify(resumen, null, 2)).toEqual([]);
+}
+
+test.describe("acceso", () => {
+  for (const ruta of [
+    "/ingresar",
+    "/recuperar",
+    "/restablecer?token=no-existe",
+    "/invitacion?token=demo-invitacion",
+    "/invitacion?token=demo-invitacion-vencida",
+  ]) {
+    test(ruta, async ({ page }) => {
+      await page.goto(ruta);
+      await auditar(page);
+    });
+  }
+
+  test("ingreso con error", async ({ page }) => {
+    await page.goto("/ingresar");
+    await page.getByRole("button", { name: "Iniciar sesión" }).click();
+    await expect(page.getByRole("alert").first()).toBeVisible();
+    await auditar(page);
+  });
+});
+
+const POR_ROL: [string, string[]][] = [
+  ["revisor@iribarren.test", ["/tablero", "/participaciones", "/ciudadanos"]],
+  ["admin@iribarren.test", ["/tablero", "/contenido", "/equipo", "/configuracion", "/bitacora"]],
+  ["operador@iribarren.test", ["/tablero", "/bitacora"]],
+  [
+    "superadmin@plataforma.test",
+    ["/plataforma", "/plataforma/alcaldias", "/plataforma/representantes", "/alcaldia"],
+  ],
+  ["admin@palavecino.test", ["/onboarding"]],
+];
+
+test.describe("panel", () => {
+  for (const [correo, rutas] of POR_ROL) {
+    test(correo, async ({ page }) => {
+      test.slow();
+      await ingresar(page, correo);
+      for (const ruta of rutas) {
+        await test.step(ruta, async () => {
+          await page.goto(ruta);
+          await auditar(page);
+        });
+      }
+    });
+  }
+
+  test("menú de usuario y diálogo de contraseña abiertos", async ({ page }) => {
+    await ingresar(page, "revisor@iribarren.test");
+    await page.getByRole("button", { name: "Menú de la cuenta" }).click();
+    await auditar(page);
+    await page.getByRole("button", { name: "Cambiar contraseña" }).click();
+    await expect(page.getByRole("dialog", { name: "Cambiar contraseña" })).toBeVisible();
+    await auditar(page);
+  });
+});

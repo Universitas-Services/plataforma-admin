@@ -1,0 +1,32 @@
+"use client";
+
+import Link from "next/link";
+import { PaginaError, claseAccionError } from "@/components/ui/pagina-error";
+
+/** 500: algo falló al cargar. Reintentar vuelve a pedir la página. */
+export default function ErrorPanel({
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  return (
+    <PaginaError
+      codigo="500"
+      titulo="Algo falló al cargar"
+      acciones={
+        <>
+          <button type="button" onClick={reset} className={claseAccionError}>
+            Reintentar
+          </button>
+          <Link href="/" className={claseAccionError}>
+            Ir a mi inicio
+          </Link>
+        </>
+      }
+    >
+      No es algo que hayas hecho tú. Intenta de nuevo; si sigue fallando, avisa al equipo de la
+      plataforma.
+    </PaginaError>
+  );
+}

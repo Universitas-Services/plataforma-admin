@@ -40,3 +40,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# claude code: configuración personal y binario de Impeccable (se descarga solo)
+.claude/settings.local.json
+.claude/skills/impeccable/scripts/bin/
+.impeccable/
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

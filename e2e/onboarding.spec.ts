@@ -14,6 +14,13 @@ const POR_PROYECTO: Record<string, string> = {
 
 const LOGO = "public/marca/isotipo-256px.png";
 
+// Las pruebas comparten el `pnpm dev` de quien desarrolla: al terminar, la alcaldía vuelve a
+// «pendiente» para que el asistente se pueda probar a mano con las cuentas de demostración.
+test.afterEach(async ({ page }, info) => {
+  const id = POR_PROYECTO[info.project.name] ?? "crespo";
+  await page.request.delete(`/api/desarrollo/onboarding/${id}`);
+});
+
 test("completa el asistente y el panel toma la marca", async ({ page }, info) => {
   test.slow();
   const id = POR_PROYECTO[info.project.name] ?? "crespo";
@@ -38,6 +45,14 @@ test("completa el asistente y el panel toma la marca", async ({ page }, info) =>
   });
 
   let sugerido = "";
+  await test.step("el espectro elige el color donde se hace clic", async () => {
+    const espectro = page.getByRole("slider", { name: "Color primario: saturación y brillo" });
+    const caja = (await espectro.boundingBox())!;
+    await page.mouse.click(caja.x + caja.width * 0.85, caja.y + caja.height * 0.2);
+    await expect(page.locator("#colorPrimario")).not.toHaveValue("#1F3864");
+    await expect(page.locator("#colorPrimario")).toHaveValue(/^#[0-9A-F]{6}$/);
+  });
+
   await test.step("un color sin contraste no pasa y se usa el sugerido", async () => {
     await page.locator("#colorPrimario").fill("#ECA52B");
     await expect(page.getByText("No cumple el contraste AA")).toBeVisible();

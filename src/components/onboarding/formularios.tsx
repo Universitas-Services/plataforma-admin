@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Check, ImageUp, RefreshCw, X } from "lucide-react";
+import { AlertCircle, Check, ImageUp, Plus, RefreshCw, X } from "lucide-react";
 import Link from "next/link";
 import {
   startTransition,
@@ -21,6 +21,7 @@ import {
 } from "@/lib/plataforma/acciones";
 import { evaluarMarca, explicarContraste } from "@/lib/marca";
 import { ResumenErrores } from "@/components/formularios/campos";
+import { esHex, SelectorColor } from "./selector-color";
 import { VistaPreviaMarca } from "./vista-previa";
 
 const inicial: EstadoFormulario = {};
@@ -255,68 +256,6 @@ export function PasoLogo({ actual, ...id }: Identidad & { actual?: string }) {
 
 /* ---------- Paso 2: colores ---------- */
 
-const esHex = (v: string) => /^#[0-9a-f]{6}$/i.test(v);
-
-function CampoColor({
-  id,
-  etiqueta,
-  valor,
-  onCambio,
-  ayuda,
-  error,
-  opcional,
-}: {
-  id: string;
-  etiqueta: string;
-  valor: string;
-  onCambio: (v: string) => void;
-  ayuda: string;
-  error?: string;
-  opcional?: boolean;
-}) {
-  return (
-    <fieldset aria-describedby={`${id}-ayuda${error ? ` ${id}-error` : ""}`}>
-      <legend className="mb-1.5 text-sm font-bold text-tinta">
-        {etiqueta}
-        {opcional && <span className="font-normal text-gris"> (opcional)</span>}
-      </legend>
-      <div className="flex gap-2">
-        <label htmlFor={`${id}-selector`} className="sr-only">
-          Elegir {etiqueta.toLowerCase()} en la paleta
-        </label>
-        <input
-          id={`${id}-selector`}
-          type="color"
-          value={esHex(valor) ? valor : "#1F3864"}
-          onChange={(e) => onCambio(e.target.value.toUpperCase())}
-          className="h-11 w-14 shrink-0 cursor-pointer rounded-control border border-linea bg-papel p-1"
-        />
-        <label htmlFor={id} className="sr-only">
-          {etiqueta} en hexadecimal
-        </label>
-        <input
-          id={id}
-          name={id}
-          value={valor}
-          maxLength={7}
-          placeholder="#1F3864"
-          autoComplete="off"
-          spellCheck={false}
-          onChange={(e) => onCambio(e.target.value.toUpperCase())}
-          aria-invalid={error ? true : undefined}
-          className={`h-11 w-full min-w-0 rounded-control border bg-papel px-3 font-semibold text-tinta uppercase outline-none focus-visible:border-marca-texto ${
-            error ? "border-peligro" : "border-linea hover:border-tenue"
-          }`}
-        />
-      </div>
-      <p id={`${id}-ayuda`} className="mt-1.5 text-sm text-gris">
-        {ayuda}
-      </p>
-      <ErrorCampo id={id} error={error} />
-    </fieldset>
-  );
-}
-
 const fmt = (n: number) =>
   n.toLocaleString("es-VE", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
 
@@ -330,6 +269,7 @@ export function PasoColores({
   const [estado, accion] = useActionState(guardarColoresAccion, inicial);
   const [primario, setPrimario] = useState(estado.valores?.colorPrimario ?? p0 ?? "#1F3864");
   const [secundario, setSecundario] = useState(estado.valores?.colorSecundario ?? s0 ?? "");
+  const [conSecundario, setConSecundario] = useState(Boolean(secundario));
   const valido = esHex(primario);
   const e = valido ? evaluarMarca(primario) : undefined;
   const [aviso, setAviso] = useState<string>();
@@ -342,7 +282,7 @@ export function PasoColores({
       onSubmit={(ev) => {
         if (!valido) {
           ev.preventDefault();
-          setAviso("Escribe el color en hexadecimal, por ejemplo #1F3864.");
+          setAviso("Elige el color en el espectro o escribe su código, por ejemplo #1F3864.");
         } else if (!e?.ok) {
           ev.preventDefault();
           setAviso(explicarContraste(e!));
@@ -352,7 +292,7 @@ export function PasoColores({
       <ResumenErrores estado={estado.mensaje ? estado : {}} />
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
         <div className="space-y-6">
-          <CampoColor
+          <SelectorColor
             id="colorPrimario"
             etiqueta="Color primario"
             valor={primario}
@@ -431,14 +371,47 @@ export function PasoColores({
               )}
             </div>
           )}
-          <CampoColor
-            id="colorSecundario"
-            etiqueta="Color secundario"
-            opcional
-            valor={secundario}
-            onCambio={setSecundario}
-            ayuda="Se guarda para el portal ciudadano; en el panel solo se usa el primario."
-          />
+          {conSecundario ? (
+            <SelectorColor
+              id="colorSecundario"
+              etiqueta="Color secundario"
+              opcional
+              porDefecto="#17A398"
+              valor={secundario}
+              onCambio={setSecundario}
+              ayuda="Se guarda para el portal ciudadano; en el panel solo se usa el primario."
+              extra={
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSecundario("");
+                    setConSecundario(false);
+                  }}
+                  className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-control px-3 text-sm font-semibold text-tinta hover:bg-superficie"
+                >
+                  <X size={16} aria-hidden="true" />
+                  Quitar
+                </button>
+              }
+            />
+          ) : (
+            <div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSecundario("#17A398");
+                  setConSecundario(true);
+                }}
+                className="inline-flex min-h-11 items-center gap-2 rounded-control border border-linea bg-papel px-4 font-semibold text-tinta hover:border-tenue"
+              >
+                <Plus size={16} aria-hidden="true" />
+                Añadir color secundario
+              </button>
+              <p className="mt-1.5 text-sm text-gris">
+                Opcional: se guarda para el portal ciudadano; en el panel solo se usa el primario.
+              </p>
+            </div>
+          )}
         </div>
         <VistaPreviaMarca
           {...id}

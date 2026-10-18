@@ -82,6 +82,7 @@ test.describe("panel", () => {
     await expect(page).toHaveURL(/paso=colores/, { timeout: 30_000 });
     await page.locator("#colorPrimario").fill("#ECA52B");
     await expect(page.getByText("No cumple el contraste AA")).toBeVisible();
+    await page.getByRole("button", { name: "Añadir color secundario" }).click();
     await auditar(page);
     await page.locator("#colorPrimario").fill("#0B4F8A");
     await page.getByRole("button", { name: "Guardar y continuar" }).click();
@@ -90,6 +91,8 @@ test.describe("panel", () => {
     await page.getByRole("button", { name: /Guardar y continuar|Continuar sin lema/ }).click();
     await expect(page).toHaveURL(/paso=resumen/);
     await auditar(page);
+    // Sin borrador de por medio: Palavecino queda como en la demo.
+    expect((await page.request.delete("/api/desarrollo/onboarding/palavecino")).status()).toBe(204);
   });
 
   test("404 dentro del panel", async ({ page }) => {

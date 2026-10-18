@@ -52,7 +52,13 @@ export function TablaCola({
         ))}
       </ul>
 
-      <div className="hidden overflow-x-auto rounded-lg border border-linea sm:block">
+      {/* Con scroll horizontal, el teclado tiene que poder entrar a desplazarla (WCAG 2.1.1). */}
+      <div
+        role="region"
+        aria-label={titulo}
+        tabIndex={0}
+        className="hidden overflow-x-auto rounded-lg border border-linea sm:block"
+      >
         <table className="w-full border-collapse text-left text-[0.9375rem]">
           <caption className="sr-only">{titulo}</caption>
           <thead className="bg-cabecera text-xs font-semibold tracking-wide text-gris uppercase">

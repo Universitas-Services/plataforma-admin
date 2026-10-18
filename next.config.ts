@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
     proxyClientMaxBodySize: "52mb",
   },
   partialPrefetching: true,
+  // «Contenido» abre en Noticias. Como redirección de configuración, sin página que prerenderizar.
+  async redirects() {
+    return [{ source: "/contenido", destination: "/contenido/noticias", permanent: false }];
+  },
   turbopack: {
     rules: {
       "*.css": {

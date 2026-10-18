@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { EsqueletoFormulario } from "@/components/ui/esqueletos";
 import { FormInvitacion, FormReenviarInvitacion } from "@/components/acceso/formularios";
@@ -24,6 +25,8 @@ export default function InvitacionPage({ searchParams }: { searchParams: SearchP
 async function Contenido({ searchParams }: { searchParams: SearchParams }) {
   const { token } = await searchParams;
   const t = typeof token === "string" ? token : "";
+  // El enlace vence con la hora: se revisa en cada visita, no al prerenderizar.
+  await connection();
   const inv = verInvitacion(almacen(), t);
 
   if (inv.estado === "INVALIDO")

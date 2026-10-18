@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { EsqueletoFormulario } from "@/components/ui/esqueletos";
 import { FormRestablecer } from "@/components/acceso/formularios";
@@ -33,6 +34,8 @@ const MOTIVO = {
 async function Contenido({ searchParams }: { searchParams: SearchParams }) {
   const { token } = await searchParams;
   const t = typeof token === "string" ? token : "";
+  // El enlace vence con la hora: se revisa en cada visita, no al prerenderizar.
+  await connection();
   const estado = estadoRestablecer(almacen(), t);
   if (estado !== "OK")
     return (

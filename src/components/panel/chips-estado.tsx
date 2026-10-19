@@ -3,7 +3,7 @@ import Link from "next/link";
 export const ESTADOS_CHIP = [
   ["PENDIENTE", "Pendientes"],
   ["EN_REVISION", "En revisión"],
-  ["APROBADA", "Aprobadas"],
+  ["APROBADA", "Verificadas"],
   ["RECHAZADA", "Rechazadas"],
   ["PUBLICADA", "Publicadas"],
 ] as const;

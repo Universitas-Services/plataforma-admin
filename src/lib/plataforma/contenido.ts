@@ -1,5 +1,5 @@
 import { permisosDe } from "./permisos";
-import { nombreCompleto, nuevoId, registrar } from "./servicio";
+import { idSecuencial, nombreCompleto, nuevoId, registrar } from "./servicio";
 import type { Alcaldia, Almacen, UsuarioInterno } from "./tipos";
 import { sanearHtml, textoDe } from "@/lib/contenido/sanear";
 import {
@@ -195,7 +195,7 @@ export function crearNoticia(
   if (c.estado !== "OK") return c;
   const fecha = new Date(ahora).toISOString();
   const n: Noticia = {
-    id: nuevoId(),
+    id: idSecuencial(alm.noticias.keys(), "n"),
     alcaldiaId: c.alcaldia.id,
     slug: "",
     tipo: "NOTICIA",

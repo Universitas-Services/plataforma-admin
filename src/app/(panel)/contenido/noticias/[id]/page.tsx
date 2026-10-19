@@ -5,13 +5,18 @@ import { Suspense } from "react";
 import { EditorNoticia } from "@/components/contenido/editor-noticia";
 import { EsqueletoEditor } from "@/components/ui/esqueletos";
 import { obtenerNoticia } from "@/lib/plataforma/contenido";
+import { idsPrerender } from "@/lib/plataforma/servicio";
 import { almacen, exigirEnAlcaldia, idSesion } from "@/lib/plataforma/sesion";
+import { noticiasDemo } from "@/lib/plataforma/fixtures-contenido";
 
 export const metadata: Metadata = { title: "Editar noticia" };
 
-/** Con Cache Components, una ruta dinámica necesita al menos un parámetro conocido. */
+/*
+ * Todos los ids de ejemplo: en Netlify, un id que no se generó al compilar devuelve 500 (el
+ * adaptador aún no sirve el App Shell de los parámetros no listados de Next 16.3+).
+ */
 export function generateStaticParams() {
-  return [{ id: "n-ejemplo-mesas" }];
+  return [...noticiasDemo(0).map(({ id }) => ({ id })), ...idsPrerender("n").map((id) => ({ id }))];
 }
 
 export default function EditarNoticiaPage({ params }: PageProps<"/contenido/noticias/[id]">) {

@@ -37,6 +37,7 @@ import {
   idSesion,
   refrescarSesion,
 } from "./sesion";
+import { SECCIONES } from "./permisos";
 
 /** Estado que devuelven las acciones a sus formularios (useActionState). */
 export type EstadoFormulario = {
@@ -161,6 +162,14 @@ export async function cambiarContrasenaAccion(
 
 /* ---------- Alcaldía en uso ---------- */
 
+/** «Ver noticias», «Ver participaciones»…: solo rutas de las estaciones de una alcaldía. */
+function destinoPedido(destino: string) {
+  const ok = SECCIONES.some(
+    (s) => s.ambito === "alcaldia" && (destino === s.href || destino.startsWith(`${s.href}/`)),
+  );
+  return ok && /^\/[a-z/-]+$/.test(destino) ? destino : "/tablero";
+}
+
 export async function elegirAlcaldiaAccion(fd: FormData) {
   const r = elegirAlcaldia(almacen(), await idSesion(), String(fd.get("alcaldia") ?? ""));
   if (r.estado === "SIN_SESION") ir("/ingresar");
@@ -169,7 +178,7 @@ export async function elegirAlcaldiaAccion(fd: FormData) {
   await refrescarSesion();
   // El marco (marca y estaciones) vive en el layout: hay que refrescarlo, no solo navegar.
   refresh();
-  ir(r.destino);
+  ir(r.destino === "/tablero" ? destinoPedido(String(fd.get("destino") ?? "")) : r.destino);
 }
 
 export async function salirDeAlcaldiaAccion() {

@@ -69,7 +69,12 @@ async function Contenido() {
                 >
                   <SiglaAlcaldia alcaldia={a} />
                   <div className="min-w-0">
-                    <p className="font-semibold text-tinta">{a.nombre}</p>
+                    <Link
+                      href={`/plataforma/alcaldias?ver=${a.id}`}
+                      className="font-semibold text-marca-texto hover:underline"
+                    >
+                      {a.nombre}
+                    </Link>
                     <p className="text-sm text-gris">
                       {a.estado === "SUSPENDIDA"
                         ? a.motivoSuspension

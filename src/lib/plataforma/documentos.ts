@@ -1,5 +1,5 @@
 import { editor, medioPropio, sinTildes, slugDe } from "./contenido";
-import { nuevoId, registrar } from "./servicio";
+import { idSecuencial, registrar } from "./servicio";
 import type { Almacen } from "./tipos";
 import { siguienteVersion } from "@/lib/contenido/version";
 import type { Adjunto, CamposDocumento, DocEstado, Documento } from "@/lib/contenido/tipos";
@@ -111,7 +111,7 @@ export function crearDocumento(
   const a = c.alcaldia.id;
   if (!pdfPropio(alm, a, archivo)) return { estado: "MEDIO_AJENO" };
   const fecha = new Date(ahora).toISOString();
-  const id = nuevoId();
+  const id = idSecuencial(alm.documentos.keys(), "d");
   const d: Documento = {
     ...limpiar(campos),
     id,

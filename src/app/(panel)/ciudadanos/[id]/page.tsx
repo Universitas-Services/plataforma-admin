@@ -9,12 +9,17 @@ import { EstadoVacio, InsigniaEstado } from "@/components/ui/piezas";
 import { aportesDe, ciudadanoDe } from "@/lib/plataforma/alcaldia";
 import { almacen, exigirEnAlcaldia } from "@/lib/plataforma/sesion";
 import { TIPOS_PARTICIPACION } from "@/lib/plataforma/tipos";
+import { ciudadanosDemo } from "@/lib/plataforma/fixtures-alcaldia";
+import { participacionesDemo } from "@/lib/plataforma/fixtures-participaciones";
 
 export const metadata: Metadata = { title: "Ficha del ciudadano" };
 
-/** Con Cache Components, una ruta dinámica necesita al menos un parámetro conocido. */
+/*
+ * Todos los ids de ejemplo: en Netlify, un id que no se generó al compilar devuelve 500 (el
+ * adaptador aún no sirve el App Shell de los parámetros no listados de Next 16.3+).
+ */
 export function generateStaticParams() {
-  return [{ id: "c-1" }];
+  return ciudadanosDemo(participacionesDemo(0), 0).map(({ id }) => ({ id }));
 }
 
 const fechaCorta = new Intl.DateTimeFormat("es-VE", {

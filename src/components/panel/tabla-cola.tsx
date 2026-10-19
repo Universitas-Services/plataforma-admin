@@ -28,6 +28,18 @@ function Folio({ folio }: { folio: string }) {
   );
 }
 
+/** Botón visible al detalle, donde se verifica, rechaza o publica. */
+function Revisar({ folio }: { folio: string }) {
+  return (
+    <Link
+      href={`/participaciones/${folio}`}
+      className="inline-flex min-h-9 items-center rounded-control border border-linea bg-papel px-3 text-sm font-semibold whitespace-nowrap text-marca-texto hover:border-tenue"
+    >
+      Revisar<span className="sr-only"> {folio}</span>
+    </Link>
+  );
+}
+
 /**
  * Participaciones por atender, de la más antigua a la más reciente, con su recorrido. Folio,
  * estado y recorrido nunca se ocultan: en la columna angosta del tablero (`compacta`) se
@@ -46,12 +58,20 @@ export function TablaCola({
   ordenada?: boolean;
 }) {
   const ver = compacta
-    ? { tipo: "hidden 2xl:table-cell", autor: "hidden", parroquia: "hidden", categoria: "hidden" }
+    ? {
+        tipo: "hidden 2xl:table-cell",
+        autor: "hidden",
+        parroquia: "hidden",
+        categoria: "hidden",
+        recorrido: "",
+      }
     : {
         tipo: "hidden md:table-cell",
         autor: "hidden lg:table-cell",
-        parroquia: "hidden xl:table-cell",
+        parroquia: "hidden 2xl:table-cell",
         categoria: "hidden 2xl:table-cell",
+        // En la bandeja completa, «Revisar» no debe quedar fuera de la vista.
+        recorrido: "hidden 2xl:table-cell",
       };
 
   return (
@@ -72,6 +92,9 @@ export function TablaCola({
             <div className="mt-2 flex items-center justify-between gap-3">
               <span className={`text-sm ${claseRecibida(p)}`}>{p.recibida}</span>
               <RecorridoFila p={p} />
+            </div>
+            <div className="mt-2">
+              <Revisar folio={p.folio} />
             </div>
           </li>
         ))}
@@ -115,8 +138,11 @@ export function TablaCola({
               <th scope="col" className="px-3 py-2.5">
                 Estado
               </th>
-              <th scope="col" className="px-3 py-2.5">
+              <th scope="col" className={`px-3 py-2.5 ${ver.recorrido}`}>
                 Recorrido
+              </th>
+              <th scope="col" className="px-3 py-2.5">
+                <span className="sr-only">Acción</span>
               </th>
             </tr>
           </thead>
@@ -138,8 +164,11 @@ export function TablaCola({
                 <td className="px-3 py-3.5">
                   <InsigniaEstado estado={p.estado} />
                 </td>
-                <td className="px-3 py-3.5">
+                <td className={`px-3 py-3.5 ${ver.recorrido}`}>
                   <RecorridoFila p={p} />
+                </td>
+                <td className="px-3 py-3.5 text-right">
+                  <Revisar folio={p.folio} />
                 </td>
               </tr>
             ))}

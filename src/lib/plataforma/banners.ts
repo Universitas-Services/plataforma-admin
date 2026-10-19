@@ -1,5 +1,5 @@
 import { editor, medioPropio } from "./contenido";
-import { nuevoId, registrar } from "./servicio";
+import { idSecuencial, registrar } from "./servicio";
 import type { Almacen } from "./tipos";
 import type { Banner, CamposBanner, Vigencia } from "@/lib/contenido/tipos";
 import { instante, vigenciaDe } from "@/lib/contenido/vigencia";
@@ -91,7 +91,7 @@ export function guardarBanner(
   if (!id) {
     const b: Banner = {
       ...limpio,
-      id: nuevoId(),
+      id: idSecuencial(alm.banners.keys(), "b"),
       alcaldiaId: a,
       orden: (activosDe(alm, a).at(-1)?.orden ?? 0) + 1,
       creadoEl: fecha,

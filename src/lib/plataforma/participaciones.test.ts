@@ -5,7 +5,6 @@ import {
   bandeja,
   cambiarEstado,
   conteosParticipaciones,
-  cotejarIdentidad,
   csvBandeja,
   resumenParticipaciones,
   transicionesValidas,
@@ -44,7 +43,11 @@ describe("máquina de estados", () => {
   it("solo ofrece las transiciones válidas", () => {
     const { alm } = sesionDe("revisor@iribarren.test");
     const p = (f: string) => alm.participaciones.get(f)!;
-    expect(transicionesValidas(p("IRI-2026-0031"))).toEqual(["EN_REVISION"]);
+    expect(transicionesValidas(p("IRI-2026-0031"))).toEqual([
+      "EN_REVISION",
+      "APROBADA",
+      "RECHAZADA",
+    ]);
     expect(transicionesValidas(p("IRI-2026-0042"))).toEqual(["APROBADA", "RECHAZADA"]);
     expect(transicionesValidas(p("IRI-2026-0012"))).toEqual([]);
   });
@@ -52,7 +55,7 @@ describe("máquina de estados", () => {
   it("recorre pendiente → en revisión → aprobada → publicada y lo anota en la bitácora", () => {
     const { alm, s } = sesionDe("revisor@iribarren.test");
     const antes = alm.bitacora.length;
-    expect(cambiarEstado(alm, s, "IRI-2026-0031", "APROBADA")).toBe("TRANSICION_INVALIDA");
+    expect(cambiarEstado(alm, s, "IRI-2026-0031", "PUBLICADA")).toBe("TRANSICION_INVALIDA");
     expect(cambiarEstado(alm, s, "IRI-2026-0031", "EN_REVISION")).toBe("OK");
     expect(cambiarEstado(alm, s, "IRI-2026-0031", "APROBADA", { comentario: "Bien" })).toBe("OK");
     expect(cambiarEstado(alm, s, "IRI-2026-0031", "PUBLICADA")).toBe("OK");
@@ -92,7 +95,7 @@ describe("máquina de estados", () => {
   });
 });
 
-describe("permisos, identidad y notas", () => {
+describe("permisos y notas", () => {
   it("el Operador no evalúa y nadie ve aportes de otra alcaldía", () => {
     const op = sesionDe("operador@iribarren.test");
     expect(cambiarEstado(op.alm, op.s, "IRI-2026-0031", "EN_REVISION")).toBe("SIN_PERMISO");
@@ -100,10 +103,10 @@ describe("permisos, identidad y notas", () => {
     expect(cambiarEstado(rev.alm, rev.s, "JIM-2026-0004", "EN_REVISION")).toBe("NO_EXISTE");
   });
 
-  it("coteja la identidad y agrega notas internas", () => {
+  it("verifica directo desde pendiente y agrega notas internas", () => {
     const { alm, s } = sesionDe("revisor@iribarren.test");
-    expect(cotejarIdentidad(alm, s, "IRI-2026-0031", "CONFIRMADA", "Cédula legible")).toBe("OK");
-    expect(alm.participaciones.get("IRI-2026-0031")!.identidad?.resultado).toBe("CONFIRMADA");
+    expect(cambiarEstado(alm, s, "IRI-2026-0033", "APROBADA")).toBe("OK");
+    expect(alm.participaciones.get("IRI-2026-0033")!.estado).toBe("APROBADA");
     expect(agregarNota(alm, s, "IRI-2026-0031", "   ")).toBe("NOTA_VACIA");
     expect(agregarNota(alm, s, "IRI-2026-0031", "Revisar con movilidad")).toBe("OK");
     expect(alm.participaciones.get("IRI-2026-0031")!.notas).toHaveLength(1);

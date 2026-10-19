@@ -4,7 +4,6 @@ import { refresh, revalidatePath } from "next/cache";
 import {
   agregarNota,
   cambiarEstado,
-  cotejarIdentidad,
   TEXTO_RECHAZO_MIN,
   type ResultadoRevisor,
 } from "./participaciones";
@@ -60,7 +59,7 @@ const ERRORES: Record<Exclude<ResultadoRevisor, "OK">, RespuestaRevisor> = {
 const HECHO: Record<EstadoParticipacion, string> = {
   PENDIENTE: "Aporte devuelto a pendiente.",
   EN_REVISION: "Aporte en revisión.",
-  APROBADA: "Aporte aprobado.",
+  APROBADA: "Aporte verificado.",
   RECHAZADA: "Aporte rechazado. El ciudadano recibirá el motivo.",
   PUBLICADA: "Aporte publicado en el portal.",
 };
@@ -80,23 +79,6 @@ export async function cambiarEstadoAccion(
       destino === "APROBADA" && publicado
         ? "Aporte despublicado: ya no se ve en el portal."
         : HECHO[destino],
-  };
-}
-
-export async function cotejarIdentidadAccion(
-  folio: string,
-  resultado: "CONFIRMADA" | "NO_CONFIRMADA",
-  nota?: string,
-): Promise<RespuestaRevisor> {
-  const r = cotejarIdentidad(almacen(), await idSesion(), folio, resultado, nota);
-  if (r !== "OK") return ERRORES[r];
-  invalidar();
-  return {
-    ok: true,
-    mensaje:
-      resultado === "CONFIRMADA"
-        ? "Identidad confirmada."
-        : "Registrado: no se pudo confirmar la identidad.",
   };
 }
 

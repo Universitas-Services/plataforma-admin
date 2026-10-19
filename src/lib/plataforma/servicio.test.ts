@@ -20,6 +20,7 @@ import {
   restablecer,
   verInvitacion,
   verificarIntegridad,
+  idSecuencial,
 } from "./servicio";
 
 const entrar = (alm: ReturnType<typeof almacenDemo>, correo: string) => {
@@ -273,5 +274,12 @@ describe("onboarding de la alcaldía", () => {
     expect(alm.bitacora.at(-1)?.accion).toBe("ONBOARDING_COMPLETADO");
     expect(completarOnboarding(alm, s).estado).toBe("YA_ACTIVA");
     expect(verificarIntegridad(alm)).toEqual({ ok: true });
+  });
+});
+
+describe("ids secuenciales", () => {
+  it("sigue el mayor número del prefijo e ignora los ids de ejemplo", () => {
+    expect(idSecuencial([], "n")).toBe("n-0001");
+    expect(idSecuencial(["n-ejemplo-mesas", "n-0002", "n-0010", "d-0050"], "n")).toBe("n-0011");
   });
 });

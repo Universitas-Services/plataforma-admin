@@ -659,6 +659,8 @@ export function eventosDe(alm: Almacen, alcaldiaId: string, f: FiltrosBitacora =
 /** Nombres legibles (con tildes) de las acciones; las demás se derivan del código. */
 const NOMBRE_ACCION: Record<string, string> = {
   ALCALDIA_CREADA: "Alcaldía creada",
+  ALCALDIA_SUSPENDIDA: "Alcaldía suspendida",
+  ALCALDIA_REACTIVADA: "Alcaldía reactivada",
   CAMBIO_CONTRASENA: "Cambio de contraseña",
   CATALOGO_ACTIVADO: "Valor de catálogo activado",
   CATALOGO_CREADO: "Valor de catálogo creado",
@@ -676,7 +678,7 @@ const NOMBRE_ACCION: Record<string, string> = {
   NOTICIA_PUBLICADA: "Noticia publicada",
   OPERAR_EN_ALCALDIA: "Entró a operar la alcaldía",
   PARTICIPACION_EN_REVISION: "Aporte pasado a revisión",
-  PARTICIPACION_APROBADA: "Aporte aprobado",
+  PARTICIPACION_APROBADA: "Aporte verificado",
   PARTICIPACION_RECHAZADA: "Aporte rechazado",
   PARTICIPACION_PUBLICADA: "Aporte publicado",
   RESTABLECER_CONTRASENA: "Contraseña restablecida",

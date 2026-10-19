@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, CircleHelp, Loader2, ShieldCheck, ShieldX } from "lucide-react";
+import { Check, CircleHelp, Globe, Loader2, X } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Aviso, type DatosAviso } from "@/components/ui/aviso";
 import { Dialogo } from "@/components/ui/dialogo";
@@ -8,7 +8,6 @@ import { Selector } from "@/components/ui/selector";
 import {
   agregarNotaAccion,
   cambiarEstadoAccion,
-  cotejarIdentidadAccion,
   type RespuestaRevisor,
 } from "@/lib/plataforma/acciones-revisor";
 import { MOTIVOS_RECHAZO, type EstadoParticipacion } from "@/lib/plataforma/tipos";
@@ -18,7 +17,7 @@ const TEXTO_MIN = 20;
 const ETIQUETA: Record<EstadoParticipacion, string> = {
   PENDIENTE: "Devolver a pendiente",
   EN_REVISION: "Tomar en revisión",
-  APROBADA: "Aprobar",
+  APROBADA: "Marcar como verificada",
   RECHAZADA: "Rechazar",
   PUBLICADA: "Publicar en el portal",
 };
@@ -40,11 +39,29 @@ type Props = {
   estado: EstadoParticipacion;
   transiciones: EstadoParticipacion[];
   mostrarNombre: boolean;
-  identidad?: "CONFIRMADA" | "NO_CONFIRMADA";
 };
 
-/** Acciones de estado del Revisor: solo las transiciones válidas, cada una confirmada. */
-export function AccionesEstado({ folio, estado, transiciones, mostrarNombre, identidad }: Props) {
+/** Por qué una acción no aplica en el estado actual (se muestra bajo los botones). */
+function motivoInactivo(
+  accion: "APROBADA" | "RECHAZADA" | "PUBLICADA",
+  estado: EstadoParticipacion,
+  mostrarNombre: boolean,
+) {
+  if (accion === "APROBADA")
+    return estado === "RECHAZADA" ? "Ya fue rechazada." : "Ya está verificada.";
+  if (accion === "RECHAZADA")
+    return estado === "RECHAZADA" ? "Ya fue rechazada." : "Para rechazarla, primero despublícala.";
+  if (estado === "PUBLICADA") return "Ya está publicada en el portal.";
+  if (estado === "RECHAZADA") return "Un aporte rechazado no se publica.";
+  if (!mostrarNombre) return "El autor no autorizó mostrar su nombre: queda solo para uso técnico.";
+  return "Primero márcala como verificada.";
+}
+
+/**
+ * Acciones de estado: «Marcar como verificada», «Rechazar» y «Publicar en el portal» siempre
+ * visibles; las que no aplican quedan desactivadas con el motivo. Cada una se confirma.
+ */
+export function AccionesEstado({ folio, estado, transiciones, mostrarNombre }: Props) {
   const [pendiente, iniciar] = useTransition();
   const [aviso, setAviso] = useState<DatosAviso>();
   const [confirmar, setConfirmar] = useState<EstadoParticipacion | null>(null);
@@ -65,57 +82,77 @@ export function AccionesEstado({ folio, estado, transiciones, mostrarNombre, ide
     }
   }
 
-  function abrirRechazo() {
-    setMotivo(identidad === "NO_CONFIRMADA" ? "IDENTIDAD_NO_ACREDITADA" : "");
-    setErrores({});
-    setRechazo(true);
-  }
-
-  if (!transiciones.length) {
-    return (
-      <>
-        <p className="text-sm text-gris">
-          {estado === "RECHAZADA"
-            ? "Este aporte fue rechazado: su recorrido terminó."
-            : "No hay acciones disponibles en este estado."}
-        </p>
-        <Aviso aviso={aviso} onCerrar={() => setAviso(undefined)} />
-      </>
-    );
-  }
+  const puedeVerificar = transiciones.includes("APROBADA") && estado !== "PUBLICADA";
+  const puedeRechazar = transiciones.includes("RECHAZADA");
+  const puedePublicar = transiciones.includes("PUBLICADA") && mostrarNombre;
+  const inactivos = [
+    !puedeVerificar && `Verificar: ${motivoInactivo("APROBADA", estado, mostrarNombre)}`,
+    !puedeRechazar && `Rechazar: ${motivoInactivo("RECHAZADA", estado, mostrarNombre)}`,
+    !puedePublicar && `Publicar: ${motivoInactivo("PUBLICADA", estado, mostrarNombre)}`,
+  ].filter(Boolean) as string[];
 
   return (
     <div>
       <div className="flex flex-wrap gap-2">
-        {transiciones.map((t) =>
-          t === "RECHAZADA" ? (
-            <button key={t} type="button" onClick={abrirRechazo} className={claseBoton.peligro}>
-              {ETIQUETA[t]}
-            </button>
-          ) : (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setConfirmar(t)}
-              disabled={t === "PUBLICADA" && !mostrarNombre}
-              aria-describedby={t === "PUBLICADA" && !mostrarNombre ? "sin-nombre" : undefined}
-              className={
-                t === "APROBADA" && estado === "PUBLICADA"
-                  ? claseBoton.secundario
-                  : claseBoton.primario
-              }
-            >
-              {t === "APROBADA" && estado === "PUBLICADA" ? "Despublicar" : ETIQUETA[t]}
-            </button>
-          ),
+        <button
+          type="button"
+          disabled={!puedeVerificar}
+          onClick={() => setConfirmar("APROBADA")}
+          className={claseBoton.primario}
+        >
+          <Check size={16} aria-hidden="true" />
+          {ETIQUETA.APROBADA}
+        </button>
+        <button
+          type="button"
+          disabled={!puedeRechazar}
+          onClick={() => {
+            setMotivo("");
+            setErrores({});
+            setRechazo(true);
+          }}
+          className={claseBoton.peligro}
+        >
+          <X size={16} aria-hidden="true" />
+          {ETIQUETA.RECHAZADA}
+        </button>
+        <button
+          type="button"
+          disabled={!puedePublicar}
+          onClick={() => setConfirmar("PUBLICADA")}
+          className={claseBoton.primario}
+        >
+          <Globe size={16} aria-hidden="true" />
+          {ETIQUETA.PUBLICADA}
+        </button>
+        {estado === "PUBLICADA" && (
+          <button
+            type="button"
+            onClick={() => setConfirmar("APROBADA")}
+            className={claseBoton.secundario}
+          >
+            Despublicar
+          </button>
+        )}
+        {estado === "PENDIENTE" && transiciones.includes("EN_REVISION") && (
+          <button
+            type="button"
+            onClick={() => setConfirmar("EN_REVISION")}
+            className={claseBoton.secundario}
+          >
+            {ETIQUETA.EN_REVISION}
+          </button>
         )}
       </div>
-      {transiciones.includes("PUBLICADA") && !mostrarNombre && (
-        <p id="sin-nombre" className="mt-2 flex items-start gap-1.5 text-sm text-gris">
-          <CircleHelp size={15} aria-hidden="true" className="mt-0.5 shrink-0" />
-          No se puede publicar: el autor no autorizó mostrar su nombre. Queda aprobado para uso
-          técnico interno.
-        </p>
+      {inactivos.length > 0 && (
+        <ul className="mt-3 space-y-1 text-sm text-gris">
+          {inactivos.map((t) => (
+            <li key={t} className="flex items-start gap-1.5">
+              <CircleHelp size={15} aria-hidden="true" className="mt-0.5 shrink-0" />
+              {t}
+            </li>
+          ))}
+        </ul>
       )}
 
       <Dialogo
@@ -130,7 +167,7 @@ export function AccionesEstado({ folio, estado, transiciones, mostrarNombre, ide
           confirmar === "PUBLICADA"
             ? "Se mostrará en «Propuestas publicadas» del portal, con el nombre del autor."
             : confirmar === "APROBADA" && estado === "PUBLICADA"
-              ? "Dejará de verse en el portal; sigue aprobado."
+              ? "Dejará de verse en el portal; sigue verificada."
               : "El ciudadano verá el cambio de estado en «Mis participaciones»."
         }
       >
@@ -198,11 +235,6 @@ export function AccionesEstado({ folio, estado, transiciones, mostrarNombre, ide
             onCambio={setMotivo}
             vacio="Elige un motivo"
             error={errores.motivo}
-            ayuda={
-              identidad === "NO_CONFIRMADA"
-                ? "Preseleccionado porque la identidad no se pudo confirmar."
-                : undefined
-            }
           />
           <div>
             <label htmlFor="texto-rechazo" className="mb-1.5 block text-sm font-bold text-tinta">
@@ -247,78 +279,6 @@ export function AccionesEstado({ folio, estado, transiciones, mostrarNombre, ide
         </div>
       </Dialogo>
 
-      <Aviso aviso={aviso} onCerrar={() => setAviso(undefined)} />
-    </div>
-  );
-}
-
-/** Cotejo de identidad: el Revisor confirma (o no) que el autor es quien dice ser. */
-export function CotejoIdentidad({
-  folio,
-  actual,
-}: {
-  folio: string;
-  actual?: { resultado: "CONFIRMADA" | "NO_CONFIRMADA"; nota?: string; fecha: string };
-}) {
-  const [pendiente, iniciar] = useTransition();
-  const [nota, setNota] = useState("");
-  const [aviso, setAviso] = useState<DatosAviso>();
-
-  const enviar = (resultado: "CONFIRMADA" | "NO_CONFIRMADA") =>
-    iniciar(async () => {
-      const r = await cotejarIdentidadAccion(folio, resultado, nota);
-      setAviso({ tipo: r.ok ? "exito" : "error", texto: r.mensaje });
-      if (r.ok) setNota("");
-    });
-
-  return (
-    <div>
-      {actual && (
-        <p
-          className={`mb-3 flex items-center gap-2 text-sm font-semibold ${
-            actual.resultado === "CONFIRMADA" ? "text-turquesa-texto" : "text-peligro"
-          }`}
-        >
-          {actual.resultado === "CONFIRMADA" ? (
-            <ShieldCheck size={16} aria-hidden="true" />
-          ) : (
-            <ShieldX size={16} aria-hidden="true" />
-          )}
-          {actual.resultado === "CONFIRMADA" ? "Identidad confirmada" : "Identidad no confirmada"}
-          {actual.nota && <span className="font-normal text-gris">· {actual.nota}</span>}
-        </p>
-      )}
-      <label htmlFor="nota-identidad" className="mb-1.5 block text-sm font-bold text-tinta">
-        Nota del cotejo <span className="font-normal text-gris">(opcional)</span>
-      </label>
-      <input
-        id="nota-identidad"
-        value={nota}
-        maxLength={300}
-        onChange={(e) => setNota(e.target.value)}
-        placeholder="Por ejemplo: cédula legible y vigente"
-        className={`${claseCampo} h-10`}
-      />
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={pendiente}
-          onClick={() => enviar("CONFIRMADA")}
-          className={claseBoton.secundario}
-        >
-          <Check size={16} aria-hidden="true" className="text-turquesa-texto" />
-          Identidad confirmada
-        </button>
-        <button
-          type="button"
-          disabled={pendiente}
-          onClick={() => enviar("NO_CONFIRMADA")}
-          className={claseBoton.secundario}
-        >
-          <ShieldX size={16} aria-hidden="true" className="text-peligro" />
-          No se puede confirmar
-        </button>
-      </div>
       <Aviso aviso={aviso} onCerrar={() => setAviso(undefined)} />
     </div>
   );

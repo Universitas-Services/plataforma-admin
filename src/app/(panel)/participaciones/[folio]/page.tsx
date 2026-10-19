@@ -12,19 +12,23 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
-import { AccionesEstado, CotejoIdentidad, NuevaNota } from "@/components/revisor/panel-revisor";
+import { AccionesEstado, NuevaNota } from "@/components/revisor/panel-revisor";
 import { EsqueletoEditor } from "@/components/ui/esqueletos";
 import { EstadoVacio, InsigniaEstado } from "@/components/ui/piezas";
 import { participacionDe, transicionesValidas } from "@/lib/plataforma/participaciones";
 import { nombreCompleto } from "@/lib/plataforma/servicio";
 import { almacen, exigirEnAlcaldia } from "@/lib/plataforma/sesion";
 import { MOTIVOS_RECHAZO, TIPOS_PARTICIPACION, type Participacion } from "@/lib/plataforma/tipos";
+import { participacionesDemo } from "@/lib/plataforma/fixtures-participaciones";
 
 export const metadata: Metadata = { title: "Detalle del aporte" };
 
-/** Con Cache Components, una ruta dinámica necesita al menos un parámetro conocido. */
+/*
+ * Todos los ids de ejemplo: en Netlify, un id que no se generó al compilar devuelve 500 (el
+ * adaptador aún no sirve el App Shell de los parámetros no listados de Next 16.3+).
+ */
 export function generateStaticParams() {
-  return [{ folio: "IRI-2026-0031" }];
+  return participacionesDemo(0).map(({ folio }) => ({ folio }));
 }
 
 const fechaHora = new Intl.DateTimeFormat("es-VE", {
@@ -129,13 +133,12 @@ async function Contenido({ params }: { params: Promise<{ folio: string }> }) {
       </div>
 
       <div className="mb-6 rounded-lg border border-linea bg-cabecera p-5">
-        <h2 className="mb-3 text-base font-bold text-tinta">Acciones</h2>
+        <h2 className="mb-3 text-base font-bold text-tinta">Decisión sobre el aporte</h2>
         <AccionesEstado
           folio={p.folio}
           estado={p.estado}
           transiciones={transicionesValidas(p)}
           mostrarNombre={p.mostrarNombre}
-          identidad={p.identidad?.resultado}
         />
       </div>
 
@@ -249,11 +252,8 @@ async function Contenido({ params }: { params: Promise<{ folio: string }> }) {
         </div>
 
         <div className="min-w-0 space-y-6">
-          <Bloque titulo="Identidad del autor" id="identidad">
+          <Bloque titulo="Datos del autor" id="autor">
             <Autor p={p} />
-            <div className="mt-5 border-t border-fila pt-4">
-              <CotejoIdentidad folio={p.folio} actual={p.identidad} />
-            </div>
           </Bloque>
 
           <Bloque titulo="Notas internas" id="notas">
@@ -308,7 +308,7 @@ function Autor({ p }: { p: Participacion }) {
           />
         )}
       </dl>
-      <h3 className="mt-4 mb-2 text-sm font-bold text-tinta">Documentos para cotejar</h3>
+      <h3 className="mt-4 mb-2 text-sm font-bold text-tinta">Documentos</h3>
       <ul className="space-y-2">
         {a.documentos.map((d) => (
           <li

@@ -44,7 +44,7 @@ export function Dialogo({
         // Clic en el fondo: cierra.
         if (e.target === ref.current) onCerrar();
       }}
-      className={`m-auto w-[calc(100%-2rem)] ${ancho} rounded-lg bg-papel p-0 text-cuerpo shadow-panel backdrop:bg-tinta/50`}
+      className={`m-auto w-[calc(100%-2rem)] ${ancho} rounded-lg bg-papel p-0 text-left text-cuerpo shadow-panel backdrop:bg-tinta/50`}
     >
       <div className="p-6">
         <h2 id={idTitulo} className="text-lg font-bold">

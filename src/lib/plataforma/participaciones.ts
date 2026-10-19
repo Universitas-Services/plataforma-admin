@@ -13,9 +13,9 @@ import {
 
 /*
  * Bandeja del Revisor (backlog 2.10) sobre la API simulada. Lógica pura: se prueba con Vitest.
- * Máquina de estados de la Propuesta v3 (5.1): Pendiente → En revisión → Aprobada o Rechazada;
- * Aprobada → Publicada solo si el autor autorizó mostrar su nombre; Publicada → Aprobada al
- * despublicar.
+ * Máquina de estados de la Propuesta v3 (5.1), con la decisión directa que pidió el cliente:
+ * Pendiente o En revisión → Verificada (APROBADA) o Rechazada; Verificada → Publicada (solo si
+ * el autor autorizó mostrar su nombre) o Rechazada; Publicada → Verificada al despublicar.
  */
 
 const DIA = 86_400_000;
@@ -131,11 +131,11 @@ export function bandeja(alm: Almacen, alcaldiaId: string, f: FiltrosBandeja = {}
 export function transicionesValidas(p: Participacion): EstadoParticipacion[] {
   switch (p.estado) {
     case "PENDIENTE":
-      return ["EN_REVISION"];
+      return ["EN_REVISION", "APROBADA", "RECHAZADA"];
     case "EN_REVISION":
       return ["APROBADA", "RECHAZADA"];
     case "APROBADA":
-      return ["PUBLICADA"];
+      return ["PUBLICADA", "RECHAZADA"];
     case "PUBLICADA":
       return ["APROBADA"];
     default:
@@ -216,37 +216,6 @@ export function cambiarEstado(
       entidad: `participacion:${p.folio}`,
       antes: { estado: antes },
       despues: { estado: destino, motivo },
-    },
-    ahora,
-  );
-  return "OK";
-}
-
-/** Cotejo de identidad al evaluar el aporte (el perfil se verifica solo al completarse). */
-export function cotejarIdentidad(
-  alm: Almacen,
-  sesion: string | undefined,
-  folio: string,
-  resultado: "CONFIRMADA" | "NO_CONFIRMADA",
-  nota?: string,
-  ahora = Date.now(),
-): ResultadoRevisor {
-  const r = evaluable(alm, sesion, folio);
-  if ("error" in r) return r.error;
-  const { c, p } = r;
-  p.identidad = {
-    resultado,
-    nota: nota?.trim() || undefined,
-    por: c.usuario.id,
-    fecha: new Date(ahora).toISOString(),
-  };
-  registrar(
-    alm,
-    {
-      actorId: c.usuario.id,
-      alcaldiaId: p.alcaldiaId,
-      accion: resultado === "CONFIRMADA" ? "IDENTIDAD_CONFIRMADA" : "IDENTIDAD_NO_CONFIRMADA",
-      entidad: `participacion:${p.folio}`,
     },
     ahora,
   );

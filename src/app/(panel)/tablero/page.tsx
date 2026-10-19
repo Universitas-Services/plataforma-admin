@@ -18,6 +18,7 @@ import { LeyendaRecorrido } from "@/components/panel/recorrido";
 import { TablaCola } from "@/components/panel/tabla-cola";
 import { EncabezadoPagina } from "@/components/ui/piezas";
 import { connection } from "next/server";
+import { crearNoticiaAccion } from "@/lib/plataforma/acciones-contenido";
 import { resumenParticipaciones } from "@/lib/plataforma/participaciones";
 import { almacen, exigirEnAlcaldia, leerAviso } from "@/lib/plataforma/sesion";
 
@@ -45,17 +46,18 @@ async function Contenido() {
       Icono: ClipboardList,
     },
     c.permisos.has("contenido.editar") && {
-      href: "/contenido",
+      href: "/contenido/noticias",
       texto: "Nueva noticia",
+      crea: true,
       Icono: Megaphone,
     },
     c.permisos.has("contenido.editar") && {
-      href: "/contenido",
+      href: "/contenido/banners",
       texto: "Banners del inicio",
       Icono: ImagenIcono,
     },
     c.permisos.has("contenido.editar") && {
-      href: "/contenido",
+      href: "/contenido/documentos",
       texto: "Repositorio documental",
       Icono: FileText,
     },
@@ -75,7 +77,12 @@ async function Contenido() {
       Icono: Palette,
     },
     c.permisos.has("bitacora.ver") && { href: "/bitacora", texto: "Bitácora", Icono: ScrollText },
-  ].filter(Boolean) as { href: string; texto: string; Icono: typeof ClipboardList }[];
+  ].filter(Boolean) as {
+    href: string;
+    texto: string;
+    Icono: typeof ClipboardList;
+    crea?: boolean;
+  }[];
 
   return (
     <>
@@ -149,15 +156,28 @@ async function Contenido() {
             Accesos rápidos
           </h2>
           <ul className="divide-y divide-fila rounded-lg border border-linea">
-            {accesos.map(({ href, texto, Icono }) => (
+            {accesos.map(({ href, texto, Icono, crea }) => (
               <li key={texto}>
-                <Link
-                  href={href}
-                  className="flex min-h-12 items-center gap-3 px-4 font-medium text-tinta hover:bg-superficie"
-                >
-                  <Icono size={18} aria-hidden="true" className="text-marca-texto" />
-                  {texto}
-                </Link>
+                {crea ? (
+                  // Crea el borrador y abre el editor de una vez.
+                  <form action={crearNoticiaAccion}>
+                    <button
+                      type="submit"
+                      className="flex min-h-12 w-full items-center gap-3 px-4 text-left font-medium text-tinta hover:bg-superficie"
+                    >
+                      <Icono size={18} aria-hidden="true" className="text-marca-texto" />
+                      {texto}
+                    </button>
+                  </form>
+                ) : (
+                  <Link
+                    href={href}
+                    className="flex min-h-12 items-center gap-3 px-4 font-medium text-tinta hover:bg-superficie"
+                  >
+                    <Icono size={18} aria-hidden="true" className="text-marca-texto" />
+                    {texto}
+                  </Link>
+                )}
               </li>
             ))}
           </ul>

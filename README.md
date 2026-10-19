@@ -35,6 +35,8 @@ Al hacer commit, Husky ejecuta lint-staged: ESLint y Prettier sobre los archivos
 
 Mientras no exista `plataforma-api`, el panel usa una API simulada en memoria (`src/lib/plataforma/`). Se reinicia al reiniciar el servidor. Cuentas de demostración con la contraseña `Plataforma#2026`: `superadmin@plataforma.test`, `avipri@plataforma.test`, `admin@iribarren.test`, `operador@iribarren.test`, `revisor@iribarren.test`, `multi@lara.test`, `admin@palavecino.test` (onboarding pendiente) y `desactivado@iribarren.test`. Detalle en [`docs/CONTEXTO.md`](docs/CONTEXTO.md), sección 6.
 
+**Demo con un solo usuario:** `superadmin@plataforma.test` crea alcaldías en _Alcaldías_, abre su ficha y desde ahí entra a operar en cualquiera (tablero, noticias, participaciones, ciudadanos) con todos los permisos.
+
 | Comando         | Qué hace                                                                                   |
 | --------------- | ------------------------------------------------------------------------------------------ |
 | `pnpm test:e2e` | Playwright: roles, rutas protegidas, historial y WCAG 2.1 AA (escritorio, tablet y 375 px) |

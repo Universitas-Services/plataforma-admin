@@ -59,6 +59,27 @@ function coincide(contrasena: string, hash: string) {
 
 export const nuevoId = () => randomBytes(18).toString("base64url");
 
+/** Cuántos ids secuenciales de cada tipo se generan al compilar (ver `idsPrerender`). */
+export const IDS_PRERENDER = 200;
+
+/**
+ * Id secuencial legible (`n-0001`, `d-0001`, `b-0001`) para lo que tiene página de edición. En
+ * Netlify, un id que no se generó al compilar devuelve 500: con ids secuenciales, las rutas
+ * `[id]` pueden generar el rango de antemano. Con plataforma-api, el id lo da la API.
+ */
+export function idSecuencial(existentes: Iterable<string>, prefijo: string) {
+  let mayor = 0;
+  for (const id of existentes) {
+    if (!id.startsWith(`${prefijo}-`)) continue;
+    const n = Number(id.slice(prefijo.length + 1));
+    if (Number.isInteger(n)) mayor = Math.max(mayor, n);
+  }
+  return `${prefijo}-${String(mayor + 1).padStart(4, "0")}`;
+}
+
+export const idsPrerender = (prefijo: string) =>
+  Array.from({ length: IDS_PRERENDER }, (_, i) => `${prefijo}-${String(i + 1).padStart(4, "0")}`);
+
 const porCorreo = (alm: Almacen, correo: string) =>
   [...alm.usuarios.values()].find((u) => u.correo === correo.trim().toLowerCase());
 

@@ -16,7 +16,7 @@ import { claseBoton, claseCampo, EnlaceDemo, ErrorCampo, Etiqueta, useRespuesta 
 
 const ROLES = [
   { valor: "OPERADOR", texto: "Operador", detalle: "Noticias, banners y documentos" },
-  { valor: "REVISOR", texto: "Revisor", detalle: "Evalúa los aportes y coteja identidades" },
+  { valor: "REVISOR", texto: "Revisor", detalle: "Verifica, rechaza y publica los aportes" },
 ] as const;
 
 function CasillasRoles({

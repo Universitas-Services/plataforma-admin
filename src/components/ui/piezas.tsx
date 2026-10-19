@@ -79,7 +79,7 @@ const ESTADO_INSIGNIA = {
     clase: "border-transparent bg-[#E6EBF3] text-tinta",
     relleno: true,
   },
-  APROBADA: { texto: "Aprobada", clase: "border-turquesa/40 text-turquesa-texto", relleno: true },
+  APROBADA: { texto: "Verificada", clase: "border-turquesa/40 text-turquesa-texto", relleno: true },
   RECHAZADA: { texto: "Rechazada", clase: "border-peligro/40 text-peligro", relleno: false },
   PUBLICADA: {
     texto: "Publicada",

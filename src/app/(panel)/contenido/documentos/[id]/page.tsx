@@ -4,14 +4,23 @@ import { Suspense } from "react";
 import { EditarDocumento, NuevoDocumento } from "@/components/contenido/formulario-documento";
 import { EsqueletoEditor } from "@/components/ui/esqueletos";
 import { obtenerDocumento } from "@/lib/plataforma/documentos";
+import { idsPrerender } from "@/lib/plataforma/servicio";
 import { almacen, exigirEnAlcaldia, idSesion, leerAviso } from "@/lib/plataforma/sesion";
 import { AvisoInicial } from "@/components/ui/aviso";
+import { documentosDemo } from "@/lib/plataforma/fixtures-contenido";
 
 export const metadata: Metadata = { title: "Documento" };
 
-/** Con Cache Components, una ruta dinámica necesita al menos un parámetro conocido. */
+/*
+ * Todos los ids de ejemplo: en Netlify, un id que no se generó al compilar devuelve 500 (el
+ * adaptador aún no sirve el App Shell de los parámetros no listados de Next 16.3+).
+ */
 export function generateStaticParams() {
-  return [{ id: "nuevo" }];
+  return [
+    { id: "nuevo" },
+    ...documentosDemo(0).map(({ id }) => ({ id })),
+    ...idsPrerender("d").map((id) => ({ id })),
+  ];
 }
 
 export default function DocumentoPage({ params }: PageProps<"/contenido/documentos/[id]">) {

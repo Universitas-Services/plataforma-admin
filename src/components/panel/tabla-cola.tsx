@@ -1,10 +1,32 @@
 import { ArrowUp } from "lucide-react";
+import Link from "next/link";
 import type { ParticipacionDemo } from "@/lib/plataforma/tipos";
 import { InsigniaEstado } from "@/components/ui/piezas";
 import { DIAS_ALERTA, Recorrido } from "./recorrido";
 
+const porAtender = (p: ParticipacionDemo) => p.estado === "PENDIENTE" || p.estado === "EN_REVISION";
+
 const claseRecibida = (p: ParticipacionDemo) =>
-  p.dias > DIAS_ALERTA ? "font-semibold text-ambar-texto" : "text-gris";
+  porAtender(p) && p.dias > DIAS_ALERTA ? "font-semibold text-ambar-texto" : "text-gris";
+
+/** Recorrido solo mientras espera; en los estados finales no hay tramo por recorrer. */
+function RecorridoFila({ p }: { p: ParticipacionDemo }) {
+  if (p.estado === "PENDIENTE" || p.estado === "EN_REVISION")
+    return <Recorrido estado={p.estado} dias={p.dias} />;
+  return <span className="text-sm text-tenue">—</span>;
+}
+
+/** El folio enlaza al detalle del aporte. */
+function Folio({ folio }: { folio: string }) {
+  return (
+    <Link
+      href={`/participaciones/${folio}`}
+      className="font-semibold text-tinta underline-offset-2 hover:text-marca-texto hover:underline"
+    >
+      {folio}
+    </Link>
+  );
+}
 
 /**
  * Participaciones por atender, de la más antigua a la más reciente, con su recorrido. Folio,
@@ -15,10 +37,13 @@ export function TablaCola({
   cola,
   titulo,
   compacta = false,
+  ordenada = true,
 }: {
   cola: ParticipacionDemo[];
   titulo: string;
   compacta?: boolean;
+  /** La cola va de la más antigua a la más reciente; la bandeja completa mezcla órdenes. */
+  ordenada?: boolean;
 }) {
   const ver = compacta
     ? { tipo: "hidden 2xl:table-cell", autor: "hidden", parroquia: "hidden", categoria: "hidden" }
@@ -38,7 +63,7 @@ export function TablaCola({
         {cola.map((p) => (
           <li key={p.folio} className="px-4 py-3">
             <div className="flex items-center justify-between gap-3">
-              <span className="font-semibold text-tinta">{p.folio}</span>
+              <Folio folio={p.folio} />
               <InsigniaEstado estado={p.estado} />
             </div>
             <p className="mt-0.5 truncate text-sm text-gris">
@@ -46,7 +71,7 @@ export function TablaCola({
             </p>
             <div className="mt-2 flex items-center justify-between gap-3">
               <span className={`text-sm ${claseRecibida(p)}`}>{p.recibida}</span>
-              <Recorrido estado={p.estado} dias={p.dias} />
+              <RecorridoFila p={p} />
             </div>
           </li>
         ))}
@@ -78,9 +103,13 @@ export function TablaCola({
               <th scope="col" className={`px-3 py-2.5 ${ver.categoria}`}>
                 Categoría técnica
               </th>
-              <th scope="col" aria-sort="ascending" className="px-3 py-2.5 text-tinta">
+              <th
+                scope="col"
+                aria-sort={ordenada ? "ascending" : undefined}
+                className={`px-3 py-2.5 ${ordenada ? "text-tinta" : ""}`}
+              >
                 <span className="inline-flex items-center gap-1">
-                  Recibida <ArrowUp size={13} aria-hidden="true" />
+                  Recibida {ordenada && <ArrowUp size={13} aria-hidden="true" />}
                 </span>
               </th>
               <th scope="col" className="px-3 py-2.5">
@@ -94,8 +123,8 @@ export function TablaCola({
           <tbody>
             {cola.map((p) => (
               <tr key={p.folio} className="border-t border-fila">
-                <td className="px-3 py-3.5 font-semibold whitespace-nowrap text-tinta">
-                  {p.folio}
+                <td className="px-3 py-3.5 whitespace-nowrap">
+                  <Folio folio={p.folio} />
                 </td>
                 <td className={`px-3 py-3.5 whitespace-nowrap ${ver.tipo}`}>{p.tipo}</td>
                 <td className={`max-w-48 truncate px-3 py-3.5 ${ver.autor}`}>{p.autor}</td>
@@ -110,7 +139,7 @@ export function TablaCola({
                   <InsigniaEstado estado={p.estado} />
                 </td>
                 <td className="px-3 py-3.5">
-                  <Recorrido estado={p.estado} dias={p.dias} />
+                  <RecorridoFila p={p} />
                 </td>
               </tr>
             ))}

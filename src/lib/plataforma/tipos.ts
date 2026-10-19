@@ -76,6 +76,11 @@ export type UsuarioInterno = {
   intentosFallidos: number;
   /** Epoch ms hasta el que la cuenta está bloqueada tras 5 intentos fallidos. */
   bloqueadoHasta?: number;
+  /**
+   * Epoch ms desde el que valen sus sesiones: «cerrar todas», cambiar o restablecer la
+   * contraseña invalidan los tokens firmados antes de esta marca.
+   */
+  sesionesDesde?: number;
 };
 
 export type TipoToken = "INVITACION" | "RESTABLECER";
@@ -107,18 +112,161 @@ export type EventoBitacora = {
   hash: string;
 };
 
-/** Resumen de participaciones para el tablero, mientras no llegue el bloque 2.10. */
+/* ---------- Participaciones (backlog 2.10; misma forma que el portal) ---------- */
+
+export const ESTADOS_PARTICIPACION = [
+  "PENDIENTE",
+  "EN_REVISION",
+  "APROBADA",
+  "RECHAZADA",
+  "PUBLICADA",
+] as const;
+export type EstadoParticipacion = (typeof ESTADOS_PARTICIPACION)[number];
+
+export const TIPOS_PARTICIPACION = {
+  OPINION_GENERAL: "Opinión general",
+  OPINION_NOTICIA: "Opinión sobre noticia",
+  PROPUESTA_FORMAL: "Propuesta formal",
+} as const;
+export type TipoParticipacion = keyof typeof TIPOS_PARTICIPACION;
+
+/** Motivos de rechazo (catálogo propuesto; se confirma con el cliente y con backend). */
+export const MOTIVOS_RECHAZO = {
+  IDENTIDAD_NO_ACREDITADA: "Identidad no acreditada",
+  FUERA_DE_ALCANCE: "Fuera del alcance del PDUL",
+  INFORMACION_INSUFICIENTE: "Información insuficiente",
+  DUPLICADA: "Aporte duplicado",
+  LENGUAJE_INAPROPIADO: "Lenguaje inapropiado",
+  OTRO: "Otro motivo",
+} as const;
+export type MotivoRechazo = keyof typeof MOTIVOS_RECHAZO;
+
+export type ArchivoAporte = {
+  nombre: string;
+  mime: string;
+  tamano: number;
+  /** Solo en los datos de ejemplo con archivo público; con la API, URL firmada. */
+  url?: string;
+  credito?: string;
+};
+
+export type DocumentoAutor = {
+  tipo: "IDENTIDAD" | "REPRESENTACION" | "ENTIDAD";
+  nombre: string;
+  version: number;
+};
+
+/** Instantánea del perfil del autor al momento de enviar el aporte. */
+export type AutorAporte = {
+  tipo: "NATURAL" | "ORGANIZACION";
+  nombre: string;
+  correo: string;
+  cedula?: string;
+  telefono?: string;
+  ocupacion?: string;
+  rif?: string;
+  tipoEntidad?: string;
+  representante?: { nombre: string; cedula: string; condicion: string };
+  documentos: DocumentoAutor[];
+};
+
+export type PasoParticipacion = {
+  estado: EstadoParticipacion;
+  fecha: string;
+  /** Id del usuario interno; sin él, el sistema (recepción). */
+  por?: string;
+  /** Lo que lee el ciudadano (comentario o motivo del rechazo). */
+  comentario?: string;
+  motivo?: MotivoRechazo;
+};
+
+export type Participacion = {
+  folio: string;
+  alcaldiaId: string;
+  tipo: TipoParticipacion;
+  noticia?: { slug: string; titulo: string };
+  parroquia: string;
+  sector: string;
+  categoriaTecnica: string;
+  descripcion: string;
+  imagenes: ArchivoAporte[];
+  video?: { fuente: "YOUTUBE" | "INSTAGRAM"; url: string };
+  soporte?: ArchivoAporte;
+  mostrarNombre: boolean;
+  autor: AutorAporte;
+  estado: EstadoParticipacion;
+  recibidaEl: string;
+  historial: PasoParticipacion[];
+  /** Cotejo de identidad del Revisor al evaluar el aporte (verificación por aporte). */
+  identidad?: {
+    resultado: "CONFIRMADA" | "NO_CONFIRMADA";
+    nota?: string;
+    por: string;
+    fecha: string;
+  };
+  /** Notas internas: no las ve el ciudadano. */
+  notas: { id: string; por: string; texto: string; fecha: string }[];
+  ejemplo?: boolean;
+};
+
+/** Fila de la bandeja y del tablero, calculada desde la participación. */
 export type ParticipacionDemo = {
   folio: string;
-  tipo: "Opinión general" | "Opinión sobre noticia" | "Propuesta formal";
+  tipo: string;
   autor: string;
   parroquia: string;
   categoriaTecnica: string;
   /** Días desde que entró en su estado actual. */
   dias: number;
   recibida: string;
-  estado: "PENDIENTE" | "EN_REVISION";
+  estado: EstadoParticipacion;
 };
+
+/* ---------- Capa de alcaldía: ciudadanos, catálogos y proceso (backlog 2.11 y 2.12) ---------- */
+
+/** Persona u organización registrada en el portal de una alcaldía (vista de la alcaldía). */
+export type Ciudadano = {
+  id: string;
+  alcaldiaId: string;
+  tipo: "NATURAL" | "ORGANIZACION";
+  nombre: string;
+  correo: string;
+  cedula?: string;
+  rif?: string;
+  tipoEntidad?: string;
+  telefono?: string;
+  ocupacion?: string;
+  representante?: { nombre: string; cedula: string; condicion: string };
+  perfilCompleto: boolean;
+  documentos: DocumentoAutor[];
+  membresia: { estado: "ACTIVA" | "SUSPENDIDA"; desde: string; motivo?: string };
+  registradoEl: string;
+  ejemplo?: boolean;
+};
+
+export const TIPOS_CATALOGO = {
+  parroquias: "Parroquias",
+  categoriasTecnicas: "Categorías técnicas",
+  categoriasNoticias: "Categorías de noticias",
+  categoriasDocumentos: "Categorías de documentos",
+  ocupaciones: "Ocupaciones",
+  tiposOrganizacion: "Tipos de organización",
+} as const;
+export type TipoCatalogo = keyof typeof TIPOS_CATALOGO;
+
+export type ItemCatalogo = { id: string; nombre: string; activo: boolean };
+
+export type FaseProceso = {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  /** Fechas AAAA-MM-DD, opcionales. */
+  inicio?: string;
+  fin?: string;
+};
+
+/** Fases del proceso PDUL de una alcaldía y la fase en curso (el termómetro del portal). */
+export type Proceso = { fases: FaseProceso[]; actual: number };
 
 export type Almacen = {
   usuarios: Map<string, UsuarioInterno>;
@@ -128,8 +276,8 @@ export type Almacen = {
   bitacora: EventoBitacora[];
   /** Bytes de los logos por alcaldía: `${alcaldiaId}` (vigente) y `${alcaldiaId}:borrador`. */
   logos: Map<string, Uint8Array>;
-  /** Conteos por estado de cada alcaldía y las pendientes más antiguas (demostración). */
-  participaciones: Map<string, { conteos: Record<string, number>; cola: ParticipacionDemo[] }>;
+  /** Participaciones de todas las alcaldías, por folio (backlog 1.16). */
+  participaciones: Map<string, Participacion>;
   /** Noticias e información de todas las alcaldías (backlog 1.13). */
   noticias: Map<string, Noticia>;
   /** Archivos subidos desde el editor: imágenes, PDF, videos y subtítulos. */
@@ -138,4 +286,10 @@ export type Almacen = {
   banners: Map<string, Banner>;
   /** Repositorio de documentos (backlog 1.15). */
   documentos: Map<string, Documento>;
+  /** Ciudadanos registrados en el portal de cada alcaldía (backlog 1.12). */
+  ciudadanos: Map<string, Ciudadano>;
+  /** Catálogos de cada alcaldía (backlog 1.9). */
+  catalogos: Map<string, Record<TipoCatalogo, ItemCatalogo[]>>;
+  /** Fases del proceso de cada alcaldía (backlog 1.9). */
+  procesos: Map<string, Proceso>;
 };

@@ -43,6 +43,15 @@ Mientras no exista `plataforma-api`, el panel usa una API simulada en memoria (`
 
 Ver [`.env.example`](.env.example). Los archivos `.env*` no se suben al repositorio, salvo `.env.example`.
 
+**Para el despliegue de demostración en Netlify** (mientras no exista plataforma-api):
+
+| Variable         | Valor                      | Para qué                                                                                                                       |
+| ---------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `SESION_SECRETO` | Una cadena larga aleatoria | Firma la cookie de sesión. Así cualquier instancia de la función la valida y no hay parpadeos ni salidas de sesión al navegar. |
+| `DEMO`           | `1`                        | Muestra en pantalla los enlaces que llegarían por correo y la cinta «Entorno de demostración».                                 |
+
+Limitación conocida: los datos que se crean en la demo (aportes evaluados, noticias, notas) siguen en la memoria de cada instancia y pueden reiniciarse; la sesión no se pierde.
+
 ## Stack
 
 Next.js (App Router) · TypeScript · Tailwind CSS · Zod · ESLint · Prettier · Vitest. Código fuente en `src/`, con el alias `@/*`.

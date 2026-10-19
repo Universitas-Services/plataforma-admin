@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { EsqueletoPlataforma } from "@/components/ui/esqueletos";
 import { BotonEntrar } from "@/components/panel/boton-entrar";
 import { SiglaAlcaldia } from "@/components/panel/sigla-alcaldia";
+import { conteosParticipaciones } from "@/lib/plataforma/participaciones";
 import { EncabezadoPagina, InsigniaEstado } from "@/components/ui/piezas";
 import { nombreCompleto } from "@/lib/plataforma/servicio";
 import { almacen, exigirPermiso } from "@/lib/plataforma/sesion";
@@ -59,8 +60,8 @@ async function Contenido() {
           </h2>
           <ul className="divide-y divide-fila rounded-lg border border-linea">
             {alcaldias.map((a) => {
-              const d = alm.participaciones.get(a.id);
-              const espera = d ? (d.conteos.PENDIENTE ?? 0) + (d.conteos.EN_REVISION ?? 0) : 0;
+              const d = conteosParticipaciones(alm, a.id);
+              const espera = d.PENDIENTE + d.EN_REVISION;
               return (
                 <li
                   key={a.id}

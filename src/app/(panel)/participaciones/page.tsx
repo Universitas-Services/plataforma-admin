@@ -1,6 +1,7 @@
-import { ClipboardList, Search } from "lucide-react";
+import { ClipboardList, Download, Search } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { EsqueletoBandeja } from "@/components/ui/esqueletos";
 import { ChipsEstado, ESTADOS_CHIP, type EstadoChip } from "@/components/panel/chips-estado";
@@ -9,7 +10,14 @@ import { LeyendaRecorrido } from "@/components/panel/recorrido";
 import { TablaCola } from "@/components/panel/tabla-cola";
 import { EncabezadoPagina, EstadoVacio } from "@/components/ui/piezas";
 import { Selector } from "@/components/ui/selector";
+import {
+  bandeja,
+  conteosParticipaciones,
+  deAlcaldia,
+  fila,
+} from "@/lib/plataforma/participaciones";
 import { almacen, exigirEnAlcaldia } from "@/lib/plataforma/sesion";
+import { TIPOS_PARTICIPACION, type TipoParticipacion } from "@/lib/plataforma/tipos";
 
 export const metadata: Metadata = { title: "Participaciones" };
 
@@ -23,44 +31,62 @@ export default function ParticipacionesPage({ searchParams }: { searchParams: Se
   );
 }
 
-const sinTildes = (t: string) =>
-  t
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase();
-
 async function Contenido({ searchParams }: { searchParams: SearchParams }) {
   const c = await exigirEnAlcaldia("participaciones.evaluar", "/participaciones");
+  // La antigüedad de cada aporte depende de la hora: se calcula al pedir la página.
+  await connection();
   const sp = await searchParams;
   const estado = ESTADOS_CHIP.find(([e]) => e === sp.estado)?.[0] as EstadoChip | undefined;
   const q = typeof sp.q === "string" ? sp.q.trim().slice(0, 80) : "";
   const filtro = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : "");
   const [tipo, parroquia, categoria] = [filtro("tipo"), filtro("parroquia"), filtro("categoria")];
 
-  const datos = almacen().participaciones.get(c.alcaldia.id);
-  const todas = datos?.cola ?? [];
-  const opciones = (k: "tipo" | "parroquia" | "categoriaTecnica") =>
-    [...new Set(todas.map((p) => p[k]))].sort((a, b) => a.localeCompare(b, "es"));
-  const buscado = sinTildes(q);
-  const cola = todas.filter(
-    (p) =>
-      (!estado || p.estado === estado) &&
-      (!tipo || p.tipo === tipo) &&
-      (!parroquia || p.parroquia === parroquia) &&
-      (!categoria || p.categoriaTecnica === categoria) &&
-      (!buscado || sinTildes(`${p.folio} ${p.autor}`).includes(buscado)),
-  );
+  const alm = almacen();
+  const todas = deAlcaldia(alm, c.alcaldia.id);
+  const conteos = conteosParticipaciones(alm, c.alcaldia.id);
+  const opciones = (k: "parroquia" | "categoriaTecnica") =>
+    [...new Set(todas.map((p) => p[k]))].sort((x, y) => x.localeCompare(y, "es"));
+  const tipoValido = tipo in TIPOS_PARTICIPACION ? (tipo as TipoParticipacion) : undefined;
+  const filtros = {
+    estado,
+    tipo: tipoValido,
+    parroquia: parroquia || undefined,
+    categoria: categoria || undefined,
+    q: q || undefined,
+  };
+  const lista = bandeja(alm, c.alcaldia.id, filtros);
+  const cola = lista.map((p) => fila(p));
   const filtrando = !!(estado || q || tipo || parroquia || categoria);
+  const qs = new URLSearchParams(
+    Object.entries({ estado, q, tipo, parroquia, categoria }).filter(([, v]) => v) as [
+      string,
+      string,
+    ][],
+  ).toString();
 
   return (
     <>
       <EncabezadoPagina
         titulo="Participaciones"
-        bajada="Aportes ciudadanos por atender, del más antiguo al más reciente."
+        bajada="Primero lo que espera evaluación, del aporte más antiguo al más reciente."
+        acciones={
+          <a
+            href={`/participaciones/exportar${qs ? `?${qs}` : ""}`}
+            className="inline-flex min-h-10 items-center gap-2 rounded-control border border-linea bg-papel px-4 text-sm font-semibold text-tinta hover:border-tenue"
+          >
+            <Download size={16} aria-hidden="true" />
+            Exportar CSV
+          </a>
+        }
       />
 
       <div className="mb-5 space-y-4">
-        <ChipsEstado conteos={datos?.conteos ?? {}} activo={estado} q={q || undefined} />
+        <ChipsEstado
+          conteos={conteos}
+          activo={estado}
+          q={q || undefined}
+          conservar={{ tipo, parroquia, categoria }}
+        />
         <form
           role="search"
           action="/participaciones"
@@ -86,8 +112,8 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
               type="search"
               defaultValue={q}
               maxLength={80}
-              placeholder="Folio o autor"
-              aria-label="Buscar por folio o autor"
+              placeholder="Folio, autor o cédula"
+              aria-label="Buscar por folio, autor o cédula"
               className="h-11 w-full rounded-control border border-linea bg-papel pr-3 pl-9 text-tinta outline-none placeholder:text-tenue hover:border-tenue focus-visible:border-marca-texto"
             />
           </div>
@@ -95,7 +121,10 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
             <Selector
               id="tipo"
               etiqueta="Tipo"
-              opciones={opciones("tipo")}
+              opciones={Object.entries(TIPOS_PARTICIPACION).map(([valor, texto]) => ({
+                valor,
+                texto,
+              }))}
               valorInicial={tipo}
               permitirVacio
               vacio="Todos"
@@ -128,12 +157,12 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
 
       {cola.length ? (
         <>
-          <TablaCola cola={cola} titulo="Participaciones por atender" />
+          <TablaCola cola={cola} titulo="Participaciones" ordenada={false} />
           <div className="mt-3 space-y-3">
             <LeyendaRecorrido />
             <p className="text-sm text-gris">
               {cola.length} {cola.length === 1 ? "participación" : "participaciones"} en esta vista.
-              Pronto podrás abrir cada una para revisarla, aprobarla, rechazarla o publicarla.
+              Abre el folio para revisarla, aprobarla, rechazarla o publicarla.
             </p>
           </div>
         </>

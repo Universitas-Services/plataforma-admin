@@ -28,7 +28,15 @@ import {
   restablecer,
   salirDeAlcaldia,
 } from "./servicio";
-import { abrirSesion, almacen, borrarSesion, esDesarrollo, guardarAviso, idSesion } from "./sesion";
+import {
+  abrirSesion,
+  almacen,
+  borrarSesion,
+  esDemo,
+  guardarAviso,
+  idSesion,
+  refrescarSesion,
+} from "./sesion";
 
 /** Estado que devuelven las acciones a sus formularios (useActionState). */
 export type EstadoFormulario = {
@@ -134,17 +142,15 @@ export async function cambiarContrasenaAccion(
   const datos = leer(fd);
   const p = cambiarContrasenaSchema.safeParse(datos);
   if (!p.success) return conErrores(p.error, datos);
-  const r = cambiarContrasena(
-    almacen(),
-    await idSesion(),
-    p.data.contrasenaActual,
-    p.data.contrasena,
-  );
+  const sesion = await idSesion();
+  const r = cambiarContrasena(almacen(), sesion, p.data.contrasenaActual, p.data.contrasena);
   if (r === "SIN_SESION") ir("/ingresar");
   if (r === "ACTUAL_INCORRECTA")
     return { errores: { contrasenaActual: "La contraseña actual no es correcta." } };
   if (r === "IGUAL_A_LA_ACTUAL")
     return { errores: { contrasena: "La contraseña nueva debe ser distinta de la actual." } };
+  // Los tokens anteriores quedaron revocados: la sesión actual se firma de nuevo.
+  await refrescarSesion(sesion);
   return {
     mensaje: {
       tipo: "exito",
@@ -159,6 +165,8 @@ export async function elegirAlcaldiaAccion(fd: FormData) {
   const r = elegirAlcaldia(almacen(), await idSesion(), String(fd.get("alcaldia") ?? ""));
   if (r.estado === "SIN_SESION") ir("/ingresar");
   if (r.estado === "SIN_ACCESO") ir("/alcaldia?error=acceso");
+  // La alcaldía en uso viaja en el token: se firma de nuevo.
+  await refrescarSesion();
   // El marco (marca y estaciones) vive en el layout: hay que refrescarlo, no solo navegar.
   refresh();
   ir(r.destino);
@@ -166,6 +174,7 @@ export async function elegirAlcaldiaAccion(fd: FormData) {
 
 export async function salirDeAlcaldiaAccion() {
   salirDeAlcaldia(almacen(), await idSesion());
+  await refrescarSesion();
   refresh();
   ir("/plataforma");
 }
@@ -173,7 +182,7 @@ export async function salirDeAlcaldiaAccion() {
 /* ---------- Recuperar, restablecer e invitación ---------- */
 
 const enlace = (ruta: string, token?: string) =>
-  esDesarrollo && token ? `${ruta}?token=${token}` : undefined;
+  esDemo && token ? `${ruta}?token=${token}` : undefined;
 
 export async function recuperarAccion(
   _p: EstadoFormulario,

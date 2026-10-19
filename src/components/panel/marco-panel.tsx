@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import type { CSSProperties, ReactNode } from "react";
 import { variablesMarca } from "@/lib/marca";
 import { salirDeAlcaldiaAccion } from "@/lib/plataforma/acciones";
+import { conteosParticipaciones } from "@/lib/plataforma/participaciones";
 import { nombreCompleto, urlLogo } from "@/lib/plataforma/servicio";
 import { almacen, getContexto } from "@/lib/plataforma/sesion";
 import { NOMBRE_ROL } from "@/lib/plataforma/tipos";
@@ -23,8 +24,8 @@ export async function MarcoPanel({ children }: { children: ReactNode }) {
   const conMarca = a && a.estado !== "ONBOARDING_PENDIENTE" ? a.marca : undefined;
   const estilo = variablesMarca(conMarca?.primario) as CSSProperties;
   // La estación de Participaciones muestra cuántas esperan (pendientes y en revisión).
-  const datos = a ? almacen().participaciones.get(a.id) : undefined;
-  const porAtender = datos ? (datos.conteos.PENDIENTE ?? 0) + (datos.conteos.EN_REVISION ?? 0) : 0;
+  const conteos = a ? conteosParticipaciones(almacen(), a.id) : undefined;
+  const porAtender = conteos ? conteos.PENDIENTE + conteos.EN_REVISION : 0;
   const pendiente = a?.estado === "ONBOARDING_PENDIENTE";
   const secciones = c.secciones.map((s) => ({
     href: s.href,

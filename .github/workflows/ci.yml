@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  # Correr todo a mano desde la pestaña Actions (incluidas las E2E).
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -48,8 +51,13 @@ jobs:
       - name: Build (Next.js)
         run: pnpm build
 
+  # Las E2E tardan unos 25 minutos: en un PR solo corren con la etiqueta «e2e»; también corren
+  # al lanzar el workflow a mano. Los checks rápidos de arriba corren siempre.
   e2e:
     name: E2E y accesibilidad (Playwright)
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'e2e'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

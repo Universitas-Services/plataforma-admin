@@ -1,6 +1,8 @@
 import { HORAS_INVITACION, cifrar, crearAlmacen, registrar } from "./servicio";
 import { bannersDemo, documentosDemo, noticiasDemo } from "./fixtures-contenido";
-import type { Alcaldia, Almacen, ParticipacionDemo, UsuarioInterno } from "./tipos";
+import { catalogosDemo, ciudadanosDemo, procesoDemo } from "./fixtures-alcaldia";
+import { participacionesDemo } from "./fixtures-participaciones";
+import type { Alcaldia, Almacen, UsuarioInterno } from "./tipos";
 
 /*
  * Datos de demostración del panel (no son reales). Todas las cuentas usan CONTRASENA_DEMO.
@@ -157,69 +159,6 @@ const USUARIOS: Base[] = [
   },
 ];
 
-const COLA_IRIBARREN: ParticipacionDemo[] = [
-  {
-    folio: "IRI-2026-0031",
-    tipo: "Propuesta formal",
-    autor: "Ana María Pérez",
-    parroquia: "Catedral",
-    categoriaTecnica: "Vialidad y Transporte",
-    dias: 6,
-    recibida: "hace 6 días",
-    estado: "PENDIENTE",
-  },
-  {
-    folio: "IRI-2026-0033",
-    tipo: "Opinión general",
-    autor: "José Rodríguez",
-    parroquia: "El Cují",
-    categoriaTecnica: "Servicios Públicos y Redes",
-    dias: 5,
-    recibida: "hace 5 días",
-    estado: "PENDIENTE",
-  },
-  {
-    folio: "IRI-2026-0036",
-    tipo: "Opinión sobre noticia",
-    autor: "Consejo Comunal Cardones",
-    parroquia: "Juárez",
-    categoriaTecnica: "Equipamiento Urbano",
-    dias: 4,
-    recibida: "hace 4 días",
-    estado: "EN_REVISION",
-  },
-  {
-    folio: "IRI-2026-0040",
-    tipo: "Propuesta formal",
-    autor: "Luis Mendoza",
-    parroquia: "Concepción",
-    categoriaTecnica: "Zonificación y Uso de Suelo",
-    dias: 2,
-    recibida: "hace 2 días",
-    estado: "PENDIENTE",
-  },
-  {
-    folio: "IRI-2026-0042",
-    tipo: "Opinión general",
-    autor: "Rosa Gutiérrez",
-    parroquia: "Santa Rosa",
-    categoriaTecnica: "Medio Ambiente y Riesgos",
-    dias: 1,
-    recibida: "ayer",
-    estado: "EN_REVISION",
-  },
-  {
-    folio: "IRI-2026-0045",
-    tipo: "Opinión general",
-    autor: "Carla Torres",
-    parroquia: "Tamaca",
-    categoriaTecnica: "Patrimonio y Renovación Urbana",
-    dias: 0,
-    recibida: "hoy 9:14",
-    estado: "PENDIENTE",
-  },
-];
-
 export function almacenDemo(): Almacen {
   const alm = crearAlmacen();
   for (const a of ALCALDIAS) alm.alcaldias.set(a.id, structuredClone(a));
@@ -229,7 +168,7 @@ export function almacenDemo(): Almacen {
       ...u,
       hash: sinContrasena ? "" : hash,
       activo: u.activo ?? true,
-      membresias: u.membresias ?? [],
+      membresias: structuredClone(u.membresias ?? []),
       intentosFallidos: 0,
     });
 
@@ -254,18 +193,13 @@ export function almacenDemo(): Almacen {
     usado: true,
   });
 
-  alm.participaciones.set("iribarren", {
-    conteos: { PENDIENTE: 12, EN_REVISION: 5, APROBADA: 48, RECHAZADA: 9, PUBLICADA: 31 },
-    cola: COLA_IRIBARREN,
-  });
-  alm.participaciones.set("jimenez", {
-    conteos: { PENDIENTE: 3, EN_REVISION: 1, APROBADA: 7, RECHAZADA: 2, PUBLICADA: 4 },
-    cola: [],
-  });
-  alm.participaciones.set("palavecino", {
-    conteos: { PENDIENTE: 0, EN_REVISION: 0, APROBADA: 0, RECHAZADA: 0, PUBLICADA: 0 },
-    cola: [],
-  });
+  const participaciones = participacionesDemo(ahora);
+  for (const p of participaciones) alm.participaciones.set(p.folio, p);
+  for (const c of ciudadanosDemo(participaciones, ahora)) alm.ciudadanos.set(c.id, c);
+  for (const a of ALCALDIAS) {
+    alm.catalogos.set(a.id, catalogosDemo(a.id));
+    alm.procesos.set(a.id, procesoDemo());
+  }
 
   for (const n of noticiasDemo(ahora)) alm.noticias.set(n.id, n);
   for (const b of bannersDemo(ahora)) alm.banners.set(b.id, b);

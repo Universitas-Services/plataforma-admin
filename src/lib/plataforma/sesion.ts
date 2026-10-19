@@ -1,9 +1,11 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import { forbidden, redirect } from "next/navigation";
 import { almacenDemo } from "./fixtures";
 import { type Permiso } from "./permisos";
 import { contextoDe, type Contexto } from "./servicio";
+import { DURACION_SESION_MS, firmarSesion, leerSesion } from "./token-sesion";
 import type { Almacen } from "./tipos";
 
 /*
@@ -21,6 +23,24 @@ export const almacen = (): Almacen => (global.__panelAlmacen ??= almacenDemo());
 
 export const esDesarrollo = process.env.NODE_ENV !== "production";
 
+/**
+ * Modo demostración: en desarrollo siempre; en un despliegue, con DEMO=1. Muestra en pantalla
+ * los enlaces que en producción llegarían por correo y la cinta de entorno de demostración.
+ */
+export const esDemo = esDesarrollo || process.env.DEMO === "1";
+
+/** Secreto de la firma de sesión. En Netlify: variable SESION_SECRETO. */
+function secreto() {
+  const s = process.env.SESION_SECRETO;
+  if (s) return s;
+  if (!esDesarrollo && !avisado) {
+    avisado = true;
+    console.warn("SESION_SECRETO no está definido: se usa un secreto de demostración.");
+  }
+  return "pdul-panel-demo-secreto-no-usar-en-produccion";
+}
+let avisado = false;
+
 const opciones = {
   httpOnly: true,
   sameSite: "lax" as const,
@@ -28,17 +48,60 @@ const opciones = {
   path: "/",
 };
 
+/**
+ * Sesión de la cookie, válida en cualquier instancia: si la firma es buena, no venció y no fue
+ * revocada, la sesión se registra en la memoria de esta instancia y el servicio la usa como
+ * siempre. Así una petición que cae en otra función de Netlify no devuelve al inicio de sesión.
+ */
 export async function idSesion() {
-  return (await cookies()).get(COOKIE_SESION)?.value;
+  const token = (await cookies()).get(COOKIE_SESION)?.value;
+  if (!token) return undefined;
+  // El vencimiento se compara con la hora actual: se calcula siempre al pedir la página.
+  await connection();
+  const alm = almacen();
+  const datos = leerSesion(token, secreto());
+  if (!datos) {
+    alm.sesiones.delete(token);
+    return undefined;
+  }
+  const u = alm.usuarios.get(datos.u);
+  if (!u || !u.activo || datos.e < (u.sesionesDesde ?? 0)) {
+    alm.sesiones.delete(token);
+    return undefined;
+  }
+  if (!alm.sesiones.has(token))
+    alm.sesiones.set(token, { usuarioId: datos.u, alcaldiaId: datos.a });
+  return token;
 }
 
 export async function getContexto(): Promise<Contexto | null> {
   return contextoDe(almacen(), await idSesion());
 }
 
+async function escribirToken(alm: Almacen, idAnterior: string) {
+  const s = alm.sesiones.get(idAnterior);
+  if (!s) return;
+  const token = firmarSesion(s, secreto());
+  alm.sesiones.delete(idAnterior);
+  alm.sesiones.set(token, { ...s });
+  (await cookies()).set(COOKIE_SESION, token, {
+    ...opciones,
+    maxAge: DURACION_SESION_MS / 1000,
+  });
+}
+
 /** Solo en Server Actions: Next no permite escribir cookies durante el render. */
 export async function abrirSesion(sesion: string) {
-  (await cookies()).set(COOKIE_SESION, sesion, { ...opciones, maxAge: 60 * 60 * 8 });
+  await escribirToken(almacen(), sesion);
+}
+
+/**
+ * Vuelve a firmar la sesión actual: tras cambiar de alcaldía (el token la lleva) o cambiar la
+ * contraseña (los tokens anteriores quedaron revocados). Solo en Server Actions.
+ */
+export async function refrescarSesion(actual?: string) {
+  const id = actual ?? (await idSesion());
+  if (id) await escribirToken(almacen(), id);
 }
 
 export async function borrarSesion() {

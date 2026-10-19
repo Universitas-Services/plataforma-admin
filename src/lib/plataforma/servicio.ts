@@ -37,6 +37,9 @@ export const crearAlmacen = (): Almacen => ({
   medios: new Map(),
   banners: new Map(),
   documentos: new Map(),
+  ciudadanos: new Map(),
+  catalogos: new Map(),
+  procesos: new Map(),
 });
 
 /* ---------- Contraseñas (scrypt con sal, comparación en tiempo constante) ---------- */
@@ -174,6 +177,8 @@ export function cerrarTodas(alm: Almacen, sesion?: string) {
       alm.sesiones.delete(id);
       n += 1;
     }
+  const u = alm.usuarios.get(s.usuarioId);
+  if (u) u.sesionesDesde = Date.now();
   registrar(alm, { actorId: s.usuarioId, accion: "CERRAR_TODAS_SESIONES", entidad: "sesion" });
   return n;
 }
@@ -258,6 +263,8 @@ export function cambiarContrasena(
   u.hash = cifrar(nueva);
   for (const [id, x] of alm.sesiones)
     if (x.usuarioId === u.id && id !== sesion) alm.sesiones.delete(id);
+  // Los tokens anteriores dejan de valer; la sesión actual se vuelve a firmar al terminar.
+  u.sesionesDesde = Date.now();
   registrar(alm, { actorId: u.id, accion: "CAMBIO_CONTRASENA", entidad: "usuario" });
   return "OK";
 }
@@ -367,6 +374,7 @@ export function restablecer(
   u.intentosFallidos = 0;
   u.bloqueadoHasta = undefined;
   for (const [id, x] of alm.sesiones) if (x.usuarioId === u.id) alm.sesiones.delete(id);
+  u.sesionesDesde = ahora;
   registrar(alm, { actorId: u.id, accion: "RESTABLECER_CONTRASENA", entidad: "usuario" }, ahora);
   return "OK";
 }

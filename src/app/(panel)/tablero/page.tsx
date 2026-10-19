@@ -17,6 +17,8 @@ import { ChipsEstado } from "@/components/panel/chips-estado";
 import { LeyendaRecorrido } from "@/components/panel/recorrido";
 import { TablaCola } from "@/components/panel/tabla-cola";
 import { EncabezadoPagina } from "@/components/ui/piezas";
+import { connection } from "next/server";
+import { resumenParticipaciones } from "@/lib/plataforma/participaciones";
 import { almacen, exigirEnAlcaldia, leerAviso } from "@/lib/plataforma/sesion";
 
 export const metadata: Metadata = { title: "Tablero" };
@@ -31,7 +33,9 @@ export default function TableroPage() {
 
 async function Contenido() {
   const c = await exigirEnAlcaldia("tablero.ver", "/tablero");
-  const datos = almacen().participaciones.get(c.alcaldia.id);
+  // La antigüedad de cada aporte depende de la hora: se calcula al pedir la página.
+  await connection();
+  const datos = resumenParticipaciones(almacen(), c.alcaldia.id);
   const aviso = await leerAviso();
   const evalua = c.permisos.has("participaciones.evaluar");
   const accesos = [

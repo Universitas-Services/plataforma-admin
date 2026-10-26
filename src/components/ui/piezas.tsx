@@ -76,7 +76,7 @@ const ESTADO_INSIGNIA = {
   PENDIENTE: { texto: "Pendiente", clase: "border-tenue text-tinta", relleno: false },
   EN_REVISION: {
     texto: "En revisión",
-    clase: "border-transparent bg-[#E6EBF3] text-tinta",
+    clase: "border-transparent bg-amarillo/20 text-tinta",
     relleno: true,
   },
   APROBADA: { texto: "Verificada", clase: "border-turquesa/40 text-turquesa-texto", relleno: true },
@@ -87,11 +87,6 @@ const ESTADO_INSIGNIA = {
     relleno: true,
   },
   ACTIVA: { texto: "Activa", clase: "border-turquesa/40 text-turquesa-texto", relleno: true },
-  ONBOARDING_PENDIENTE: {
-    texto: "Onboarding pendiente",
-    clase: "border-ambar/50 text-ambar-texto",
-    relleno: false,
-  },
   SUSPENDIDA: { texto: "Suspendida", clase: "border-peligro/40 text-peligro", relleno: false },
 } as const;
 

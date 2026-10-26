@@ -10,7 +10,11 @@ import {
   cambiarEstadoAccion,
   type RespuestaRevisor,
 } from "@/lib/plataforma/acciones-revisor";
-import { MOTIVOS_RECHAZO, type EstadoParticipacion } from "@/lib/plataforma/tipos";
+import {
+  MOTIVOS_RECHAZO,
+  type EstadoParticipacion,
+  type TipoParticipacion,
+} from "@/lib/plataforma/tipos";
 
 const TEXTO_MIN = 20;
 
@@ -36,6 +40,7 @@ const claseCampo =
 
 type Props = {
   folio: string;
+  tipo: TipoParticipacion;
   estado: EstadoParticipacion;
   transiciones: EstadoParticipacion[];
   mostrarNombre: boolean;
@@ -61,7 +66,86 @@ function motivoInactivo(
  * Acciones de estado: «Marcar como verificada», «Rechazar» y «Publicar en el portal» siempre
  * visibles; las que no aplican quedan desactivadas con el motivo. Cada una se confirma.
  */
-export function AccionesEstado({ folio, estado, transiciones, mostrarNombre }: Props) {
+export function AccionesEstado(props: Props) {
+  return props.tipo === "PROPUESTA_FORMAL" ? (
+    <AccionesPropuesta {...props} />
+  ) : (
+    <AccionesOpinion {...props} />
+  );
+}
+
+/**
+ * Opinión (general o sobre una noticia): sin seguimiento. Solo se publica en el portal —si el
+ * autor autorizó su nombre— o se despublica, y vuelve a «Recibida».
+ */
+function AccionesOpinion({ folio, estado, transiciones, mostrarNombre }: Props) {
+  const [pendiente, iniciar] = useTransition();
+  const [aviso, setAviso] = useState<DatosAviso>();
+  const [abierto, setAbierto] = useState(false);
+  const publicada = estado === "PUBLICADA";
+  const destino: EstadoParticipacion = publicada ? "PENDIENTE" : "PUBLICADA";
+  const puede = transiciones.includes(destino) && (publicada || mostrarNombre);
+
+  return (
+    <div>
+      <button
+        type="button"
+        disabled={!puede}
+        onClick={() => setAbierto(true)}
+        className={publicada ? claseBoton.secundario : claseBoton.primario}
+      >
+        {!publicada && <Globe size={16} aria-hidden="true" />}
+        {publicada ? "Despublicar" : ETIQUETA.PUBLICADA}
+      </button>
+      {!puede && !publicada && (
+        <p className="mt-3 flex items-start gap-1.5 text-sm text-gris">
+          <CircleHelp size={15} aria-hidden="true" className="mt-0.5 shrink-0" />
+          Publicar: {motivoInactivo("PUBLICADA", estado, mostrarNombre)}
+        </p>
+      )}
+      <Dialogo
+        abierto={abierto}
+        onCerrar={() => setAbierto(false)}
+        titulo={publicada ? `¿Despublicar ${folio}?` : `¿Publicar ${folio} en el portal?`}
+        descripcion={
+          publicada
+            ? "Dejará de verse en el portal; el ciudadano la verá de nuevo como «Recibida»."
+            : "Se mostrará en «La gente opina» del portal, con el nombre del autor."
+        }
+      >
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            autoFocus
+            onClick={() => setAbierto(false)}
+            className={claseBoton.secundario}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={pendiente}
+            onClick={() =>
+              iniciar(async () => {
+                const r = await cambiarEstadoAccion(folio, destino, {}, publicada);
+                setAviso({ tipo: r.ok ? "exito" : "error", texto: r.mensaje });
+                if (r.ok) setAbierto(false);
+              })
+            }
+            className={claseBoton.primario}
+          >
+            {pendiente && <Loader2 size={16} aria-hidden="true" className="animate-spin" />}
+            Confirmar
+          </button>
+        </div>
+      </Dialogo>
+      <Aviso aviso={aviso} onCerrar={() => setAviso(undefined)} />
+    </div>
+  );
+}
+
+/** Propuesta formal: verificar, rechazar con motivo, publicar o despublicar. */
+function AccionesPropuesta({ folio, estado, transiciones, mostrarNombre }: Props) {
   const [pendiente, iniciar] = useTransition();
   const [aviso, setAviso] = useState<DatosAviso>();
   const [confirmar, setConfirmar] = useState<EstadoParticipacion | null>(null);

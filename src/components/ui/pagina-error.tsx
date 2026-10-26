@@ -43,10 +43,10 @@ export function PaginaError({
       <div className="w-full max-w-xl">
         {conLogo && (
           <Image
-            src="/marca/logo-horizontal.svg"
-            alt="Plataforma de Participación Ciudadana"
-            width={175}
-            height={56}
+            src="/brand/pdul-ya-horizontal-divisor.png"
+            alt="PDUL YA"
+            width={1200}
+            height={411}
             className="mb-10 h-12 w-auto"
           />
         )}

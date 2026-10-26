@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { getContexto } from "@/lib/plataforma/sesion";
 
-/** La raíz solo decide a dónde ir según la sesión y la alcaldía en uso. */
+/** La raíz solo decide a dónde ir: al tablero con sesión, a ingresar sin ella. */
 export default function Inicio() {
   return (
     <Suspense>
@@ -14,7 +14,6 @@ export default function Inicio() {
 async function Destino() {
   const c = await getContexto();
   if (!c) redirect("/ingresar");
-  if (c.alcaldia) redirect("/tablero");
-  redirect(c.usuario.rolPlataforma ? "/plataforma" : "/alcaldia");
+  redirect("/tablero");
   return null;
 }

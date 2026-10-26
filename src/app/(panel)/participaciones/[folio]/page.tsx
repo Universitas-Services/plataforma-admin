@@ -12,10 +12,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
+import { Alcance } from "@/components/contenido/alcance";
+import { MapaUbicacion } from "@/components/revisor/mapa-ubicacion";
 import { AccionesEstado, NuevaNota } from "@/components/revisor/panel-revisor";
 import { EsqueletoEditor } from "@/components/ui/esqueletos";
 import { EstadoVacio, InsigniaEstado } from "@/components/ui/piezas";
-import { participacionDe, transicionesValidas } from "@/lib/plataforma/participaciones";
+import { totalesDe } from "@/lib/plataforma/inicio";
+import {
+  participacionDe,
+  tieneSeguimiento,
+  transicionesValidas,
+} from "@/lib/plataforma/participaciones";
 import { nombreCompleto } from "@/lib/plataforma/servicio";
 import { almacen, exigirEnAlcaldia } from "@/lib/plataforma/sesion";
 import { MOTIVOS_RECHAZO, TIPOS_PARTICIPACION, type Participacion } from "@/lib/plataforma/tipos";
@@ -101,7 +108,7 @@ async function Contenido({ params }: { params: Promise<{ folio: string }> }) {
           </Link>
         }
       >
-        Puede que el folio no exista o que sea de otra alcaldía.
+        Puede que el folio no exista.
       </EstadoVacio>
     );
   }
@@ -133,13 +140,27 @@ async function Contenido({ params }: { params: Promise<{ folio: string }> }) {
       </div>
 
       <div className="mb-6 rounded-lg border border-linea bg-cabecera p-5">
-        <h2 className="mb-3 text-base font-bold text-tinta">Decisión sobre el aporte</h2>
+        <h2 className="mb-1 text-base font-bold text-tinta">
+          {tieneSeguimiento(p.tipo) ? "Decisión sobre la propuesta" : "Publicación de la opinión"}
+        </h2>
+        <p className="mb-4 text-sm text-gris">
+          {tieneSeguimiento(p.tipo)
+            ? "La propuesta formal tiene seguimiento: el ciudadano ve cada estado y el motivo si se rechaza."
+            : "Las opiniones no tienen seguimiento: el ciudadano la ve «Recibida» hasta que la publiques en el portal."}
+        </p>
         <AccionesEstado
           folio={p.folio}
+          tipo={p.tipo}
           estado={p.estado}
           transiciones={transicionesValidas(p)}
           mostrarNombre={p.mostrarNombre}
         />
+        {p.estado === "PUBLICADA" && (
+          <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-linea pt-4 text-sm text-gris">
+            En el portal:
+            <Alcance totales={totalesDe(alm, `aporte:${p.folio}`)} />
+          </p>
+        )}
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
@@ -222,6 +243,12 @@ async function Contenido({ params }: { params: Promise<{ folio: string }> }) {
               </div>
             )}
           </Bloque>
+
+          {p.ubicacion && (
+            <Bloque titulo="Ubicación" id="ubicacion">
+              <MapaUbicacion punto={p.ubicacion} />
+            </Bloque>
+          )}
 
           <Bloque titulo="Historial de estados" id="historial">
             <ol className="space-y-4">

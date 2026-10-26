@@ -1,4 +1,5 @@
-import type { Adjunto, Banner, Documento, Imagen, Noticia } from "@/lib/contenido/tipos";
+import type { Adjunto, Documento, Imagen, Noticia } from "@/lib/contenido/tipos";
+import type { Almacen, Interaccion } from "./tipos";
 
 /*
  * Noticias de demostración (backlog 2.9). Son contenido de EJEMPLO, no textos oficiales: llevan
@@ -85,6 +86,22 @@ const iso = (ahora: number, dias: number) => new Date(ahora + dias * DIA).toISOS
 
 const SEMILLAS: Record<string, Semilla[]> = {
   iribarren: [
+    {
+      id: "n-ejemplo-alcalde",
+      slug: "ejemplo-mensaje-del-alcalde",
+      tipo: "INFORMACION",
+      formato: "TEXTO",
+      titulo: "Ejemplo: mensaje del alcalde para el Inicio",
+      resumen:
+        "Noticia de texto de ejemplo elegida para la tarjeta del mensaje del alcalde en el Inicio.",
+      categoria: "Mensaje institucional",
+      cuerpo: `<p>Texto de ejemplo: aquí irá el mensaje que la alcaldía quiera destacar en el Inicio.</p>${NOTA}`,
+      destacada: false,
+      estado: "PUBLICADO",
+      autorId: "u-operador-iri",
+      hace: -1,
+      ejemplo: true,
+    },
     {
       id: "n-ejemplo-mesas",
       slug: "ejemplo-mesas-tecnicas-por-parroquia",
@@ -216,23 +233,6 @@ const SEMILLAS: Record<string, Semilla[]> = {
       ejemplo: true,
     },
   ],
-  jimenez: [
-    {
-      id: "n-ejemplo-jimenez",
-      slug: "ejemplo-primera-noticia",
-      tipo: "NOTICIA",
-      formato: "TEXTO",
-      titulo: "Ejemplo: primera noticia de la alcaldía",
-      resumen: "Noticia de ejemplo de otra alcaldía: no aparece en Iribarren.",
-      categoria: "Mensaje institucional",
-      cuerpo: `<p>Noticia de ejemplo.</p>${NOTA}`,
-      destacada: false,
-      estado: "PUBLICADO",
-      autorId: "u-multi",
-      hace: -4,
-      ejemplo: true,
-    },
-  ],
 };
 
 export function noticiasDemo(ahora: number): Noticia[] {
@@ -252,56 +252,53 @@ export function noticiasDemo(ahora: number): Noticia[] {
   );
 }
 
-/* ---------- Banners y documentos de ejemplo ---------- */
+/* ---------- Inicio del portal y vistas y reacciones de ejemplo ---------- */
 
-const dia = (ahora: number, dias: number) =>
-  new Date(ahora + dias * DIA - 4 * 3_600_000).toISOString().slice(0, 10);
+/** Lo que el Inicio muestra elegido por la alcaldía (ejemplo). */
+export const inicioDemo = () => ({
+  mensajeAlcalde: "n-ejemplo-alcalde",
+  anuncios: ["n-ejemplo-mesas", "n-ejemplo-galeria"],
+});
 
-export function bannersDemo(ahora: number): Banner[] {
-  const fecha = new Date(ahora - 5 * DIA).toISOString();
-  const base = { alcaldiaId: "iribarren", creadoEl: fecha, actualizadoEl: fecha, ejemplo: true };
-  return structuredClone<Banner[]>([
-    {
-      ...base,
-      id: "b-ejemplo-propuestas",
-      titulo: "Ejemplo: tu propuesta puede llegar al plan",
-      texto: "Banner de ejemplo con el color de la alcaldía y un enlace a participar.",
-      enlace: { href: "/participa", etiqueta: "Enviar una propuesta" },
-      tono: "rojo",
-      orden: 1,
-      vigencia: { desde: dia(ahora, -10) },
-    },
-    {
-      ...base,
-      id: "b-ejemplo-diagnostico",
-      titulo: "Ejemplo: así se prepara el diagnóstico",
-      texto: "Banner de ejemplo con foto de fondo y tono oscuro.",
-      enlace: { href: "/noticias", etiqueta: "Leer las noticias" },
-      tono: "tinta",
-      imagen: { ...FOTOS.skyline, ilustrativa: undefined },
-      orden: 2,
-    },
-    {
-      ...base,
-      id: "b-ejemplo-documentos",
-      titulo: "Ejemplo: consulta los documentos",
-      texto: "Banner de ejemplo en tono claro, programado para empezar dentro de tres días.",
-      enlace: { href: "/documentos", etiqueta: "Ver el repositorio" },
-      tono: "calido",
-      orden: 3,
-      vigencia: { desde: dia(ahora, 3), hasta: dia(ahora, 30) },
-    },
-    {
-      ...base,
-      id: "b-ejemplo-vencido",
-      titulo: "Ejemplo: jornada que ya pasó",
-      texto: "Banner de ejemplo cuya vigencia terminó: ya no se muestra en el portal.",
-      enlace: { href: "/noticias", etiqueta: "Ver más" },
-      tono: "tinta",
-      orden: 4,
-      vigencia: { desde: dia(ahora, -20), hasta: dia(ahora, -2) },
-    },
-  ]);
+/** Número pseudoaleatorio estable a partir de un texto (los datos de ejemplo no cambian). */
+function semilla(texto: string) {
+  let h = 2166136261;
+  for (const c of texto) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  return () => {
+    h = Math.imul(h ^ (h >>> 15), 2246822507) ^ Math.imul(h ^ (h >>> 13), 3266489909);
+    return ((h >>> 0) % 1000) / 1000;
+  };
+}
+
+/**
+ * Vistas, reacciones y descargas de ejemplo repartidas por día desde la publicación, para que
+ * el tablero de indicadores tenga datos en la demostración. No son cifras reales.
+ */
+export function interaccionesDemo(alm: Almacen, ahora: number) {
+  const dia = (t: number) => new Date(t - 4 * 3_600_000).toISOString().slice(0, 10);
+  const repartir = (clave: string, desde: number, base: number) => {
+    const azar = semilla(clave);
+    const porDia: Interaccion["porDia"] = {};
+    for (let t = Math.max(desde, ahora - 60 * DIA); t <= ahora; t += DIA) {
+      const vistas = Math.round(base * (0.4 + azar()));
+      if (!vistas) continue;
+      porDia[dia(t)] = {
+        vistas,
+        likes: Math.round(vistas * 0.12 * azar()),
+        dislikes: Math.round(vistas * 0.03 * azar()),
+      };
+    }
+    return { porDia };
+  };
+  for (const n of alm.noticias.values())
+    if (n.publicadoEl && n.estado === "PUBLICADO")
+      alm.interacciones.set(`noticia:${n.id}`, repartir(n.id, Date.parse(n.publicadoEl), 14));
+  for (const p of alm.participaciones.values())
+    if (p.estado === "PUBLICADA")
+      alm.interacciones.set(`aporte:${p.folio}`, repartir(p.folio, Date.parse(p.recibidaEl), 6));
+  for (const d of alm.documentos.values())
+    if (d.publico)
+      alm.descargas.set(`documento:${d.id}`, repartir(d.id, Date.parse(d.publicadoEl), 3));
 }
 
 const pdf = (nombre: string, archivo: string, pesoBytes: number): Adjunto => ({

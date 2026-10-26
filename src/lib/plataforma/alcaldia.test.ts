@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  actualizarMarca,
-  cambiarActivoItem,
+  catalogosDe,
   cambiarActivoMiembro,
   cambiarMembresia,
   ciudadanosDe,
@@ -13,7 +12,6 @@ import {
   eventosDe,
   fijarFaseActual,
   guardarFase,
-  guardarItem,
   invitarMiembro,
   moverFase,
   reenviarInvitacionMiembro,
@@ -63,19 +61,17 @@ describe("equipo", () => {
     });
   });
 
-  it("agrega la membresía a una cuenta de otra alcaldía sin invitarla de nuevo", () => {
+  it("no invita un correo que ya tiene cuenta en la alcaldía", () => {
     const { alm, s } = sesionDe(ADMIN);
-    const r = invitarMiembro(alm, s, "admin@palavecino.test", ["REVISOR"]);
-    expect(r).toEqual({ estado: "OK", token: undefined });
+    expect(invitarMiembro(alm, s, "operador@iribarren.test", ["REVISOR"])).toEqual({
+      estado: "YA_ES_MIEMBRO",
+    });
   });
 
   it("edita roles y activa o desactiva, pero no a sí mismo ni a otro administrador", () => {
     const { alm, s } = sesionDe(ADMIN);
     expect(editarRoles(alm, s, "u-revisor-iri", ["REVISOR", "OPERADOR"]).estado).toBe("OK");
-    expect(alm.usuarios.get("u-revisor-iri")!.membresias[0]!.roles).toEqual([
-      "REVISOR",
-      "OPERADOR",
-    ]);
+    expect(alm.usuarios.get("u-revisor-iri")!.roles).toEqual(["REVISOR", "OPERADOR"]);
     expect(editarRoles(alm, s, "u-admin-iri", ["OPERADOR"]).estado).toBe("A_TI_MISMO");
     expect(cambiarActivoMiembro(alm, s, "u-operador-iri", false).estado).toBe("OK");
     expect(equipoDe(alm, "iribarren").find((m) => m.id === "u-operador-iri")?.estado).toBe(
@@ -131,21 +127,9 @@ describe("ciudadanos", () => {
 });
 
 describe("catálogos y proceso", () => {
-  it("crea, renombra sin repetir (sin tildes) y desactiva", () => {
-    const { alm, s } = sesionDe(ADMIN);
-    expect(guardarItem(alm, s, "ocupaciones", "  ")).toEqual({ estado: "VACIO" });
-    expect(guardarItem(alm, s, "ocupaciones", "estudiante")).toEqual({ estado: "REPETIDO" });
-    expect(guardarItem(alm, s, "ocupaciones", "Docente")).toEqual({ estado: "OK" });
-    const items = alm.catalogos.get("iribarren")!.ocupaciones;
-    const docente = items.find((i) => i.nombre === "Docente")!;
-    expect(guardarItem(alm, s, "ocupaciones", "Docente universitario", docente.id)).toEqual({
-      estado: "OK",
-    });
-    expect(cambiarActivoItem(alm, s, "ocupaciones", docente.id, false)).toEqual({ estado: "OK" });
-    expect(items.find((i) => i.id === docente.id)).toMatchObject({
-      nombre: "Docente universitario",
-      activo: false,
-    });
+  it("los catálogos vienen del despliegue y se leen tal cual", () => {
+    const alm = almacenDemo();
+    expect(catalogosDe(alm, "iribarren")!.parroquias.length).toBeGreaterThan(0);
   });
 
   it("edita fases, valida fechas, reordena y mantiene la fase actual", () => {
@@ -166,18 +150,6 @@ describe("catálogos y proceso", () => {
     expect(fijarFaseActual(alm, s, "diagnostico")).toEqual({ estado: "OK" });
     expect(p.fases[p.actual]!.id).toBe("diagnostico");
   });
-
-  it("la marca exige contraste AA", () => {
-    const { alm, s } = sesionDe(ADMIN);
-    expect(actualizarMarca(alm, s, { primario: "#FFFF66" }).estado).toBe("CONTRASTE");
-    expect(actualizarMarca(alm, s, { primario: "#1F3864", lema: "Iribarren participa" })).toEqual({
-      estado: "OK",
-    });
-    expect(alm.alcaldias.get("iribarren")!.marca).toMatchObject({
-      primario: "#1F3864",
-      lema: "Iribarren participa",
-    });
-  });
 });
 
 describe("bitácora", () => {
@@ -189,7 +161,6 @@ describe("bitácora", () => {
     expect(diferencias(eventos[0]!)).toEqual([
       { campo: "roles", antes: ["REVISOR"], despues: ["OPERADOR"] },
     ]);
-    expect(eventosDe(alm, "jimenez", { accion: "MIEMBRO_ROLES" })).toHaveLength(0);
     expect(verificarIntegridad(alm)).toEqual({ ok: true });
   });
 });

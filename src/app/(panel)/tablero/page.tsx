@@ -4,14 +4,16 @@ import {
   FileText,
   Image as ImagenIcono,
   Megaphone,
-  Palette,
+  ListChecks,
   ScrollText,
   UserRound,
   Users,
 } from "lucide-react";
 import type { Metadata } from "next";
+import { ALCALDIA } from "@/config/alcaldia";
 import Link from "next/link";
 import { Suspense } from "react";
+import { Indicadores, SelectorRango } from "@/components/tablero/indicadores";
 import { EsqueletoTablero } from "@/components/ui/esqueletos";
 import { ChipsEstado } from "@/components/panel/chips-estado";
 import { LeyendaRecorrido } from "@/components/panel/recorrido";
@@ -19,24 +21,29 @@ import { TablaCola } from "@/components/panel/tabla-cola";
 import { EncabezadoPagina } from "@/components/ui/piezas";
 import { connection } from "next/server";
 import { crearNoticiaAccion } from "@/lib/plataforma/acciones-contenido";
+import { esRango, indicadoresDe, rangoDe } from "@/lib/plataforma/metricas";
 import { resumenParticipaciones } from "@/lib/plataforma/participaciones";
 import { almacen, exigirEnAlcaldia, leerAviso } from "@/lib/plataforma/sesion";
 
 export const metadata: Metadata = { title: "Tablero" };
 
-export default function TableroPage() {
+export default function TableroPage({ searchParams }: PageProps<"/tablero">) {
   return (
     <Suspense fallback={<EsqueletoTablero />}>
-      <Contenido />
+      <Contenido searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function Contenido() {
+async function Contenido({ searchParams }: Pick<PageProps<"/tablero">, "searchParams">) {
   const c = await exigirEnAlcaldia("tablero.ver", "/tablero");
-  // La antigüedad de cada aporte depende de la hora: se calcula al pedir la página.
+  const pedido = (await searchParams).rango;
+  // La antigüedad de cada aporte y el rango dependen de la hora: se calculan al pedir la página.
   await connection();
-  const datos = resumenParticipaciones(almacen(), c.alcaldia.id);
+  const alm = almacen();
+  const datos = resumenParticipaciones(alm, c.alcaldia.id);
+  const rango = rangoDe(esRango(pedido) ? pedido : "30d");
+  const indicadores = indicadoresDe(alm, c.alcaldia.id, c.permisos, rango);
   const aviso = await leerAviso();
   const evalua = c.permisos.has("participaciones.evaluar");
   const accesos = [
@@ -52,8 +59,8 @@ async function Contenido() {
       Icono: Megaphone,
     },
     c.permisos.has("contenido.editar") && {
-      href: "/contenido/banners",
-      texto: "Banners del inicio",
+      href: "/contenido/inicio",
+      texto: "Inicio del portal",
       Icono: ImagenIcono,
     },
     c.permisos.has("contenido.editar") && {
@@ -71,10 +78,10 @@ async function Contenido() {
       texto: "Equipo de la alcaldía",
       Icono: Users,
     },
-    c.permisos.has("marca.configurar") && {
+    c.permisos.has("configuracion.ver") && {
       href: "/configuracion",
-      texto: "Marca y catálogos",
-      Icono: Palette,
+      texto: "Catálogos y fases",
+      Icono: ListChecks,
     },
     c.permisos.has("bitacora.ver") && { href: "/bitacora", texto: "Bitácora", Icono: ScrollText },
   ].filter(Boolean) as {
@@ -86,10 +93,7 @@ async function Contenido() {
 
   return (
     <>
-      <EncabezadoPagina
-        titulo="Tablero"
-        bajada={`${c.alcaldia.nombre}${c.alcaldia.marca?.lema ? ` · ${c.alcaldia.marca.lema}` : ""}`}
-      />
+      <EncabezadoPagina titulo="Tablero" bajada={`${c.alcaldia.nombre} · ${ALCALDIA.programa}`} />
 
       {aviso && (
         <p
@@ -145,8 +149,8 @@ async function Contenido() {
           <section className="min-w-0 rounded-lg bg-superficie p-6">
             <h2 className="text-lg font-bold">Tu trabajo en esta alcaldía</h2>
             <p className="mt-1 text-gris">
-              Publicas el contenido del portal: noticias, banners y documentos. Empieza por los
-              accesos de la derecha.
+              Publicas el contenido del portal: noticias, documentos, lo que muestra el Inicio y el
+              avance del proceso. Empieza por los accesos de la derecha.
             </p>
           </section>
         )}
@@ -183,6 +187,16 @@ async function Contenido() {
           </ul>
         </nav>
       </div>
+
+      <section aria-labelledby="indicadores" className="mt-12 border-t border-linea pt-8">
+        <h2 id="indicadores" className="mb-4 text-xl font-bold">
+          Indicadores
+        </h2>
+        <div className="mb-6">
+          <SelectorRango actual={rango.clave} />
+        </div>
+        <Indicadores rango={rango} datos={indicadores} />
+      </section>
     </>
   );
 }

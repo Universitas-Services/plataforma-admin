@@ -5,8 +5,8 @@ const SECRETO = "secreto-de-prueba";
 
 describe("token de sesión firmado", () => {
   it("se lee en cualquier instancia con el mismo secreto", () => {
-    const t = firmarSesion({ usuarioId: "u1", alcaldiaId: "iribarren" }, SECRETO, 1000);
-    expect(leerSesion(t, SECRETO, 2000)).toMatchObject({ u: "u1", a: "iribarren", e: 1000 });
+    const t = firmarSesion({ usuarioId: "u1" }, SECRETO, 1000);
+    expect(leerSesion(t, SECRETO, 2000)).toMatchObject({ u: "u1", e: 1000 });
   });
 
   it("rechaza un token alterado o firmado con otro secreto", () => {

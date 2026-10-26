@@ -7,7 +7,6 @@ import {
   FORMATOS,
   FUENTES_VIDEO,
   TIPOS_NOTICIA,
-  TONOS_BANNER,
 } from "@/lib/contenido/tipos";
 
 /** CU-01 Iniciar sesión (personal interno). */
@@ -56,25 +55,6 @@ export const cambiarContrasenaSchema = z
     confirmarContrasena: z.string(),
   })
   .refine(contrasenasIguales.check, contrasenasIguales.params);
-
-/** CU-03 Crear alcaldía. */
-export const crearAlcaldiaSchema = z.object({
-  nombre: z.string().trim().min(3, "Ingresa el nombre de la alcaldía.").max(120),
-  estado: z.string().trim().min(2, "Selecciona el estado."),
-  correoAdministrador: correoSchema,
-});
-
-const colorHex = z
-  .string()
-  .trim()
-  .regex(/^#[0-9a-fA-F]{6}$/, "Usa un color hexadecimal, por ejemplo #1F3A5F.");
-
-/** CU-06 Identidad visual. El contraste AA se valida aparte con la función de contraste. */
-export const brandingSchema = z.object({
-  colorPrimario: colorHex,
-  colorSecundario: colorHex.optional(),
-  lema: z.string().trim().max(120, "El lema no puede superar 120 caracteres.").optional(),
-});
 
 export const ROLES_INTERNOS = ["OPERADOR", "REVISOR"] as const;
 
@@ -187,47 +167,6 @@ export const noticiaSchema = z.object({
   destacada: z.boolean(),
 });
 
-/* ---------- Banners (backlog 1.14) ---------- */
-
-const diaSchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Usa el formato AAAA-MM-DD.")
-  .optional()
-  .or(z.literal("").transform(() => undefined));
-
-export const bannerSchema = z
-  .object({
-    titulo: z
-      .string()
-      .trim()
-      .min(1, "Escribe el título.")
-      .max(80, "El título no puede superar 80 caracteres."),
-    texto: z
-      .string()
-      .trim()
-      .min(1, "Escribe el texto.")
-      .max(200, "El texto no puede superar 200 caracteres."),
-    enlace: z.object({
-      href: enlaceBoton,
-      etiqueta: z
-        .string()
-        .trim()
-        .min(1, "Escribe el texto del botón.")
-        .max(40, "El texto del botón no puede superar 40 caracteres."),
-    }),
-    tono: z.enum(TONOS_BANNER),
-    imagen: imagenSchema.optional(),
-    vigencia: z.object({ desde: diaSchema, hasta: diaSchema }).optional(),
-  })
-  .refine((b) => !b.imagen || b.imagen.alt.trim().length > 0, {
-    path: ["imagen", "alt"],
-    error: "Describe qué muestra la foto.",
-  })
-  .refine((b) => !b.vigencia?.desde || !b.vigencia?.hasta || b.vigencia.hasta >= b.vigencia.desde, {
-    path: ["vigencia"],
-    error: "La fecha final tiene que ser igual o posterior a la inicial.",
-  });
-
 /* ---------- Documentos (backlog 1.15) ---------- */
 
 export const documentoSchema = z.object({
@@ -265,10 +204,7 @@ export const versionSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type AceptarInvitacionInput = z.infer<typeof aceptarInvitacionSchema>;
-export type CrearAlcaldiaInput = z.infer<typeof crearAlcaldiaSchema>;
-export type BrandingInput = z.infer<typeof brandingSchema>;
 export type InvitarUsuarioInput = z.infer<typeof invitarUsuarioSchema>;
 export type TransicionParticipacionInput = z.infer<typeof transicionParticipacionSchema>;
 export type NoticiaInput = z.infer<typeof noticiaSchema>;
-export type BannerInput = z.infer<typeof bannerSchema>;
 export type DocumentoInput = z.infer<typeof documentoSchema>;

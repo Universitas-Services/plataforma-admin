@@ -8,87 +8,75 @@ web
 
 ## Users
 
-- **Personal de cada alcaldía**, en oficinas municipales:
-  - **Administrador de la alcaldía:** configura la marca en su primer ingreso, invita al equipo, gestiona catálogos y fases, y consulta la bitácora y los ciudadanos.
-  - **Operador:** publica noticias, banners y documentos.
-  - **Revisor:** evalúa las opiniones y propuestas de la ciudadanía, cotejando los documentos de identidad del autor.
+- **Personal de la Alcaldía del Municipio Iribarren**, en oficinas municipales:
+  - **Admin de la alcaldía:** invita al equipo, consulta los catálogos, la bitácora, los ciudadanos y todos los indicadores.
+  - **Operador:** publica noticias y documentos, elige lo que muestra el Inicio del portal (mensaje del alcalde y anuncios) y mantiene las fases del proceso.
+  - **Revisor:** decide sobre las propuestas formales (verificar, rechazar con motivo, publicar) y publica o despublica las opiniones; ve la ubicación de cada propuesta en el mapa.
   - Una misma persona puede ser Operador y Revisor.
-- **Equipo de la plataforma:**
-  - **Super Admin:** gestiona Representantes, integraciones y configuración global.
-  - **Representantes de AVIPRI y Universitas:** crean y administran alcaldías y portales, operan dentro de cualquier alcaldía y ven la bitácora de todas.
+- **Super Admin:** existe en cada panel de alcaldía con todos los permisos (y aparte en el proyecto central de registro). Opera con una franja visible que lo recuerda.
 - Trabajan sobre todo en monitores de distintos tamaños y en tablet, y a veces en el teléfono. El panel debe ser altamente responsivo.
 
 ## Product Purpose
 
-Panel interno de una plataforma multi-alcaldía de participación ciudadana. Cada alcaldía tiene su portal ciudadano (el primero es PDUL YA, de Iribarren), donde la gente se informa y envía opiniones y propuestas con folio. Desde este panel, cada alcaldía:
+Panel interno de PDUL YA, el portal de participación ciudadana de Iribarren, donde la gente se informa y envía opiniones y propuestas con folio. Desde este panel, la alcaldía:
 
-- publica el contenido de su portal;
-- evalúa los aportes (aprobar, rechazar con motivo, publicar);
-- gestiona a su equipo y su marca.
+- publica el contenido del portal y elige lo administrable del Inicio;
+- evalúa los aportes y publica los que van al portal;
+- gestiona a su equipo;
+- mide la participación y el alcance de su contenido.
 
-La plataforma da de alta y supervisa las alcaldías.
-
-El éxito es que un revisor despache su bandeja con criterio y trazabilidad, y que una alcaldía nueva quede operando sin ayuda técnica.
+Cada alcaldía tiene su propia API, su base de datos y su panel. El éxito es que un revisor despache su bandeja con criterio y trazabilidad, y que la alcaldía entienda, con cifras, cómo responde la ciudadanía.
 
 ## Positioning
 
-- Es un solo panel para todas las alcaldías: la interfaz base es neutra (la marca de la plataforma) y cada alcaldía aplica su propia capa de marca (logo, colores y lema), que su administrador configura en el onboarding.
+- Un panel por alcaldía, entregado ya personalizado: la identidad es la del portal ciudadano y no se configura desde la aplicación. Otra alcaldía es otro despliegue con su `src/config/alcaldia.ts`.
 - Cada acción queda en una bitácora verificable.
 
 ## Operating Context
 
 - **Flujo del MVP:**
-  1. La plataforma crea la alcaldía.
-  2. El administrador acepta la invitación y completa el asistente de marca.
-  3. El administrador invita a operadores y revisores.
-  4. Los operadores publican.
-  5. Llegan participaciones desde el portal.
-  6. El revisor las pasa a revisión, confirma la identidad, aprueba o rechaza, y publica.
-- La alcaldía en uso se elige con «Operando en: X» para los roles de plataforma y para el personal de varias alcaldías.
+  1. El equipo técnico despliega el panel con los catálogos y el Admin.
+  2. El Admin invita a operadores y revisores.
+  3. Los operadores publican y eligen lo que muestra el Inicio.
+  4. Llegan participaciones desde el portal.
+  5. El revisor publica opiniones y decide sobre las propuestas formales.
+  6. El tablero muestra los indicadores por rol, con rango de fechas y CSV.
 
 ## Capabilities and Constraints
 
-- **Stack:** Next.js 16 (App Router, Cache Components), React 19, Tailwind 4, Zod 4, Vitest y Playwright.
+- **Stack:** Next.js 16 (App Router, Cache Components), React 19, Tailwind 4, Zod 4, Leaflet, Vitest y Playwright.
 - **Acceso:** Server Actions con redirecciones _replace_, `proxy.ts` y comprobación de permisos en el servidor.
-- **API:** `plataforma-api` (NestJS) la hace otra persona. Mientras tanto, el panel usa una API simulada en memoria con la forma de los endpoints del backlog.
-- **Perfil del ciudadano:** queda verificado automáticamente al completar sus documentos. El revisor no verifica perfiles; solo evalúa cada aporte y coteja los documentos del autor.
-- **Estados de participación:** PENDIENTE → EN_REVISION → APROBADA o RECHAZADA, con motivo de catálogo y texto de al menos 20 caracteres. APROBADA → PUBLICADA, solo con nombre autorizado, y se puede despublicar.
-- **El contenido debe cubrir lo que muestra el portal:**
-  - noticias en 5 formatos (texto, imagen, galería, documento PDF y video de archivo, YouTube o Instagram), con puntos de análisis, botón opcional, destacada, alt obligatorio y crédito de fotos;
-  - banners con vigencia y orden;
-  - documentos con versiones y estado borrador u oficial.
+- **API:** la API de la alcaldía la hace otra persona. Mientras tanto, el panel usa una API simulada en memoria con la forma del backlog de refactorización.
+- **Perfil del ciudadano:** queda verificado automáticamente al completar sus documentos. El revisor no verifica perfiles.
+- **Estados de participación:**
+  - propuesta formal: Pendiente o En revisión → Verificada (APROBADA) o Rechazada, con motivo de catálogo y texto de 20+ caracteres; Verificada → Publicada, y se puede despublicar;
+  - opinión: Pendiente («Recibida» en el portal) ↔ Publicada;
+  - publicar exige que el autor haya autorizado su nombre.
+- **Contenido:** noticias en 5 formatos (texto, imagen, galería, documento PDF y video), documentos con versiones, el Inicio del portal (mensaje del alcalde y anuncios) y las fases del proceso. Conoce el PDUL y el resto del Inicio son fijos.
+- **Catálogos:** fijos por despliegue; el panel solo los muestra.
 - **Seguridad:** bloqueo tras 5 intentos durante 15 minutos, invitaciones de un uso válidas 72 h, cambiar la contraseña y cerrar todas las sesiones.
-- **Validación compartida:** `src/lib/validation/common.ts` es idéntico al del portal (cédula, RIF, teléfono, correo, contraseña y archivos).
-- **Sin decidir:**
-  - el flujo de un usuario interno con varias alcaldías (lo resuelve el backend);
-  - las integraciones y la configuración global del Super Admin, que no tienen pantalla definida.
+- **Validación compartida:** `src/lib/validation/common.ts` es idéntico al del portal.
 
 ## Brand Commitments
 
-- **Marca neutra de la plataforma:** «Plataforma de Participación Ciudadana».
-  - Logos en `public/marca/`, originales en `Downloads/Plataforma-Participacion-Ciudadana_logos`.
-  - Isotipo: dos burbujas de diálogo; la principal lleva un check.
-  - Colores: azul institucional #1F3864, turquesa #17A398, gris azulado #4B5B7C y blanco.
-  - Tipografía del logo: Poppins.
-  - Versión blanca sobre fondos oscuros. Tamaños mínimos: isotipo 24 px y horizontal 160 px. No deformar, recolorear ni añadir sombras.
-- **Capa de alcaldía:** dentro de una alcaldía con onboarding completo, el panel usa su logo, sus colores primario y secundario y su lema. La marca de la plataforma queda por encima solo en los flujos de plataforma, el inicio de sesión y el asistente.
+- **Identidad de PDUL YA**, la misma del portal: rojo #E11D48, noche #2E134D, morado, naranja y amarillo; Montserrat para títulos y Roboto para texto; logos de PDUL YA y de la Alcaldía en `public/brand/`, copiados del portal.
+- Se conserva la estructura del panel («Línea y estación»).
 - **Voz:** español de Venezuela, claro, institucional y cercano. Sin jerga técnica hacia el personal municipal.
 
 ## Evidence on Hand
 
-- Logos de la plataforma: el set completo con su LEEME.
-- Marca de Iribarren: el rojo #c32026 y el resto de los tokens en `portal-iribarren/src/app/globals.css`.
-- Documentos del cliente: backlog técnico (sección 2), SRS, flujo esperado del MVP y propuesta de gestión ciudadana.
-- No hay datos reales de alcaldías, personal ni participaciones. Los fixtures son de demostración y deben rotularse como tales.
+- Marca: tokens en `portal-iribarren/src/app/globals.css` y logos en `portal-iribarren/public/brand/`.
+- Documentos del cliente: backlog de refactorización (API y admin), backlog técnico, SRS y propuesta de gestión ciudadana.
+- No hay datos reales de personal, participaciones ni métricas. Los fixtures son de demostración y se rotulan como tales.
 
 ## Product Principles
 
-1. **Neutro por defecto, propio por alcaldía:** nada de la interfaz base debe chocar con la marca que cada alcaldía elija.
-2. **Cada rol ve solo lo suyo:** el menú, las rutas y las acciones salen de los permisos, y el servidor los vuelve a comprobar siempre.
-3. **Trazabilidad visible:** estados, motivos, historial y bitácora a la vista.
-4. **Despachar rápido sin errores:** densidad útil, filtros en la URL y confirmación antes de lo irreversible.
+1. **Cada rol ve solo lo suyo:** el menú, las rutas, las acciones y los indicadores salen de los permisos, y el servidor los vuelve a comprobar siempre.
+2. **Trazabilidad visible:** estados, motivos, historial y bitácora a la vista.
+3. **Despachar rápido sin errores:** densidad útil, filtros en la URL y confirmación antes de lo irreversible.
+4. **Cifras honestas:** cada gráfico tiene su tabla y dice qué rango mide.
 5. **Funciona en cualquier pantalla:** monitor, tablet y teléfono.
 
 ## Accessibility & Inclusion
 
-WCAG 2.1 AA, igual que el portal. El contraste de los colores que elige cada alcaldía se valida en el onboarding y se compensa en la interfaz.
+WCAG 2.1 AA, igual que el portal. Los gráficos se recorren con el teclado y tienen su tabla equivalente.

@@ -13,7 +13,7 @@ export default function IngresarPage({ searchParams }: { searchParams: SearchPar
   return (
     <MarcoAcceso
       titulo="Iniciar sesión"
-      bajada="Panel interno para el equipo de la plataforma y de cada alcaldía."
+      bajada="Panel interno del equipo de la Alcaldía de Iribarren."
     >
       <Suspense fallback={<EsqueletoFormulario campos={2} />}>
         <Contenido searchParams={searchParams} />

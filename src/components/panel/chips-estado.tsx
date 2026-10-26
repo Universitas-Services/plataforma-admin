@@ -33,7 +33,7 @@ export function ChipsEstado<E extends string = EstadoChip>({
   /** Otros filtros de la URL que se mantienen al cambiar de estado. */
   conservar?: Record<string, string | undefined>;
   final?: string;
-  /** Nombre del parámetro de la URL (banners usan «vigencia»). */
+  /** Nombre del parámetro de la URL (por omisión, «estado»). */
   parametro?: string;
 }) {
   const href = (e: E) => {

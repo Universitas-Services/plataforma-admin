@@ -5,11 +5,12 @@ import { usePathname } from "next/navigation";
 
 const PESTANAS = [
   { href: "/contenido/noticias", texto: "Noticias" },
-  { href: "/contenido/banners", texto: "Banners" },
   { href: "/contenido/documentos", texto: "Documentos" },
+  { href: "/contenido/inicio", texto: "Inicio del portal" },
+  { href: "/contenido/proceso", texto: "Proceso" },
 ] as const;
 
-/** Secciones de Contenido: noticias, banners del Inicio y repositorio de documentos. */
+/** Secciones de Contenido: noticias, documentos, lo que muestra el Inicio y el proceso. */
 export function PestanasContenido() {
   const ruta = usePathname();
   return (

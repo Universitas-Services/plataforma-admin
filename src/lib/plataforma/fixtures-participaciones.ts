@@ -1,8 +1,9 @@
 import type { ArchivoAporte, Participacion, PasoParticipacion } from "./tipos";
 
 /*
- * Participaciones de ejemplo (no son reales) para la bandeja del Revisor. Los autores y los
- * textos son ficticios; las fotos son de Wikimedia Commons (créditos en public/ejemplos).
+ * Participaciones de ejemplo (no son reales) para la bandeja del Revisor. Los autores, los
+ * textos y los puntos del mapa son ficticios (puntos aproximados dentro de Iribarren); las fotos
+ * son de Wikimedia Commons (créditos en public/ejemplos).
  */
 
 const HORA = 3_600_000;
@@ -61,6 +62,7 @@ export function participacionesDemo(ahora: number): Participacion[] {
       folio: "IRI-2026-0031",
       alcaldiaId: "iribarren",
       tipo: "PROPUESTA_FORMAL",
+      ubicacion: { lat: 10.0661, lng: -69.3209 },
       parroquia: "Catedral",
       sector: "Centro histórico, avenida 20",
       categoriaTecnica: "Vialidad y Transporte",
@@ -127,13 +129,14 @@ export function participacionesDemo(ahora: number): Participacion[] {
       },
       historial: pasos(ahora, [
         ["PENDIENTE", 6 * 24],
-        ["EN_REVISION", 4 * 24 + 2, "Se asigna a la mesa de equipamiento urbano."],
+        ["PUBLICADA", 4 * 24 + 2],
       ]),
     },
     {
       folio: "IRI-2026-0040",
       alcaldiaId: "iribarren",
       tipo: "PROPUESTA_FORMAL",
+      ubicacion: { lat: 10.0716, lng: -69.2868 },
       parroquia: "Concepción",
       sector: "Avenida Lara",
       categoriaTecnica: "Zonificación y Uso de Suelo",
@@ -158,10 +161,7 @@ export function participacionesDemo(ahora: number): Participacion[] {
       video: { fuente: "INSTAGRAM", url: "https://www.instagram.com/p/DdS3mOfFocQ/" },
       mostrarNombre: true,
       autor: natural("Rosa Gutiérrez", "E-81234567", "rosa@ejemplo.com", "0412-5550303"),
-      historial: pasos(ahora, [
-        ["PENDIENTE", 2 * 24],
-        ["EN_REVISION", 26],
-      ]),
+      historial: pasos(ahora, [["PENDIENTE", 2 * 24]]),
     },
     {
       folio: "IRI-2026-0045",
@@ -181,6 +181,7 @@ export function participacionesDemo(ahora: number): Participacion[] {
       folio: "IRI-2026-0021",
       alcaldiaId: "iribarren",
       tipo: "PROPUESTA_FORMAL",
+      ubicacion: { lat: 10.0843, lng: -69.3355 },
       parroquia: "Unión",
       sector: "Barrio El Garabatal",
       categoriaTecnica: "Equipamiento Urbano",
@@ -212,20 +213,13 @@ export function participacionesDemo(ahora: number): Participacion[] {
       imagenes: [],
       mostrarNombre: false,
       autor: natural("Pedro Álvarez", "V-15555444", "pedro@ejemplo.com", "0414-5550606"),
-      historial: pasos(ahora, [
-        ["PENDIENTE", 14 * 24],
-        ["EN_REVISION", 12 * 24],
-        [
-          "APROBADA",
-          9 * 24,
-          "Se remite al equipo de movilidad. No se publica porque no autorizaste mostrar tu nombre.",
-        ],
-      ]),
+      historial: pasos(ahora, [["PENDIENTE", 14 * 24]]),
     },
     {
       folio: "IRI-2026-0015",
       alcaldiaId: "iribarren",
       tipo: "PROPUESTA_FORMAL",
+      ubicacion: { lat: 10.1418, lng: -69.3731 },
       parroquia: "Buena Vista",
       sector: "Vía a Duaca",
       categoriaTecnica: "Zonificación y Uso de Suelo",
@@ -245,12 +239,8 @@ export function participacionesDemo(ahora: number): Participacion[] {
     {
       folio: "IRI-2026-0012",
       alcaldiaId: "iribarren",
-      tipo: "OPINION_NOTICIA",
-      noticia: {
-        slug: "vision-de-futuro-conversacion-publica",
-        titulo:
-          "El nuevo PDUL como espacio de conversación pública, técnica y participativa para Barquisimeto",
-      },
+      tipo: "PROPUESTA_FORMAL",
+      ubicacion: { lat: 10.0352, lng: -69.3168 },
       parroquia: "Águedo Felipe Alvarado",
       sector: "Sector Las Tunas",
       categoriaTecnica: "Patrimonio y Renovación Urbana",
@@ -273,20 +263,6 @@ export function participacionesDemo(ahora: number): Participacion[] {
             "La definición de alturas corresponde a la Fase III (construcción del plan). Te invitamos a enviarla de nuevo cuando se abra esa fase.",
         },
       ],
-    },
-    {
-      folio: "JIM-2026-0004",
-      alcaldiaId: "jimenez",
-      tipo: "OPINION_GENERAL",
-      parroquia: "Juan Bautista Rodríguez",
-      sector: "Quíbor centro",
-      categoriaTecnica: "Servicios Públicos y Redes",
-      descripcion:
-        "El alumbrado de la plaza Bolívar de Quíbor está apagado desde hace meses. (Ejemplo)",
-      imagenes: [],
-      mostrarNombre: true,
-      autor: natural("Luisa Querales", "V-18222333", "luisa@ejemplo.com", "0414-5550909"),
-      historial: pasos(ahora, [["PENDIENTE", 30]]),
     },
   ];
   return lista.map(armar);

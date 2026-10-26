@@ -1,14 +1,11 @@
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { permisosDe, rolesEn, seccionesDe } from "./permisos";
-import { evaluarMarca } from "@/lib/marca";
+import { ALCALDIA } from "@/config/alcaldia";
+import { permisosDe, rolesDe, seccionesDe } from "./permisos";
 import {
-  TIPOS_LOGO,
   type Alcaldia,
   type Almacen,
   type EventoBitacora,
-  type MarcaAlcaldia,
   type RolAlcaldia,
-  type TipoLogo,
   type TipoToken,
   type UsuarioInterno,
 } from "./tipos";
@@ -31,11 +28,12 @@ export const crearAlmacen = (): Almacen => ({
   tokens: new Map(),
   sesiones: new Map(),
   bitacora: [],
-  logos: new Map(),
   participaciones: new Map(),
   noticias: new Map(),
   medios: new Map(),
-  banners: new Map(),
+  inicio: { anuncios: [] },
+  interacciones: new Map(),
+  descargas: new Map(),
   documentos: new Map(),
   ciudadanos: new Map(),
   catalogos: new Map(),
@@ -169,19 +167,18 @@ export function iniciarSesion(
   u.bloqueadoHasta = undefined;
 
   const sesion = nuevoId();
-  // Con una sola alcaldía, se entra directo a ella; con varias, se elige.
-  const propias = alcaldiasDe(alm, u);
-  const unica = !u.rolPlataforma && propias.length === 1 ? propias[0] : undefined;
-  alm.sesiones.set(sesion, { usuarioId: u.id, alcaldiaId: unica?.id });
-  registrar(alm, { actorId: u.id, accion: "INICIO_SESION", entidad: "sesion" }, ahora);
-  return { estado: "OK", sesion, destino: destinoDe(u, unica) };
-}
-
-/** A dónde va cada quien al entrar o al cambiar de alcaldía (backlog 2.3). */
-function destinoDe(u: UsuarioInterno, alcaldia?: Alcaldia) {
-  if (!alcaldia) return u.rolPlataforma ? "/plataforma" : "/alcaldia";
-  const configura = !!u.rolPlataforma || rolesEn(u, alcaldia.id).includes("ADMIN");
-  return alcaldia.estado === "ONBOARDING_PENDIENTE" && configura ? "/onboarding" : "/tablero";
+  alm.sesiones.set(sesion, { usuarioId: u.id });
+  registrar(
+    alm,
+    {
+      actorId: u.id,
+      // El Super Admin entra a operar la alcaldía: queda a la vista en la bitácora.
+      accion: u.rolPlataforma ? "OPERAR_COMO_SUPER_ADMIN" : "INICIO_SESION",
+      entidad: "sesion",
+    },
+    ahora,
+  );
+  return { estado: "OK", sesion, destino: "/tablero" };
 }
 
 export function cerrarSesion(alm: Almacen, sesion?: string) {
@@ -206,64 +203,28 @@ export function cerrarTodas(alm: Almacen, sesion?: string) {
 
 /* ---------- Contexto de la sesión ---------- */
 
-/** Alcaldías a las que puede entrar: todas para la plataforma, sus membresías activas si no. */
-export function alcaldiasDe(alm: Almacen, u: UsuarioInterno): Alcaldia[] {
-  const todas = [...alm.alcaldias.values()];
-  if (u.rolPlataforma) return todas;
-  const ids = new Set(u.membresias.filter((m) => m.activa).map((m) => m.alcaldiaId));
-  return todas.filter((a) => ids.has(a.id) && a.estado !== "SUSPENDIDA");
-}
+/** La alcaldía de este despliegue (una sola: una API y una base de datos por alcaldía). */
+export const alcaldiaDe = (alm: Almacen): Alcaldia =>
+  alm.alcaldias.get(ALCALDIA.id) ?? {
+    id: ALCALDIA.id,
+    sigla: ALCALDIA.sigla,
+    nombre: ALCALDIA.nombre,
+  };
 
 export function contextoDe(alm: Almacen, sesion?: string) {
   const s = sesion ? alm.sesiones.get(sesion) : undefined;
   const u = s ? alm.usuarios.get(s.usuarioId) : undefined;
   if (!s || !u || !u.activo) return null;
-  const alcaldia = s.alcaldiaId ? alm.alcaldias.get(s.alcaldiaId) : undefined;
   return {
     usuario: u,
-    alcaldia,
-    roles: rolesEn(u, alcaldia?.id),
-    permisos: permisosDe(u, alcaldia?.id),
-    secciones: seccionesDe(u, alcaldia?.id),
-    alcaldias: alcaldiasDe(alm, u),
+    alcaldia: alcaldiaDe(alm),
+    roles: rolesDe(u),
+    permisos: permisosDe(u),
+    secciones: seccionesDe(u),
   };
 }
 
 export type Contexto = NonNullable<ReturnType<typeof contextoDe>>;
-
-export type ResultadoElegir =
-  { estado: "OK"; destino: string } | { estado: "SIN_ACCESO" } | { estado: "SIN_SESION" };
-
-/**
- * Entrar a operar en una alcaldía. Para Super Admin y Representantes queda en la bitácora
- * (RF-PLA-07): es la cabecera X-Tenant-Id de la API.
- */
-export function elegirAlcaldia(
-  alm: Almacen,
-  sesion: string | undefined,
-  alcaldiaId: string,
-  ahora = Date.now(),
-): ResultadoElegir {
-  const s = sesion ? alm.sesiones.get(sesion) : undefined;
-  const u = s ? alm.usuarios.get(s.usuarioId) : undefined;
-  if (!s || !u) return { estado: "SIN_SESION" };
-  const a = alcaldiasDe(alm, u).find((x) => x.id === alcaldiaId);
-  if (!a) return { estado: "SIN_ACCESO" };
-  s.alcaldiaId = a.id;
-  if (u.rolPlataforma)
-    registrar(
-      alm,
-      { actorId: u.id, alcaldiaId: a.id, accion: "OPERAR_EN_ALCALDIA", entidad: "alcaldia" },
-      ahora,
-    );
-  return { estado: "OK", destino: destinoDe(u, a) };
-}
-
-/** Vuelve a la vista de plataforma (solo roles de plataforma). */
-export function salirDeAlcaldia(alm: Almacen, sesion?: string) {
-  const s = sesion ? alm.sesiones.get(sesion) : undefined;
-  if (s) s.alcaldiaId = undefined;
-}
 
 /* ---------- Contraseña ---------- */
 
@@ -323,14 +284,13 @@ export function verInvitacion(alm: Almacen, token: string, ahora = Date.now()) {
   if (r.estado === "INVALIDO") return { estado: r.estado };
   const u = alm.usuarios.get(r.t.usuarioId);
   if (!u) return { estado: "INVALIDO" as const };
-  const m = u.membresias[0];
   // Un enlace «usado» de una cuenta aún sin activar fue reemplazado por otro más nuevo.
   const estado = r.estado === "USADO" && !u.hash ? ("REEMPLAZADA" as const) : r.estado;
   return {
     estado,
     correo: u.correo,
-    alcaldia: m ? alm.alcaldias.get(m.alcaldiaId)?.nombre : undefined,
-    roles: (m?.roles ?? []) as RolAlcaldia[],
+    alcaldia: alcaldiaDe(alm).nombre,
+    roles: u.roles as RolAlcaldia[],
     rolPlataforma: u.rolPlataforma,
   };
 }
@@ -399,186 +359,3 @@ export function restablecer(
   registrar(alm, { actorId: u.id, accion: "RESTABLECER_CONTRASENA", entidad: "usuario" }, ahora);
   return "OK";
 }
-
-/* ---------- Onboarding de la alcaldía (backlog 2.6) ---------- */
-
-export const MAX_LOGO = 1024 * 1024;
-export const MAX_LEMA = 120;
-
-type Configurable =
-  | { estado: "OK"; usuario: UsuarioInterno; alcaldia: Alcaldia }
-  | { estado: "SIN_SESION" }
-  | { estado: "SIN_PERMISO" };
-
-/** Configura la marca el administrador de la alcaldía, o la plataforma operando en ella. */
-function configurable(alm: Almacen, sesion?: string): Configurable {
-  const s = sesion ? alm.sesiones.get(sesion) : undefined;
-  const u = s ? alm.usuarios.get(s.usuarioId) : undefined;
-  const a = s?.alcaldiaId ? alm.alcaldias.get(s.alcaldiaId) : undefined;
-  if (!u || !a) return { estado: "SIN_SESION" };
-  if (!u.rolPlataforma && !rolesEn(u, a.id).includes("ADMIN")) return { estado: "SIN_PERMISO" };
-  return { estado: "OK", usuario: u, alcaldia: a };
-}
-
-/** Comprueba el tipo real por la firma del archivo, no solo por lo que declara el navegador. */
-export function tipoReal(bytes: Uint8Array): TipoLogo | undefined {
-  const b = (i: number) => bytes[i] ?? -1;
-  if (b(0) === 0x89 && b(1) === 0x50 && b(2) === 0x4e && b(3) === 0x47) return "image/png";
-  if (b(0) === 0xff && b(1) === 0xd8 && b(2) === 0xff) return "image/jpeg";
-  const inicio = new TextDecoder().decode(bytes.slice(0, 512)).trimStart().toLowerCase();
-  if ((inicio.startsWith("<?xml") || inicio.startsWith("<svg")) && inicio.includes("<svg"))
-    return "image/svg+xml";
-  return undefined;
-}
-
-export type ResultadoLogo =
-  { estado: "OK" } | { estado: "SIN_SESION" | "SIN_PERMISO" | "VACIO" | "MUY_GRANDE" | "FORMATO" };
-
-export function guardarLogo(
-  alm: Almacen,
-  sesion: string | undefined,
-  bytes: Uint8Array,
-  ahora = Date.now(),
-): ResultadoLogo {
-  const c = configurable(alm, sesion);
-  if (c.estado !== "OK") return c;
-  if (!bytes.length) return { estado: "VACIO" };
-  if (bytes.length > MAX_LOGO) return { estado: "MUY_GRANDE" };
-  const tipo = tipoReal(bytes);
-  if (!tipo || !TIPOS_LOGO.includes(tipo)) return { estado: "FORMATO" };
-  const a = c.alcaldia;
-  const version = (a.borradorMarca?.logo?.version ?? a.marca?.logo?.version ?? 0) + 1;
-  alm.logos.set(`${a.id}:borrador`, bytes);
-  a.borradorMarca = { ...a.borradorMarca, logo: { tipo, tamano: bytes.length, version } };
-  registrar(
-    alm,
-    {
-      actorId: c.usuario.id,
-      alcaldiaId: a.id,
-      accion: "MARCA_LOGO",
-      entidad: "alcaldia",
-      despues: { tipo, tamano: bytes.length },
-    },
-    ahora,
-  );
-  return { estado: "OK" };
-}
-
-export type ResultadoColores =
-  | { estado: "OK" }
-  | { estado: "SIN_SESION" | "SIN_PERMISO" }
-  | { estado: "CONTRASTE"; sugerencia: string };
-
-export function guardarColores(
-  alm: Almacen,
-  sesion: string | undefined,
-  primario: string,
-  secundario?: string,
-  ahora = Date.now(),
-): ResultadoColores {
-  const c = configurable(alm, sesion);
-  if (c.estado !== "OK") return c;
-  const e = evaluarMarca(primario);
-  if (!e.ok) return { estado: "CONTRASTE", sugerencia: e.sugerencia! };
-  const a = c.alcaldia;
-  a.borradorMarca = {
-    ...a.borradorMarca,
-    primario: primario.toUpperCase(),
-    secundario: secundario ? secundario.toUpperCase() : undefined,
-  };
-  registrar(
-    alm,
-    {
-      actorId: c.usuario.id,
-      alcaldiaId: a.id,
-      accion: "MARCA_COLORES",
-      entidad: "alcaldia",
-      despues: { primario, secundario },
-    },
-    ahora,
-  );
-  return { estado: "OK" };
-}
-
-export function guardarLema(
-  alm: Almacen,
-  sesion: string | undefined,
-  lema: string,
-  ahora = Date.now(),
-) {
-  const c = configurable(alm, sesion);
-  if (c.estado !== "OK") return c;
-  const limpio = lema.trim().replace(/\s+/g, " ");
-  if (limpio.length > MAX_LEMA) return { estado: "MUY_LARGO" as const };
-  c.alcaldia.borradorMarca = { ...c.alcaldia.borradorMarca, lema: limpio || undefined };
-  registrar(
-    alm,
-    {
-      actorId: c.usuario.id,
-      alcaldiaId: c.alcaldia.id,
-      accion: "MARCA_LEMA",
-      entidad: "alcaldia",
-      despues: { lema: limpio },
-    },
-    ahora,
-  );
-  return { estado: "OK" as const };
-}
-
-/** Qué falta para poder confirmar (logo y color primario son obligatorios). */
-export function faltanteOnboarding(a: Alcaldia): "logo" | "colores" | undefined {
-  if (!a.borradorMarca?.logo) return "logo";
-  if (!a.borradorMarca.primario) return "colores";
-  return undefined;
-}
-
-export type ResultadoCompletar =
-  | { estado: "OK" }
-  | { estado: "SIN_SESION" | "SIN_PERMISO" | "YA_ACTIVA" }
-  | { estado: "FALTA"; paso: "logo" | "colores" };
-
-/** Confirma el asistente: la marca entra en vigor y la alcaldía queda ACTIVA (con bitácora). */
-export function completarOnboarding(
-  alm: Almacen,
-  sesion?: string,
-  ahora = Date.now(),
-): ResultadoCompletar {
-  const c = configurable(alm, sesion);
-  if (c.estado !== "OK") return c;
-  const a = c.alcaldia;
-  if (a.estado !== "ONBOARDING_PENDIENTE") return { estado: "YA_ACTIVA" };
-  const falta = faltanteOnboarding(a);
-  if (falta) return { estado: "FALTA", paso: falta };
-  const antes = { estado: a.estado, marca: a.marca };
-  a.marca = { ...(a.borradorMarca as MarcaAlcaldia) };
-  a.borradorMarca = undefined;
-  a.estado = "ACTIVA";
-  const bytes = alm.logos.get(`${a.id}:borrador`);
-  if (bytes) alm.logos.set(a.id, bytes);
-  alm.logos.delete(`${a.id}:borrador`);
-  registrar(
-    alm,
-    {
-      actorId: c.usuario.id,
-      alcaldiaId: a.id,
-      accion: "ONBOARDING_COMPLETADO",
-      entidad: "alcaldia",
-      antes,
-      despues: { estado: a.estado, marca: a.marca },
-    },
-    ahora,
-  );
-  return { estado: "OK" };
-}
-
-/** Bytes y tipo del logo de una alcaldía (vigente o borrador). */
-export function logoDe(alm: Almacen, alcaldiaId: string, borrador = false) {
-  const a = alm.alcaldias.get(alcaldiaId);
-  const meta = borrador ? a?.borradorMarca?.logo : a?.marca?.logo;
-  const bytes = alm.logos.get(borrador ? `${alcaldiaId}:borrador` : alcaldiaId);
-  return meta && bytes ? { meta, bytes } : undefined;
-}
-
-/** URL del logo de una alcaldía (vigente o del borrador), con la versión para la caché. */
-export const urlLogo = (alcaldiaId: string, version: number, borrador = false) =>
-  `/logos/${alcaldiaId}?${borrador ? "borrador=1&" : ""}v=${version}`;

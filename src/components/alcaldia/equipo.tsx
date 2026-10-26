@@ -15,7 +15,7 @@ import type { RolAlcaldia } from "@/lib/plataforma/tipos";
 import { claseBoton, claseCampo, EnlaceDemo, ErrorCampo, Etiqueta, useRespuesta } from "./comunes";
 
 const ROLES = [
-  { valor: "OPERADOR", texto: "Operador", detalle: "Noticias, banners y documentos" },
+  { valor: "OPERADOR", texto: "Operador", detalle: "Noticias, documentos, Inicio y proceso" },
   { valor: "REVISOR", texto: "Revisor", detalle: "Verifica, rechaza y publica los aportes" },
 ] as const;
 

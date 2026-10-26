@@ -86,7 +86,7 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
           </Link>
         }
       >
-        Puede que no exista o que sea de otra alcaldía.
+        Puede que no exista o que se haya eliminado.
       </EstadoVacio>
     );
   }

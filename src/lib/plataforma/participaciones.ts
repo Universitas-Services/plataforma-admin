@@ -13,9 +13,13 @@ import {
 
 /*
  * Bandeja del Revisor (backlog 2.10) sobre la API simulada. Lógica pura: se prueba con Vitest.
- * Máquina de estados de la Propuesta v3 (5.1), con la decisión directa que pidió el cliente:
- * Pendiente o En revisión → Verificada (APROBADA) o Rechazada; Verificada → Publicada (solo si
- * el autor autorizó mostrar su nombre) o Rechazada; Publicada → Verificada al despublicar.
+ * Dos máquinas de estado, como el portal (decisión del cliente, 23-10-2026):
+ * - Propuesta formal (v3, 5.1), con la decisión directa que pidió el cliente: Pendiente o En
+ *   revisión → Verificada (APROBADA) o Rechazada; Verificada → Publicada o Rechazada; Publicada →
+ *   Verificada al despublicar.
+ * - Opinión (general o sobre una noticia): sin seguimiento. Queda en PENDIENTE —el portal la
+ *   muestra como «Recibida»— y el Revisor la publica o la despublica.
+ * Publicar exige, en los dos casos, que el autor haya autorizado mostrar su nombre.
  */
 
 const DIA = 86_400_000;
@@ -127,8 +131,13 @@ export function bandeja(alm: Almacen, alcaldiaId: string, f: FiltrosBandeja = {}
     );
 }
 
+/** Solo la propuesta formal tiene seguimiento con respuesta (en revisión, verificada, rechazada). */
+export const tieneSeguimiento = (tipo: TipoParticipacion) => tipo === "PROPUESTA_FORMAL";
+
 /** Transiciones que el Revisor puede ejecutar desde el estado actual. */
 export function transicionesValidas(p: Participacion): EstadoParticipacion[] {
+  if (!tieneSeguimiento(p.tipo))
+    return p.estado === "PENDIENTE" ? ["PUBLICADA"] : p.estado === "PUBLICADA" ? ["PENDIENTE"] : [];
   switch (p.estado) {
     case "PENDIENTE":
       return ["EN_REVISION", "APROBADA", "RECHAZADA"];

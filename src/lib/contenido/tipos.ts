@@ -181,44 +181,6 @@ export type Medio = {
 
 export const urlMedio = (id: string) => `/medios/${id}`;
 
-/* ---------- Banners del Inicio (backlog 1.14) ---------- */
-
-/** Tonos del portal: «rojo» es el color de marca de la alcaldía; «tinta», oscuro; «cálido», claro. */
-export const TONOS_BANNER = ["rojo", "tinta", "calido"] as const;
-export type TonoBanner = (typeof TONOS_BANNER)[number];
-
-export const NOMBRE_TONO: Record<TonoBanner, string> = {
-  rojo: "Color de la alcaldía",
-  tinta: "Oscuro",
-  calido: "Claro cálido",
-};
-
-export type Banner = {
-  id: string;
-  alcaldiaId: string;
-  titulo: string;
-  texto: string;
-  enlace: { href: string; etiqueta: string };
-  tono: TonoBanner;
-  imagen?: Imagen;
-  /** Posición en el carrusel, de menor a mayor. */
-  orden: number;
-  /** Días «AAAA-MM-DD» (hora de Venezuela), ambos incluidos; sin uno, no hay ese límite. */
-  vigencia?: { desde?: string; hasta?: string };
-  creadoEl: string;
-  actualizadoEl: string;
-  eliminadoEl?: string;
-  ejemplo?: boolean;
-};
-
-export type CamposBanner = Pick<
-  Banner,
-  "titulo" | "texto" | "enlace" | "tono" | "imagen" | "vigencia"
->;
-
-export const VIGENCIAS = ["VIGENTE", "FUTURO", "VENCIDO"] as const;
-export type Vigencia = (typeof VIGENCIAS)[number];
-
 /* ---------- Repositorio de documentos (backlog 1.15) ---------- */
 
 export const DOC_CATEGORIAS = [

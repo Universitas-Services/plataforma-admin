@@ -1,5 +1,5 @@
 import { permisosDe } from "./permisos";
-import { idSecuencial, nombreCompleto, nuevoId, registrar } from "./servicio";
+import { alcaldiaDe, idSecuencial, nombreCompleto, nuevoId, registrar } from "./servicio";
 import type { Alcaldia, Almacen, UsuarioInterno } from "./tipos";
 import { sanearHtml, textoDe } from "@/lib/contenido/sanear";
 import {
@@ -30,15 +30,13 @@ export type Editor =
   | { estado: "SIN_SESION" }
   | { estado: "SIN_PERMISO" };
 
-/** Edita contenido quien tiene `contenido.editar` en la alcaldía activa (Operador o Admin). */
+/** Edita contenido quien tiene `contenido.editar` (Operador, Admin o Super Admin). */
 export function editor(alm: Almacen, sesion?: string): Editor {
   const s = sesion ? alm.sesiones.get(sesion) : undefined;
   const u = s ? alm.usuarios.get(s.usuarioId) : undefined;
-  const a = s?.alcaldiaId ? alm.alcaldias.get(s.alcaldiaId) : undefined;
-  if (!u || !u.activo || !a) return { estado: "SIN_SESION" };
-  if (a.estado !== "ACTIVA" || !permisosDe(u, a.id).has("contenido.editar"))
-    return { estado: "SIN_PERMISO" };
-  return { estado: "OK", usuario: u, alcaldia: a };
+  if (!u || !u.activo) return { estado: "SIN_SESION" };
+  if (!permisosDe(u).has("contenido.editar")) return { estado: "SIN_PERMISO" };
+  return { estado: "OK", usuario: u, alcaldia: alcaldiaDe(alm) };
 }
 
 /* ---------- Slug ---------- */
@@ -499,9 +497,8 @@ export function guardarMedio(
   return { estado: "OK", id, url: urlMedio(id), tipo, nombre: limpio, peso: bytes.length };
 }
 
-/** Un medio solo se sirve a quien opera en su alcaldía (los públicos los servirá el portal). */
+/** Un medio solo se sirve con sesión del panel (los públicos los servirá el portal). */
 export function medioDe(alm: Almacen, sesion: string | undefined, id: string) {
   const s = sesion ? alm.sesiones.get(sesion) : undefined;
-  const m = alm.medios.get(id);
-  return m && s?.alcaldiaId === m.alcaldiaId ? m : undefined;
+  return s ? alm.medios.get(id) : undefined;
 }

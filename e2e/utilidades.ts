@@ -15,18 +15,6 @@ export async function ingresar(page: Page, correo: string, contrasena = CONTRASE
 export const prohibido = (page: Page) =>
   expect(page.getByRole("heading", { name: "Esta sección no es para tu rol" })).toBeVisible();
 
-/** Color de marca aplicado al marco del panel (espera a que el marco termine de cargar). */
-export async function esperarMarca(page: Page, color: string) {
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const marco = document.querySelector<HTMLElement>("[style*='--marca']");
-        return marco?.style.getPropertyValue("--marca").trim().toUpperCase();
-      }),
-    )
-    .toBe(color);
-}
-
 /** Abre el menú del teléfono si la línea no está visible. */
 export async function abrirMenuSiHaceFalta(page: Page) {
   const boton = page.getByRole("button", { name: "Abrir el menú" });

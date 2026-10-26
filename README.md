@@ -1,6 +1,6 @@
 # plataforma-admin
 
-Panel administrativo de la plataforma de participación ciudadana multi-alcaldía. Lo usan el Super Admin, los Representantes (AVIPRI y Universitas) y el personal de cada alcaldía (administrador, Operador y Revisor). El menú se arma según los permisos del usuario y, dentro de una alcaldía, el panel toma su logo, sus colores y su lema.
+Panel administrativo de PDUL YA para la **Alcaldía del Municipio Iribarren**. Cada alcaldía tiene su propia API, su base de datos y su panel, entregado ya personalizado: los datos del despliegue (nombre, sigla, folio, límites del municipio y logos) están en [`src/config/alcaldia.ts`](src/config/alcaldia.ts), y la identidad visual es la del portal ciudadano. Lo usan el Super Admin, el Admin de la alcaldía, el Operador y el Revisor; el menú se arma según los permisos de cada uno.
 
 > **¿Retomas el proyecto en otro equipo o en una conversación nueva?** Lee primero [`docs/CONTEXTO.md`](docs/CONTEXTO.md): estado, decisiones, pendientes del portal y del admin, y el contrato supuesto con la API.
 
@@ -33,9 +33,18 @@ Al hacer commit, Husky ejecuta lint-staged: ESLint y Prettier sobre los archivos
 
 ## Panel con API simulada
 
-Mientras no exista `plataforma-api`, el panel usa una API simulada en memoria (`src/lib/plataforma/`). Se reinicia al reiniciar el servidor. Cuentas de demostración con la contraseña `Plataforma#2026`: `superadmin@plataforma.test`, `avipri@plataforma.test`, `admin@iribarren.test`, `operador@iribarren.test`, `revisor@iribarren.test`, `multi@lara.test`, `admin@palavecino.test` (onboarding pendiente) y `desactivado@iribarren.test`. Detalle en [`docs/CONTEXTO.md`](docs/CONTEXTO.md), sección 6.
+Mientras no exista la API de la alcaldía, el panel usa una API simulada en memoria (`src/lib/plataforma/`). Se reinicia al reiniciar el servidor. Cuentas de demostración con la contraseña `Plataforma#2026`:
 
-**Demo con un solo usuario:** `superadmin@plataforma.test` crea alcaldías en _Alcaldías_, abre su ficha y desde ahí entra a operar en cualquiera (tablero, noticias, participaciones, ciudadanos) con todos los permisos.
+| Correo                       | Qué puede hacer                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------- |
+| `superadmin@plataforma.test` | Todo, con la franja «Sesión de Super Admin»                                                 |
+| `admin@iribarren.test`       | Equipo, catálogos (lectura), bitácora, contenido, participaciones, ciudadanos e indicadores |
+| `operador@iribarren.test`    | Noticias, documentos, Inicio del portal y proceso                                           |
+| `revisor@iribarren.test`     | Participaciones (opiniones y propuestas, con mapa) y ciudadanos                             |
+| `equipo@iribarren.test`      | Operador y Revisor                                                                          |
+| `desactivado@iribarren.test` | Cuenta desactivada                                                                          |
+
+Detalle en [`docs/CONTEXTO.md`](docs/CONTEXTO.md), sección 6.0. Las vistas, reacciones y descargas de los indicadores son cifras de demostración.
 
 | Comando         | Qué hace                                                                                   |
 | --------------- | ------------------------------------------------------------------------------------------ |
@@ -56,7 +65,7 @@ Limitación conocida: los datos que se crean en la demo (aportes evaluados, noti
 
 ## Stack
 
-Next.js (App Router) · TypeScript · Tailwind CSS · Zod · ESLint · Prettier · Vitest. Código fuente en `src/`, con el alias `@/*`.
+Next.js (App Router) · TypeScript · Tailwind CSS · Zod · Leaflet (mapa del Revisor, teselas de OpenStreetMap) · ESLint · Prettier · Vitest · Playwright. Código fuente en `src/`, con el alias `@/*`.
 
 - **Validaciones:** `src/lib/validation/common.ts` reúne las reglas compartidas (cédula, RIF, teléfono, correo, contraseña y archivos) y debe mantenerse idéntico en `plataforma-admin` y `portal-iribarren`. Los formularios de este proyecto están en `src/lib/validation/schemas.ts`.
 - **Variables de entorno:** `src/env.ts` las valida con Zod en el servidor (`env()`), y solo se importa desde código de servidor.

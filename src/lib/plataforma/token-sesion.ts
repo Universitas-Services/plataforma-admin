@@ -10,8 +10,6 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 export type DatosSesion = {
   /** Usuario. */
   u: string;
-  /** Alcaldía en uso. */
-  a?: string;
   /** Emitida (epoch ms). */
   e: number;
   /** Vence (epoch ms). */
@@ -24,13 +22,12 @@ const firma = (cuerpo: string, secreto: string) =>
   createHmac("sha256", secreto).update(cuerpo).digest("base64url");
 
 export function firmarSesion(
-  datos: { usuarioId: string; alcaldiaId?: string },
+  datos: { usuarioId: string },
   secreto: string,
   ahora = Date.now(),
 ): string {
   const carga: DatosSesion = {
     u: datos.usuarioId,
-    a: datos.alcaldiaId,
     e: ahora,
     v: ahora + DURACION_SESION_MS,
   };

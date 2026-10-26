@@ -2,7 +2,7 @@ import { borrarContenidoDePrueba } from "@/lib/plataforma/fixtures";
 import { almacen, esDesarrollo } from "@/lib/plataforma/sesion";
 
 /*
- * Solo en desarrollo: DELETE /api/desarrollo/contenido/{banners|documentos}/{id} borra del todo
+ * Solo en desarrollo: DELETE /api/desarrollo/contenido/documentos/{id} borra del todo
  * lo que creó una prueba E2E (los ejemplos no se pueden borrar). En producción responde 404.
  */
 export async function DELETE(

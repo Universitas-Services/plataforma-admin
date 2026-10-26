@@ -105,7 +105,7 @@ export function TablaCola({
         role="region"
         aria-label={titulo}
         tabIndex={0}
-        className="hidden overflow-x-auto rounded-lg border border-linea sm:block"
+        className="relative hidden overflow-x-auto rounded-lg border border-linea sm:block"
       >
         <table className="w-full border-collapse text-left text-[0.9375rem]">
           <caption className="sr-only">{titulo}</caption>

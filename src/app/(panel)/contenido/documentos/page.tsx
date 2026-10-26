@@ -1,4 +1,4 @@
-import { FileText, Search, Upload } from "lucide-react";
+import { Download, FileText, Search, Upload } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -14,6 +14,7 @@ import { BotonEnlace, EncabezadoPagina, EstadoVacio } from "@/components/ui/piez
 import { Selector } from "@/components/ui/selector";
 import { DOC_CATEGORIAS, DOC_ESTADOS, type Documento } from "@/lib/contenido/tipos";
 import { VISIBILIDADES, listarDocumentos } from "@/lib/plataforma/documentos";
+import { totalesDe } from "@/lib/plataforma/inicio";
 import { almacen, exigirEnAlcaldia, idSesion, leerAviso } from "@/lib/plataforma/sesion";
 
 export const metadata: Metadata = { title: "Documentos" };
@@ -47,7 +48,8 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
   const q = texto("q").slice(0, 80);
   const [desde, hasta] = [fechaValida(texto("desde")), fechaValida(texto("hasta"))];
 
-  const r = listarDocumentos(almacen(), await idSesion(), {
+  const alm = almacen();
+  const r = listarDocumentos(alm, await idSesion(), {
     estado,
     categoria,
     visibilidad,
@@ -56,6 +58,9 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
     hasta: hasta || undefined,
   });
   if (r.estado !== "OK") return null;
+  const descargas = new Map(
+    r.items.map((d) => [d.id, totalesDe(alm, `documento:${d.id}`, alm.descargas).vistas]),
+  );
   const aviso = await leerAviso();
   const activos = [categoria, visibilidad, desde, hasta].filter(Boolean).length;
   const filtrando = Boolean(estado || q || activos);
@@ -151,7 +156,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
 
       {r.items.length ? (
         <>
-          <ListaDocumentos items={r.items} />
+          <ListaDocumentos items={r.items} descargas={descargas} />
           <p className="mt-3 text-sm text-gris">
             {r.items.length} {r.items.length === 1 ? "documento" : "documentos"} en esta vista
             {filtrando && ` de ${r.total} en total`}.
@@ -199,7 +204,24 @@ function CampoFecha({ id, etiqueta, valor }: { id: string; etiqueta: string; val
   );
 }
 
-function ListaDocumentos({ items }: { items: Documento[] }) {
+function Descargas({ total }: { total?: number }) {
+  if (!total) return <span className="text-sm text-gris">Sin descargas</span>;
+  return (
+    <span className="inline-flex items-center gap-1.5 text-sm text-cuerpo tabular-nums">
+      <Download size={14} aria-hidden="true" className="text-gris" />
+      {total.toLocaleString("es-VE")} {total === 1 ? "descarga" : "descargas"}
+    </span>
+  );
+}
+
+function ListaDocumentos({
+  items,
+  descargas,
+}: {
+  items: Documento[];
+  /** Descargas desde el portal, por documento. */
+  descargas: Map<string, number>;
+}) {
   return (
     <>
       <ul
@@ -221,6 +243,9 @@ function ListaDocumentos({ items }: { items: Documento[] }) {
               <EstadoDocumento estado={d.estado} />
               <Visibilidad publico={d.publico} />
             </div>
+            <p className="mt-1.5">
+              <Descargas total={descargas.get(d.id)} />
+            </p>
           </li>
         ))}
       </ul>
@@ -230,7 +255,7 @@ function ListaDocumentos({ items }: { items: Documento[] }) {
         role="region"
         aria-label="Tabla de documentos"
         tabIndex={0}
-        className="hidden overflow-x-auto rounded-lg border border-linea md:block"
+        className="relative hidden overflow-x-auto rounded-lg border border-linea md:block"
       >
         <table className="w-full border-collapse text-left text-[0.9375rem]">
           <caption className="sr-only">Documentos, del más reciente al más antiguo</caption>
@@ -250,6 +275,9 @@ function ListaDocumentos({ items }: { items: Documento[] }) {
               </th>
               <th scope="col" className="hidden px-3 py-2.5 lg:table-cell">
                 Visibilidad
+              </th>
+              <th scope="col" className="px-3 py-2.5">
+                Descargas
               </th>
               <th scope="col" aria-sort="descending" className="px-3 py-2.5 text-tinta">
                 Actualizado
@@ -282,6 +310,9 @@ function ListaDocumentos({ items }: { items: Documento[] }) {
                 </td>
                 <td className="hidden px-3 py-3.5 lg:table-cell">
                   <Visibilidad publico={d.publico} />
+                </td>
+                <td className="px-3 py-3.5 whitespace-nowrap">
+                  <Descargas total={descargas.get(d.id)} />
                 </td>
                 <td className="px-3 py-3.5 whitespace-nowrap text-gris">
                   {formatearFecha(d.actualizadoEl)}

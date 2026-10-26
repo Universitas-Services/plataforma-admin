@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   aceptarInvitacionSchema,
-  brandingSchema,
   invitarUsuarioSchema,
   transicionParticipacionSchema,
 } from "./schemas";
@@ -23,21 +22,6 @@ describe("aceptarInvitacionSchema", () => {
     const r = aceptarInvitacionSchema.safeParse({ ...base, confirmarContrasena: "Otra#20266" });
     expect(r.success).toBe(false);
     expect(r.error?.issues[0]?.path).toEqual(["confirmarContrasena"]);
-  });
-});
-
-describe("brandingSchema", () => {
-  it("acepta un color hexadecimal y lema opcional", () => {
-    expect(brandingSchema.safeParse({ colorPrimario: "#1F3A5F" }).success).toBe(true);
-  });
-
-  it("rechaza un color que no es hexadecimal de 6 dígitos", () => {
-    expect(brandingSchema.safeParse({ colorPrimario: "azul" }).success).toBe(false);
-  });
-
-  it("rechaza un lema de más de 120 caracteres", () => {
-    const r = brandingSchema.safeParse({ colorPrimario: "#1F3A5F", lema: "a".repeat(121) });
-    expect(r.success).toBe(false);
   });
 });
 

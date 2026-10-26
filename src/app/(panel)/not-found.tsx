@@ -34,13 +34,7 @@ export default function NoEncontradaPanel() {
 
 async function Sugerencias() {
   const c = await getContexto();
-  // Con el onboarding pendiente, o sin alcaldía elegida, la única estación en servicio es esa.
-  const estaciones =
-    c?.alcaldia?.estado === "ONBOARDING_PENDIENTE"
-      ? [{ href: "/onboarding", etiqueta: "Configuración inicial" }]
-      : c && !c.alcaldia && !c.usuario.rolPlataforma
-        ? [{ href: "/alcaldia", etiqueta: "Elegir alcaldía" }]
-        : (c?.secciones ?? []).slice(0, 4);
+  const estaciones = (c?.secciones ?? []).slice(0, 4);
   if (!estaciones.length)
     return (
       <Link href="/" className={claseAccionErrorPrimaria}>

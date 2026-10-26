@@ -76,7 +76,7 @@ export async function cambiarEstadoAccion(
   return {
     ok: true,
     mensaje:
-      destino === "APROBADA" && publicado
+      publicado && (destino === "APROBADA" || destino === "PENDIENTE")
         ? "Aporte despublicado: ya no se ve en el portal."
         : HECHO[destino],
   };

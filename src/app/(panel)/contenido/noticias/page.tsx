@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, Newspaper, Plus, Search, Star } from "lucide-react";
+import { Alcance } from "@/components/contenido/alcance";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
@@ -23,7 +24,9 @@ import {
   type FilaNoticia,
   type Orden,
 } from "@/lib/plataforma/contenido";
+import { totalesDe } from "@/lib/plataforma/inicio";
 import { exigirEnAlcaldia, almacen, idSesion, leerAviso } from "@/lib/plataforma/sesion";
+import type { ConteoDia } from "@/lib/plataforma/tipos";
 import {
   CATEGORIAS,
   ESTADOS_NOTICIA,
@@ -82,7 +85,8 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
 
   // La lista depende de la hora (las programadas vencidas se publican al leer).
   await connection();
-  const r = listarNoticias(almacen(), await idSesion(), {
+  const alm = almacen();
+  const r = listarNoticias(alm, await idSesion(), {
     estado,
     tipo,
     formato,
@@ -93,6 +97,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
     orden,
   });
   if (r.estado !== "OK") return null; // exigirEnAlcaldia ya cubrió sesión y permiso.
+  const totales = new Map(r.items.map((n) => [n.id, totalesDe(alm, `noticia:${n.id}`)]));
   const aviso = await leerAviso();
   const activos = [tipo, formato, categoria, desde, hasta].filter(Boolean).length;
   const filtrando = Boolean(estado || q || activos);
@@ -205,6 +210,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
         <>
           <ListaNoticias
             items={r.items}
+            totales={totales}
             orden={orden}
             hrefOrden={(() => {
               const p = new URLSearchParams();
@@ -265,10 +271,13 @@ function CampoFecha({ id, etiqueta, valor }: { id: string; etiqueta: string; val
 /** Tabla en pantallas medianas y grandes; lista apilada en el teléfono (mismo patrón que la cola). */
 function ListaNoticias({
   items,
+  totales,
   orden,
   hrefOrden,
 }: {
   items: FilaNoticia[];
+  /** Vistas y reacciones en el portal (desde la publicación). */
+  totales: Map<string, ConteoDia>;
   orden: Orden;
   /** Enlace que invierte el orden por fecha. */
   hrefOrden: string;
@@ -311,6 +320,7 @@ function ListaNoticias({
                   </span>
                 )}
               </div>
+              <Alcance totales={totales.get(n.id)} className="mt-1.5 flex w-fit" />
             </li>
           );
         })}
@@ -321,7 +331,7 @@ function ListaNoticias({
         role="region"
         aria-label="Tabla de noticias"
         tabIndex={0}
-        className="hidden overflow-x-auto rounded-lg border border-linea md:block"
+        className="relative hidden overflow-x-auto rounded-lg border border-linea md:block"
       >
         <table className="w-full border-collapse text-left text-[0.9375rem]">
           <caption className="sr-only">Noticias</caption>
@@ -353,6 +363,9 @@ function ListaNoticias({
                       : ", de la más reciente a la más antigua. Cambiar el orden"}
                   </span>
                 </Link>
+              </th>
+              <th scope="col" className="px-3 py-2.5">
+                En el portal
               </th>
               <th scope="col" className="hidden px-3 py-2.5 lg:table-cell">
                 Autor
@@ -392,6 +405,9 @@ function ListaNoticias({
                   <td className="px-3 py-3.5 whitespace-nowrap text-gris">
                     {FECHA_DE[n.estado]}{" "}
                     {formatearFecha(fechaRelevante(n), n.estado === "PROGRAMADO")}
+                  </td>
+                  <td className="px-3 py-3.5 whitespace-nowrap">
+                    <Alcance totales={totales.get(n.id)} />
                   </td>
                   <td className="hidden max-w-48 truncate px-3 py-3.5 text-gris lg:table-cell">
                     {n.autor}

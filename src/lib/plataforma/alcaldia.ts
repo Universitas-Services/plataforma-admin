@@ -1,31 +1,24 @@
-import { evaluarMarca } from "@/lib/marca";
-import { rolesEn, type Permiso } from "./permisos";
+import { type Permiso } from "./permisos";
 import {
   contextoDe,
   emitirToken,
   HORAS_INVITACION,
-  MAX_LEMA,
-  MAX_LOGO,
   nombreCompleto,
   nuevoId,
   registrar,
-  tipoReal,
 } from "./servicio";
 import {
-  TIPOS_LOGO,
   type Almacen,
   type Ciudadano,
   type EventoBitacora,
   type FaseProceso,
-  type ItemCatalogo,
   type RolAlcaldia,
-  type TipoCatalogo,
   type UsuarioInterno,
 } from "./tipos";
 
 /*
  * Capa del Admin de alcaldía sobre la API simulada (backlog 2.8, 2.11, 2.12 y 2.13): equipo,
- * ciudadanos, catálogos, proceso, marca y bitácora. Lógica pura: se prueba con Vitest. Cada
+ * ciudadanos, catálogos (solo lectura), proceso y bitácora. Lógica pura: se prueba con Vitest. Cada
  * cambio queda en la bitácora encadenada.
  */
 
@@ -63,10 +56,9 @@ export type Miembro = {
   esYo: boolean;
 };
 
-function estadoMiembro(u: UsuarioInterno, alcaldiaId: string): EstadoMiembro {
-  const m = u.membresias.find((x) => x.alcaldiaId === alcaldiaId);
+function estadoMiembro(u: UsuarioInterno): EstadoMiembro {
   if (!u.hash) return "INVITADO";
-  return u.activo && m?.activa ? "ACTIVO" : "DESACTIVADO";
+  return u.activo ? "ACTIVO" : "DESACTIVADO";
 }
 
 export function equipoDe(
@@ -76,23 +68,26 @@ export function equipoDe(
   f: { rol?: RolAlcaldia; estado?: EstadoMiembro; q?: string } = {},
 ): Miembro[] {
   const q = f.q ? plano(f.q) : "";
-  return [...alm.usuarios.values()]
-    .filter((u) => !u.rolPlataforma && u.membresias.some((m) => m.alcaldiaId === alcaldiaId))
-    .map((u) => ({
-      id: u.id,
-      nombre: nombreCompleto(u) || u.correo,
-      correo: u.correo,
-      roles: u.membresias.find((m) => m.alcaldiaId === alcaldiaId)?.roles ?? [],
-      estado: estadoMiembro(u, alcaldiaId),
-      esYo: u.id === yoId,
-    }))
-    .filter(
-      (m) =>
-        (!f.rol || m.roles.includes(f.rol)) &&
-        (!f.estado || m.estado === f.estado) &&
-        (!q || plano(`${m.nombre} ${m.correo}`).includes(q)),
-    )
-    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  return (
+    [...alm.usuarios.values()]
+      // El Super Admin no es parte del equipo de la alcaldía.
+      .filter((u) => !u.rolPlataforma)
+      .map((u) => ({
+        id: u.id,
+        nombre: nombreCompleto(u) || u.correo,
+        correo: u.correo,
+        roles: [...u.roles],
+        estado: estadoMiembro(u),
+        esYo: u.id === yoId,
+      }))
+      .filter(
+        (m) =>
+          (!f.rol || m.roles.includes(f.rol)) &&
+          (!f.estado || m.estado === f.estado) &&
+          (!q || plano(`${m.nombre} ${m.correo}`).includes(q)),
+      )
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
+  );
 }
 
 export type ResultadoEquipo =
@@ -104,11 +99,7 @@ const rolesValidos = (roles: string[]) =>
     (ROLES_INVITABLES as readonly string[]).includes(r),
   );
 
-/**
- * Invita a alguien con los roles Operador o Revisor (al menos uno). Si la cuenta ya existe en la
- * plataforma (otra alcaldía), solo se le agrega la membresía; si no, se crea con una invitación
- * de 72 h.
- */
+/** Invita a alguien con los roles Operador o Revisor (al menos uno): invitación de 72 h. */
 export function invitarMiembro(
   alm: Almacen,
   sesion: string | undefined,
@@ -122,35 +113,28 @@ export function invitarMiembro(
   if (!validos.length) return { estado: "SIN_ROLES" };
   const alcaldiaId = r.c.alcaldia.id;
   const limpio = correo.trim().toLowerCase();
-  const existente = [...alm.usuarios.values()].find((u) => u.correo === limpio);
-  if (existente?.membresias.some((m) => m.alcaldiaId === alcaldiaId))
+  // Una cuenta por persona en esta alcaldía (su propia base de datos).
+  if ([...alm.usuarios.values()].some((u) => u.correo === limpio))
     return { estado: "YA_ES_MIEMBRO" };
 
-  let token: string | undefined;
-  let usuarioId: string;
-  if (existente) {
-    existente.membresias.push({ alcaldiaId, roles: validos, activa: true });
-    usuarioId = existente.id;
-  } else {
-    usuarioId = `u-${nuevoId().slice(0, 10)}`;
-    alm.usuarios.set(usuarioId, {
-      id: usuarioId,
-      correo: limpio,
-      hash: "",
-      nombres: "",
-      apellidos: "",
-      activo: false,
-      membresias: [{ alcaldiaId, roles: validos, activa: true }],
-      intentosFallidos: 0,
-    });
-    token = emitirToken(alm, usuarioId, "INVITACION", HORAS_INVITACION, ahora);
-  }
+  const usuarioId = `u-${nuevoId().slice(0, 10)}`;
+  alm.usuarios.set(usuarioId, {
+    id: usuarioId,
+    correo: limpio,
+    hash: "",
+    nombres: "",
+    apellidos: "",
+    activo: false,
+    roles: validos,
+    intentosFallidos: 0,
+  });
+  const token = emitirToken(alm, usuarioId, "INVITACION", HORAS_INVITACION, ahora);
   registrar(
     alm,
     {
       actorId: r.c.usuario.id,
       alcaldiaId,
-      accion: existente ? "MIEMBRO_AGREGADO" : "MIEMBRO_INVITADO",
+      accion: "MIEMBRO_INVITADO",
       entidad: `usuario:${usuarioId}`,
       despues: { correo: limpio, roles: validos },
     },
@@ -163,11 +147,10 @@ function miembroEditable(alm: Almacen, sesion: string | undefined, usuarioId: st
   const r = autorizado(alm, sesion, "equipo.gestionar");
   if ("error" in r) return { estado: r.error! };
   const u = alm.usuarios.get(usuarioId);
-  const m = u?.membresias.find((x) => x.alcaldiaId === r.c.alcaldia.id);
-  if (!u || !m) return { estado: "NO_EXISTE" as const };
+  if (!u || u.rolPlataforma) return { estado: "NO_EXISTE" as const };
   if (u.id === r.c.usuario.id) return { estado: "A_TI_MISMO" as const };
-  if (m.roles.includes("ADMIN")) return { estado: "ES_ADMIN" as const };
-  return { estado: "OK" as const, c: r.c, u, m };
+  if (u.roles.includes("ADMIN")) return { estado: "ES_ADMIN" as const };
+  return { estado: "OK" as const, c: r.c, u };
 }
 
 export function editarRoles(
@@ -181,8 +164,8 @@ export function editarRoles(
   if (e.estado !== "OK") return { estado: e.estado };
   const validos = rolesValidos(roles);
   if (!validos.length) return { estado: "SIN_ROLES" };
-  const antes = [...e.m.roles];
-  e.m.roles = validos;
+  const antes = [...e.u.roles];
+  e.u.roles = validos;
   registrar(
     alm,
     {
@@ -198,7 +181,7 @@ export function editarRoles(
   return { estado: "OK" };
 }
 
-/** Activa o desactiva a alguien en esta alcaldía (su cuenta sigue en otras). */
+/** Activa o desactiva a alguien del equipo (desactivar cierra sus sesiones). */
 export function cambiarActivoMiembro(
   alm: Almacen,
   sesion: string | undefined,
@@ -208,9 +191,8 @@ export function cambiarActivoMiembro(
 ): ResultadoEquipo {
   const e = miembroEditable(alm, sesion, usuarioId);
   if (e.estado !== "OK") return { estado: e.estado };
-  e.m.activa = activo;
-  if (activo && e.u.hash) e.u.activo = true;
-  // Al desactivar, sus sesiones en esta alcaldía dejan de valer.
+  // Una cuenta sin contraseña sigue invitada: activarla no la deja entrar.
+  e.u.activo = activo && Boolean(e.u.hash);
   if (!activo) e.u.sesionesDesde = ahora;
   registrar(
     alm,
@@ -358,93 +340,8 @@ export function csvCiudadanos(lista: Ciudadano[]) {
 
 /* ---------- Catálogos (2.12) ---------- */
 
+/** Catálogos fijos por despliegue (seed de la base de datos): el panel solo los lee. */
 export const catalogosDe = (alm: Almacen, alcaldiaId: string) => alm.catalogos.get(alcaldiaId);
-
-export type ResultadoCatalogo = { estado: "OK" | Error | "VACIO" | "REPETIDO" | "NO_EXISTE" };
-
-function itemsDe(alm: Almacen, alcaldiaId: string, tipo: TipoCatalogo) {
-  let cat = alm.catalogos.get(alcaldiaId);
-  if (!cat) {
-    cat = {
-      parroquias: [],
-      categoriasTecnicas: [],
-      categoriasNoticias: [],
-      categoriasDocumentos: [],
-      ocupaciones: [],
-      tiposOrganizacion: [],
-    };
-    alm.catalogos.set(alcaldiaId, cat);
-  }
-  return cat[tipo];
-}
-
-export function guardarItem(
-  alm: Almacen,
-  sesion: string | undefined,
-  tipo: TipoCatalogo,
-  nombre: string,
-  id?: string,
-  ahora = Date.now(),
-): ResultadoCatalogo {
-  const r = autorizado(alm, sesion, "catalogos.gestionar");
-  if ("error" in r) return { estado: r.error! };
-  const limpio = nombre.trim().replace(/\s+/g, " ").slice(0, 80);
-  if (!limpio) return { estado: "VACIO" };
-  const items = itemsDe(alm, r.c.alcaldia.id, tipo);
-  if (items.some((i) => i.id !== id && plano(i.nombre) === plano(limpio)))
-    return { estado: "REPETIDO" };
-  let item: ItemCatalogo | undefined;
-  let antes: string | undefined;
-  if (id) {
-    item = items.find((i) => i.id === id);
-    if (!item) return { estado: "NO_EXISTE" };
-    antes = item.nombre;
-    item.nombre = limpio;
-  } else {
-    item = { id: `${tipo}-${nuevoId().slice(0, 8)}`, nombre: limpio, activo: true };
-    items.push(item);
-  }
-  registrar(
-    alm,
-    {
-      actorId: r.c.usuario.id,
-      alcaldiaId: r.c.alcaldia.id,
-      accion: id ? "CATALOGO_EDITADO" : "CATALOGO_CREADO",
-      entidad: `catalogo:${tipo}`,
-      antes: antes ? { nombre: antes } : undefined,
-      despues: { nombre: limpio },
-    },
-    ahora,
-  );
-  return { estado: "OK" };
-}
-
-export function cambiarActivoItem(
-  alm: Almacen,
-  sesion: string | undefined,
-  tipo: TipoCatalogo,
-  id: string,
-  activo: boolean,
-  ahora = Date.now(),
-): ResultadoCatalogo {
-  const r = autorizado(alm, sesion, "catalogos.gestionar");
-  if ("error" in r) return { estado: r.error! };
-  const item = itemsDe(alm, r.c.alcaldia.id, tipo).find((i) => i.id === id);
-  if (!item) return { estado: "NO_EXISTE" };
-  item.activo = activo;
-  registrar(
-    alm,
-    {
-      actorId: r.c.usuario.id,
-      alcaldiaId: r.c.alcaldia.id,
-      accion: activo ? "CATALOGO_ACTIVADO" : "CATALOGO_DESACTIVADO",
-      entidad: `catalogo:${tipo}`,
-      despues: { nombre: item.nombre },
-    },
-    ahora,
-  );
-  return { estado: "OK" };
-}
 
 /* ---------- Proceso: fases y fase actual (2.12) ---------- */
 
@@ -457,7 +354,7 @@ export type ResultadoProceso = {
 const fechaValida = (v?: string) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v);
 
 function procesoEditable(alm: Almacen, sesion: string | undefined) {
-  const r = autorizado(alm, sesion, "marca.configurar");
+  const r = autorizado(alm, sesion, "proceso.editar");
   if ("error" in r) return { error: r.error! };
   let p = alm.procesos.get(r.c.alcaldia.id);
   if (!p) {
@@ -558,58 +455,6 @@ export function fijarFaseActual(
       entidad: "proceso",
       antes: { fase: antes },
       despues: { fase: e.p.fases[i]!.nombre },
-    },
-    ahora,
-  );
-  return { estado: "OK" };
-}
-
-/* ---------- Marca después del onboarding (2.12) ---------- */
-
-export type ResultadoMarca =
-  | { estado: "OK" }
-  | { estado: Error | "CONTRASTE"; sugerencia?: string }
-  | { estado: "LEMA_LARGO" | "LOGO_FORMATO" | "LOGO_GRANDE" };
-
-/** Cambia la marca vigente de una alcaldía activa: colores (con chequeo AA), lema y logo. */
-export function actualizarMarca(
-  alm: Almacen,
-  sesion: string | undefined,
-  datos: { primario: string; secundario?: string; lema?: string },
-  logo?: Uint8Array,
-  ahora = Date.now(),
-): ResultadoMarca {
-  const r = autorizado(alm, sesion, "marca.configurar");
-  if ("error" in r) return { estado: r.error! };
-  const a = r.c.alcaldia;
-  const ev = evaluarMarca(datos.primario);
-  if (!ev.ok) return { estado: "CONTRASTE", sugerencia: ev.sugerencia };
-  const lema = datos.lema?.trim().replace(/\s+/g, " ");
-  if (lema && lema.length > MAX_LEMA) return { estado: "LEMA_LARGO" };
-  let logoMeta = a.marca?.logo;
-  if (logo?.length) {
-    if (logo.length > MAX_LOGO) return { estado: "LOGO_GRANDE" };
-    const tipo = tipoReal(logo);
-    if (!tipo || !TIPOS_LOGO.includes(tipo)) return { estado: "LOGO_FORMATO" };
-    logoMeta = { tipo, tamano: logo.length, version: (logoMeta?.version ?? 0) + 1 };
-    alm.logos.set(a.id, logo);
-  }
-  const antes = a.marca ? { ...a.marca } : undefined;
-  a.marca = {
-    primario: datos.primario.toUpperCase(),
-    secundario: datos.secundario ? datos.secundario.toUpperCase() : undefined,
-    lema: lema || undefined,
-    logo: logoMeta,
-  };
-  registrar(
-    alm,
-    {
-      actorId: r.c.usuario.id,
-      alcaldiaId: a.id,
-      accion: "MARCA_ACTUALIZADA",
-      entidad: "alcaldia",
-      antes,
-      despues: a.marca,
     },
     ahora,
   );
@@ -720,5 +565,3 @@ export function csvBitacora(alm: Almacen, eventos: EventoBitacora[]) {
     ]),
   ]);
 }
-
-export { rolesEn };

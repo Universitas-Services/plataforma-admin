@@ -45,7 +45,7 @@ export function ListaBanners({ items, ordenable }: { items: FilaBanner[]; ordena
       <p aria-live="polite" className="sr-only">
         {anuncio}
       </p>
-      <ol aria-label="Banners del carrusel, en orden" className="space-y-3">
+      <ol aria-label="Diapositivas de la tarjeta, en orden" className="space-y-3">
         {lista.map((b, i) => (
           <li
             key={b.id}

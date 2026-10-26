@@ -3,17 +3,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ALCALDIA, LOGOS } from "@/config/alcaldia";
 
 export type Estacion = {
   href: string;
   etiqueta: string;
   contador?: number;
-  /** Estación fuera de servicio (p. ej. mientras la alcaldía completa su configuración). */
-  deshabilitada?: boolean;
 };
 
-const activa = (ruta: string, href: string) =>
-  ruta === href || (href !== "/plataforma" && ruta.startsWith(`${href}/`));
+const activa = (ruta: string, href: string) => ruta === href || ruta.startsWith(`${href}/`);
 
 const claseEstacion =
   "relative flex h-11 items-center justify-between pr-4 pl-[3.625rem] text-[0.9375rem]";
@@ -27,39 +25,30 @@ export function Linea({
   estaciones,
   sigla,
   nombreLinea,
-  logo,
   alNavegar,
 }: {
   estaciones: Estacion[];
   sigla: string;
   nombreLinea: string;
-  /** Logo de la alcaldía (tras el onboarding), junto al rótulo de la línea. */
-  logo?: string;
   alNavegar?: () => void;
 }) {
   const ruta = usePathname();
   return (
     <div className="flex h-full flex-col">
-      <Link
-        href="/"
-        onClick={alNavegar}
-        className="flex items-center gap-2.5 border-b border-linea px-5 pt-5 pb-5"
-      >
-        <Image src="/marca/isotipo.svg" alt="" width={36} height={36} className="size-9 shrink-0" />
-        <span className="text-[0.8125rem] leading-tight font-semibold text-tinta">
-          Plataforma de Participación Ciudadana
+      <Link href="/" onClick={alNavegar} className="block border-b border-linea px-5 pt-5 pb-4">
+        <Image
+          src={LOGOS.horizontal.src}
+          alt={`${ALCALDIA.programa}, ir al tablero`}
+          width={LOGOS.horizontal.ancho}
+          height={LOGOS.horizontal.alto}
+          priority
+          className="h-11 w-auto"
+        />
+        <span className="mt-2 block text-xs font-medium text-gris">
+          Panel de la {ALCALDIA.nombre.replace("Alcaldía del Municipio", "Alcaldía de")}
         </span>
       </Link>
       <p className="flex items-center gap-2.5 px-5 pt-5 pb-2">
-        {logo && (
-          // eslint-disable-next-line @next/next/no-img-element -- logo servido por /logos con su versión
-          <img
-            src={logo}
-            alt=""
-            aria-hidden="true"
-            className="size-8 shrink-0 rounded object-contain"
-          />
-        )}
         <span className="rounded-md bg-marca px-2 py-1 text-[0.8125rem] font-bold tracking-wider text-sobre-marca">
           {sigla}
         </span>
@@ -77,19 +66,6 @@ export function Linea({
         />
         <ul className="pb-4">
           {estaciones.map((e) => {
-            if (e.deshabilitada)
-              return (
-                <li key={e.href}>
-                  <span aria-disabled="true" className={`${claseEstacion} font-medium text-tenue`}>
-                    <span
-                      aria-hidden="true"
-                      className="absolute top-1/2 left-[1.6875rem] size-3 -translate-y-1/2 rounded-full border-[3px] border-tenue bg-superficie"
-                    />
-                    {e.etiqueta}
-                    <span className="sr-only"> (no disponible todavía)</span>
-                  </span>
-                </li>
-              );
             const on = activa(ruta, e.href);
             return (
               <li key={e.href}>

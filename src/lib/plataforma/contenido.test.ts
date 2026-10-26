@@ -60,7 +60,7 @@ describe("permisos de contenido", () => {
     const r = listarNoticias(alm, s, {}, AHORA);
     if (r.estado !== "OK") throw new Error();
     expect(r.items.every((n) => n.alcaldiaId === "iribarren")).toBe(true);
-    expect(obtenerNoticia(alm, s, "n-ejemplo-jimenez", AHORA).estado).toBe("NO_EXISTE");
+    expect(obtenerNoticia(alm, s, "no-existe", AHORA).estado).toBe("NO_EXISTE");
   });
 });
 
@@ -189,7 +189,7 @@ describe("medios", () => {
     expect(tipoMedio(new TextEncoder().encode("<svg onload=alert(1)>"))).toBeUndefined();
   });
 
-  it("valida clase y tamaño, y solo lo sirve a su alcaldía", () => {
+  it("valida clase y tamaño, y solo lo sirve con sesión", () => {
     const alm = almacenDemo();
     const s = entrar(alm, "operador@iribarren.test");
     expect(guardarMedio(alm, s, "imagen", "doc.pdf", PDF).estado).toBe("FORMATO");
@@ -200,8 +200,8 @@ describe("medios", () => {
     const r = guardarMedio(alm, s, "imagen", "foto.png", PNG);
     if (r.estado !== "OK") throw new Error();
     expect(medioDe(alm, s, r.id)?.tipo).toBe("image/png");
-    const otra = entrar(alm, "multi@lara.test");
-    expect(medioDe(alm, otra, r.id)).toBeUndefined();
+    // Sin sesión del panel no se sirve.
+    expect(medioDe(alm, undefined, r.id)).toBeUndefined();
   });
 
   it("una noticia no puede usar medios de otra alcaldía", () => {

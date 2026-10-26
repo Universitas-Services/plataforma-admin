@@ -34,8 +34,8 @@ const ETIQUETA: Record<string, string> = {
 
 const MUESTRA: Record<CamposBanner["tono"], string> = {
   rojo: "bg-marca",
-  tinta: "bg-banner-oscuro",
-  calido: "bg-banner-calido",
+  tinta: "bg-noche",
+  calido: "bg-amarillo",
 };
 
 /**
@@ -82,10 +82,10 @@ export function FormularioBanner({ id, inicial }: { id?: string; inicial?: Campo
         className="mb-3 inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-marca-texto hover:underline"
       >
         <ArrowLeft size={16} aria-hidden="true" />
-        Banners
+        Tarjeta de transiciones
       </Link>
       <h1 className="text-[1.75rem] leading-tight font-bold">
-        {id ? "Editar banner" : "Nuevo banner"}
+        {id ? "Editar diapositiva" : "Nueva diapositiva"}
       </h1>
       <p className="mt-2 mb-6">
         <EtiquetaVigencia estado={vigencia} vigencia={c.vigencia} />
@@ -198,8 +198,8 @@ export function FormularioBanner({ id, inicial }: { id?: string; inicial?: Campo
             </div>
             <p className="mt-1.5 text-sm text-gris">
               {conFoto
-                ? "Con foto, el banner lleva velo oscuro y el tono no se usa."
-                : "Sin foto, el banner se pinta con este tono."}
+                ? "Con foto, la diapositiva lleva el velo morado y el tono no se usa."
+                : "Sin foto, la diapositiva se pinta con este tono."}
             </p>
           </fieldset>
 
@@ -249,7 +249,9 @@ export function FormularioBanner({ id, inicial }: { id?: string; inicial?: Campo
         <aside aria-label="Vista previa" className="lg:sticky lg:top-20 lg:self-start">
           <p className="mb-2 text-sm font-bold text-tinta">Vista previa</p>
           <VistaBanner banner={c} />
-          <p className="mt-2 text-sm text-gris">Aproximación del banner en el Inicio del portal.</p>
+          <p className="mt-2 text-sm text-gris">
+            Así se verá en la tarjeta con transiciones del Inicio del portal.
+          </p>
         </aside>
       </div>
 
@@ -283,7 +285,7 @@ export function FormularioBanner({ id, inicial }: { id?: string; inicial?: Campo
             ) : (
               <Save size={18} aria-hidden="true" />
             )}
-            {id ? "Guardar cambios" : "Crear banner"}
+            {id ? "Guardar cambios" : "Crear diapositiva"}
           </button>
         </div>
       </div>
@@ -292,7 +294,7 @@ export function FormularioBanner({ id, inicial }: { id?: string; inicial?: Campo
         <Dialogo
           abierto={confirmar}
           onCerrar={() => setConfirmar(false)}
-          titulo="¿Eliminar este banner?"
+          titulo="¿Eliminar esta diapositiva?"
           descripcion={`«${c.titulo}» deja de verse en el carrusel y sale de la lista.`}
         >
           <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

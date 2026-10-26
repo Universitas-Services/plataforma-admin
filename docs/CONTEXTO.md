@@ -2,7 +2,7 @@
 
 Documento para retomar el trabajo en otro equipo o en una conversación nueva con Claude Code, sin depender del historial anterior. Es igual en `portal-iribarren/docs/CONTEXTO.md` y en `plataforma-admin/docs/CONTEXTO.md`.
 
-Fecha de corte: 17 de octubre de 2026.
+Fecha de corte: 17 de octubre de 2026. La sección 6.0 (admin de Iribarren) se agregó el 25 de octubre de 2026 y manda sobre lo anterior de la sección 6 cuando choquen.
 
 ---
 
@@ -67,7 +67,7 @@ Los dos repos traen en `.claude/skills/` las skills `flujo-git` (la regla de los
 - **Qué es:** PDUL YA (Plan de Desarrollo Urbano Local, municipio Iribarren, Barquisimeto) es una plataforma multi-alcaldía de participación ciudadana. Durante la formulación del PDUL 2026–2046, la ciudadanía se informa (noticias, documentos, Conoce) y envía opiniones y propuestas con folio y seguimiento.
 - **Repositorios:**
   - `portal-iribarren`: el portal ciudadano en Next.js. Lo hacemos nosotros.
-  - `plataforma-admin`: el panel interno en Next.js (Super Admin, Representantes, Admin de alcaldía, Operador y Revisor). Lo hacemos nosotros.
+  - `plataforma-admin`: el panel interno en Next.js. **Desde el 25-10-2026 es el admin de una sola alcaldía (Iribarren)**, con Super Admin, Admin, Operador y Revisor (ver 6.0). Lo hacemos nosotros.
   - `plataforma-api`: NestJS. **Lo hace otra persona.** Mientras no exista, el portal usa datos y servicios simulados con la misma forma que los endpoints del backlog.
 - **Fuentes de verdad, por orden:**
   1. lo que diga el usuario o el cliente en la conversación;
@@ -183,6 +183,53 @@ Los dos repos traen en `.claude/skills/` las skills `flujo-git` (la regla de los
 
 ## 6. Admin (`plataforma-admin`): qué hay y cómo seguir
 
+## 6.0 Admin de Iribarren (rama `feat/admin-iribarren`, 25-10-2026)
+
+Refactorización según `Backlog_Refactorizacion_API_Admin.docx`: **una base de datos y una API por alcaldía**, y un admin por alcaldía entregado ya personalizado. Lo que sigue de la sección 6 sobre multi-alcaldía, onboarding, marca configurable, Representantes, `/plataforma` y banners **quedó como historia**. Los datos siguen simulados en `src/lib/plataforma/`, con la forma del backlog nuevo.
+
+- **Identidad:** la del portal PDUL YA. Colores, Montserrat (títulos) y Roboto (texto) en `src/app/globals.css`; logos de PDUL YA y de la Alcaldía en `public/brand/`, copiados del portal. Lo propio del despliegue (nombre, sigla, código del folio, límites del municipio para el mapa, logos) vive en **`src/config/alcaldia.ts`**: otra alcaldía es otro despliegue con otro archivo como ese. Se conserva la estructura «Línea y estación».
+- **Roles** (`src/lib/plataforma/permisos.ts`), sin membresías ni Representantes:
+  - **Super Admin:** todos los permisos, con la franja «Sesión de Super Admin» en el marco. También existirá en el proyecto central de registro (otro repositorio, sin empezar y sin prioridad).
+  - **Admin:** todo lo de la alcaldía (equipo, catálogos de lectura, bitácora, contenido, participaciones, ciudadanos, indicadores).
+  - **Operador:** noticias, documentos, Inicio del portal y proceso; indicadores de contenido.
+  - **Revisor:** participaciones y ciudadanos; indicadores de participación y ciudadanía.
+- **Catálogos fijos por despliegue:** `/configuracion` es solo lectura. Las fases del proceso se editan en Contenido → Proceso.
+- **Contenido** (`/contenido/*`, pestañas Noticias · Documentos · Inicio del portal · Proceso):
+  - noticias con los 5 formatos, con vistas, me gusta y no me gusta en la lista;
+  - documentos con versiones y descargas;
+  - **Inicio del portal** (`/contenido/inicio`, `src/lib/plataforma/inicio.ts`): la tarjeta del mensaje del alcalde (una noticia de formato Texto publicada) y la tarjeta de anuncios (hasta 6 noticias publicadas, ordenables con flechas o arrastre). Si una elegida se despublica, sale de la selección y el panel avisa. El resto del Inicio es fijo o sale de los rankings;
+  - **Proceso** (`/contenido/proceso`): fases y fase actual del termómetro.
+  - Los banners se eliminaron.
+- **Revisor, con las dos máquinas del portal** (`src/lib/plataforma/participaciones.ts`):
+  - **Propuesta formal:** Pendiente o En revisión → Verificada o Rechazada (motivo y texto de 20+); Verificada → Publicada o Rechazada; Publicada → Verificada al despublicar. Se mantiene la decisión directa del 19-10-2026; el portal solo permite Pendiente → En revisión: **alinear las dos reglas con backend**.
+  - **Opinión** (general o sobre noticia): sin seguimiento. Pendiente («Recibida» en el portal) ↔ Publicada.
+  - Publicar exige `mostrarNombre` en los dos casos.
+  - **Ubicación** de la propuesta (`ubicacion {lat, lng}`) en un mapa de solo lectura con Leaflet 1.9.4 y OpenStreetMap, con enlace a Google Maps (`src/components/revisor/mapa-ubicacion.tsx`, `src/lib/ubicacion.ts`).
+  - Vistas y reacciones de los aportes publicados en el detalle. Se quitó el campo `identidad`.
+- **Indicadores en `/tablero`** (`src/lib/plataforma/metricas.ts`, con pruebas): rango (7, 30, 90 días o el año, en hora de Venezuela) y exportación a CSV (`/tablero/exportar?rango=`). Cada rol ve sus secciones:
+  - participación: recibidos por día o semana, por tipo, parroquia y categoría, por atender y su antigüedad, mediana de días de respuesta, tasa de verificación, opiniones publicadas, aportes con más reacciones;
+  - contenido: noticias publicadas, vistas, reacciones, más vistas y más valoradas, publicadas por formato, descargas y documentos más descargados;
+  - ciudadanía: registros nuevos y totales, perfiles completos, tipo de cuenta y suspendidas;
+  - equipo: decisiones por persona.
+  - Gráficos en SVG propio (sin librería), con tooltip por puntero y teclado, y su tabla. **Las vistas, reacciones y descargas son de demostración** (`interaccionesDemo` en `fixtures-contenido.ts`) hasta conectar la API.
+- **Cuentas de demostración** (contraseña `Plataforma#2026`):
+
+| Correo                         | Rol                                           |
+| ------------------------------ | --------------------------------------------- |
+| `superadmin@plataforma.test`   | Super Admin                                   |
+| `admin@iribarren.test`         | Admin                                         |
+| `operador@iribarren.test`      | Operador                                      |
+| `revisor@iribarren.test`       | Revisor                                       |
+| `equipo@iribarren.test`        | Operador y Revisor                            |
+| `bloqueo@iribarren.test`       | Solo para la prueba del bloqueo               |
+| `desactivado@iribarren.test`   | Cuenta desactivada                            |
+| `nuevo.revisor@iribarren.test` | Invitado: `/invitacion?token=demo-invitacion` |
+
+- **Pruebas:** Vitest (181) y Playwright: `acceso`, `accesibilidad`, `responsive`, `documentos`, `contenido`, `inicio-proceso`, `revisor` y `tablero`.
+- **Pendiente:** conectar la API real (BFF con renovación del token); el proyecto central de registro; alinear con backend la regla de transiciones de la propuesta formal y el catálogo de motivos de rechazo; que el portal lea el Inicio, el proceso y los catálogos desde la API.
+
+### Historia: el admin multi-alcaldía (hasta el 24-10-2026)
+
 **Estado actual (ramas `feat/fundaciones-admin` → `feat/onboarding-admin`):**
 
 - Bloques 2.1 a 2.5 hechos sobre una API simulada: acceso, roles, protección de rutas, marco del panel y tema por alcaldía.
@@ -276,6 +323,37 @@ Los dos repos traen en `.claude/skills/` las skills `flujo-git` (la regla de los
 - **500 en Netlify con parámetros no generados al compilar:** el adaptador todavía no sirve el App Shell de Next 16.3+ para un `[param]` no listado. Por eso los `generateStaticParams` listan todos los ids de ejemplo, y noticias, documentos y banners nuevos usan ids secuenciales (`n-0001`, `d-0001`, `b-0001`, `idSecuencial` en `servicio.ts`) con el rango 1–200 generado de antemano. Revisar al conectar la API o al actualizar el adaptador.
 - **Capa de alcaldía hecha en el admin:** Equipo (2.8), Ciudadanos (2.11), Configuración (2.12) y Bitácora (2.13), con API simulada. **Sigue:** tablero de indicadores (2.14) y la capa de plataforma (2.7).
 - **Pruebas E2E opcionales en CI:** corren solo si el PR lleva la etiqueta `e2e` o al lanzarlas a mano (_Run workflow_). Los PR normales pasan solo los checks rápidos.
+
+## 6.5 Fase 7: Marco legal administrable y alineación entre portal y admin (26-10-2026)
+
+Detalle para backend en `Pdull/FASE-7-ANEXO-marco-legal-y-alineacion.md`, que complementa `FASE-7-API-y-alineacion.md` y el backlog de refactorización.
+
+- **D1 cerrada.** El Revisor puede verificar o rechazar una propuesta formal directo desde Pendiente, y rechazar una verificada. Los dos frontends usan la misma tabla de transiciones.
+- **Marco legal de Conoce el PDUL, administrable** (D11, nuevo):
+  - En el admin, en Contenido → Marco legal (`/contenido/marco-legal`, permiso `contenido.editar`), se pueden guardar todos los ítems que se quiera.
+  - Solo los activos (10 como máximo) se ven en el portal, en el orden manual que fija el Operador.
+  - Cada ítem tiene título, descripción y un botón opcional a una noticia publicada o a un documento público. El texto del botón es editable, con valor por defecto: «Leer la noticia» o «Ver el documento».
+  - Si el destino se despublica, el portal oculta el botón y el admin muestra un aviso.
+  - El portal lo lee con `getMarcoLegal()`, con la forma de `GET /portal/legal-framework`.
+- **Vista previa antes de publicar en el admin:**
+  - noticias: ya existía;
+  - proceso: el termómetro, ya existía;
+  - **Inicio y Tarjeta de transiciones**: el mensaje del alcalde y la tarjeta con sus diapositivas, que se puede recorrer como en el portal;
+  - **documentos**: la fila del repositorio, en vivo, al subir o editar la ficha;
+  - **Marco legal**: el ítem, en vivo, mientras se edita, y la sección completa en un diálogo.
+- **«Recibida»:** el admin muestra así las opiniones pendientes, como el portal.
+- **Portal sin membresías:**
+  - se quitaron `/unirme`, «Abandonar este portal», el aviso de abandono en el ingreso y el campo `membresias` de la cuenta simulada;
+  - la solicitud de baja se mantiene;
+  - la traducción de `MEMBERSHIP_*` en `src/lib/plataforma-api/mapeo.ts` sigue mientras la API no los retire.
+- **Inicio (D12): solo dos tarjetas editables.**
+  - El mensaje del alcalde: una noticia de texto, que el portal lee con `getHome()` (forma de `GET /portal/home`). Mientras no haya una elegida, muestra el texto provisional (D10 sigue abierta).
+  - La tarjeta con transiciones bajo el termómetro: **tiene sus propias diapositivas** (título, texto, botón, tono o foto, orden y vigencia), no noticias elegidas.
+    - En el admin se editan en Contenido → Tarjeta de transiciones (`/contenido/banners`), con la vista previa idéntica a la del portal.
+    - El portal muestra las 6 primeras vigentes (`getBanners()`, forma de `GET /portal/banners`).
+  - Se descartó la idea de «anuncios con noticias».
+- **Ramas:** `portal-iribarren` en `feat/alineacion-fase-7` (sale de `main`); `plataforma-admin` en `feat/marco-legal-y-alineacion` (sale de `feat/admin-iribarren`, que aún no está en `main`).
+- **Todavía sin API:** cada repo tiene sus datos simulados, así que lo que se guarda en el admin no se ve en el portal hasta conectar los dos a la API.
 
 ## 7. Noticias reales (Propuesta v4), ya cargadas
 

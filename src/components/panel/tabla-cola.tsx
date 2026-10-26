@@ -84,7 +84,7 @@ export function TablaCola({
           <li key={p.folio} className="px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <Folio folio={p.folio} />
-              <InsigniaEstado estado={p.estado} />
+              <InsigniaEstado estado={p.estado} tipo={p.tipo} />
             </div>
             <p className="mt-0.5 truncate text-sm text-gris">
               {p.tipo} · {p.parroquia}
@@ -105,7 +105,7 @@ export function TablaCola({
         role="region"
         aria-label={titulo}
         tabIndex={0}
-        className="hidden overflow-x-auto rounded-lg border border-linea sm:block"
+        className="relative hidden overflow-x-auto rounded-lg border border-linea sm:block"
       >
         <table className="w-full border-collapse text-left text-[0.9375rem]">
           <caption className="sr-only">{titulo}</caption>
@@ -162,7 +162,7 @@ export function TablaCola({
                   {p.recibida}
                 </td>
                 <td className="px-3 py-3.5">
-                  <InsigniaEstado estado={p.estado} />
+                  <InsigniaEstado estado={p.estado} tipo={p.tipo} />
                 </td>
                 <td className={`px-3 py-3.5 ${ver.recorrido}`}>
                   <RecorridoFila p={p} />

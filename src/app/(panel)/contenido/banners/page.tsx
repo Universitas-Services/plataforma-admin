@@ -10,10 +10,11 @@ import { AvisoInicial } from "@/components/ui/aviso";
 import { EsqueletoBandeja } from "@/components/ui/esqueletos";
 import { BotonEnlace, EncabezadoPagina, EstadoVacio } from "@/components/ui/piezas";
 import { VIGENCIAS, type Vigencia } from "@/lib/contenido/tipos";
-import { listarBanners } from "@/lib/plataforma/banners";
+import { MAX_EN_PORTAL, listarBanners } from "@/lib/plataforma/banners";
+import { VistaPreviaTarjeta } from "@/components/contenido/vista-previa-tarjeta";
 import { almacen, exigirEnAlcaldia, idSesion, leerAviso } from "@/lib/plataforma/sesion";
 
-export const metadata: Metadata = { title: "Banners" };
+export const metadata: Metadata = { title: "Tarjeta de transiciones" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -48,7 +49,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
         bajada="Lo que tu alcaldía publica en el portal ciudadano."
         acciones={
           <BotonEnlace href="/contenido/banners/nuevo" variante="primario" Icono={Plus}>
-            Nuevo banner
+            Nueva diapositiva
           </BotonEnlace>
         }
       />
@@ -62,6 +63,29 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
             : "Arrastra o usa las flechas para cambiar el orden. Los programados y vencidos conservan su lugar, pero no se muestran."}
         </p>
       </div>
+      <section aria-labelledby="titulo-tarjeta" className="mb-8">
+        <h2 id="titulo-tarjeta" className="text-lg font-bold">
+          Así se ve hoy en el Inicio del portal
+        </h2>
+        <p className="mt-1 mb-4 text-sm text-gris">
+          La tarjeta con transiciones, bajo el termómetro. Muestra hasta {MAX_EN_PORTAL}{" "}
+          diapositivas vigentes, en el orden de la lista.
+          {r.conteos.VIGENTE > MAX_EN_PORTAL &&
+            ` Hay ${r.conteos.VIGENTE} vigentes: las que pasan del puesto ${MAX_EN_PORTAL} no se ven.`}
+        </p>
+        <div className="max-w-2xl">
+          <VistaPreviaTarjeta
+            diapositivas={r.enPortal.map((b) => ({
+              id: b.id,
+              titulo: b.titulo,
+              texto: b.texto,
+              etiqueta: b.enlace.etiqueta,
+              tono: b.tono,
+              imagen: b.imagen ? { src: b.imagen.src, alt: b.imagen.alt } : undefined,
+            }))}
+          />
+        </div>
+      </section>
       {r.items.length ? (
         <ListaBanners
           // Next conserva el estado de las rutas ya visitadas: si la lista cambió en el
@@ -73,7 +97,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
       ) : (
         <EstadoVacio
           Icono={GalleryHorizontal}
-          titulo={filtro ? "Ningún banner en este estado" : "Todavía no hay banners"}
+          titulo={filtro ? "Ninguna diapositiva en este estado" : "Todavía no hay diapositivas"}
           accion={
             filtro ? (
               <Link
@@ -87,7 +111,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
         >
           {filtro
             ? "Prueba con otro filtro."
-            : "Los banners rotan en el Inicio del portal. Crea el primero con «Nuevo banner»."}
+            : "Las diapositivas pasan en la tarjeta con transiciones del Inicio, bajo el termómetro. Crea la primera con «Nueva diapositiva»."}
         </EstadoVacio>
       )}
       <AvisoInicial texto={aviso} />

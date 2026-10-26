@@ -57,25 +57,6 @@ export const cambiarContrasenaSchema = z
   })
   .refine(contrasenasIguales.check, contrasenasIguales.params);
 
-/** CU-03 Crear alcaldía. */
-export const crearAlcaldiaSchema = z.object({
-  nombre: z.string().trim().min(3, "Ingresa el nombre de la alcaldía.").max(120),
-  estado: z.string().trim().min(2, "Selecciona el estado."),
-  correoAdministrador: correoSchema,
-});
-
-const colorHex = z
-  .string()
-  .trim()
-  .regex(/^#[0-9a-fA-F]{6}$/, "Usa un color hexadecimal, por ejemplo #1F3A5F.");
-
-/** CU-06 Identidad visual. El contraste AA se valida aparte con la función de contraste. */
-export const brandingSchema = z.object({
-  colorPrimario: colorHex,
-  colorSecundario: colorHex.optional(),
-  lema: z.string().trim().max(120, "El lema no puede superar 120 caracteres.").optional(),
-});
-
 export const ROLES_INTERNOS = ["OPERADOR", "REVISOR"] as const;
 
 /** CU-07 Invitar usuario interno. */
@@ -187,7 +168,79 @@ export const noticiaSchema = z.object({
   destacada: z.boolean(),
 });
 
-/* ---------- Banners (backlog 1.14) ---------- */
+/* ---------- Documentos (backlog 1.15) ---------- */
+
+export const documentoSchema = z.object({
+  titulo: z
+    .string()
+    .trim()
+    .min(1, "Escribe el título.")
+    .max(160, "El título no puede superar 160 caracteres."),
+  descripcion: z
+    .string()
+    .trim()
+    .min(1, "Escribe una descripción breve.")
+    .max(500, "La descripción no puede superar 500 caracteres."),
+  categoria: z.enum(DOC_CATEGORIAS, { error: "Elige la categoría." }),
+  estado: z.enum(DOC_ESTADOS),
+  publico: z.boolean(),
+});
+
+export const adjuntoSchema = z.object({
+  nombre: z.string().trim().min(1).max(160),
+  url: z.string().max(300),
+  tipo: z.literal("application/pdf"),
+  pesoBytes: z.number().int().nonnegative(),
+  paginas: z.number().int().positive().optional(),
+});
+
+export const versionSchema = z.object({
+  nota: z
+    .string()
+    .trim()
+    .min(5, "Cuenta en una frase qué cambió (mínimo 5 caracteres).")
+    .max(300, "La nota no puede superar 300 caracteres."),
+  tipo: z.enum(["menor", "mayor"]),
+});
+
+export type LoginInput = z.infer<typeof loginSchema>;
+export type AceptarInvitacionInput = z.infer<typeof aceptarInvitacionSchema>;
+export type InvitarUsuarioInput = z.infer<typeof invitarUsuarioSchema>;
+export type TransicionParticipacionInput = z.infer<typeof transicionParticipacionSchema>;
+export type NoticiaInput = z.infer<typeof noticiaSchema>;
+export type DocumentoInput = z.infer<typeof documentoSchema>;
+
+/* ---------- Marco legal de Conoce el PDUL (anexo de la fase 7) ---------- */
+
+export const itemMarcoSchema = z.object({
+  titulo: z
+    .string()
+    .trim()
+    .min(3, "Escribe el título (al menos 3 caracteres).")
+    .max(200, "El título no puede superar 200 caracteres."),
+  descripcion: z
+    .string()
+    .trim()
+    .min(10, "Escribe la descripción (al menos 10 caracteres).")
+    .max(1200, "La descripción no puede superar 1200 caracteres."),
+  activo: z.boolean(),
+  boton: z
+    .object({
+      texto: z
+        .string()
+        .trim()
+        .min(2, "Escribe el texto del botón.")
+        .max(40, "El texto del botón no puede superar 40 caracteres."),
+      destino: z.object({
+        tipo: z.enum(["NOTICIA", "DOCUMENTO"]),
+        id: z.string().min(1, "Elige a dónde lleva el botón."),
+      }),
+    })
+    .nullable()
+    .optional(),
+});
+
+/* ---------- Diapositivas de la tarjeta de transiciones del Inicio ---------- */
 
 const diaSchema = z
   .string()
@@ -227,48 +280,3 @@ export const bannerSchema = z
     path: ["vigencia"],
     error: "La fecha final tiene que ser igual o posterior a la inicial.",
   });
-
-/* ---------- Documentos (backlog 1.15) ---------- */
-
-export const documentoSchema = z.object({
-  titulo: z
-    .string()
-    .trim()
-    .min(1, "Escribe el título.")
-    .max(160, "El título no puede superar 160 caracteres."),
-  descripcion: z
-    .string()
-    .trim()
-    .min(1, "Escribe una descripción breve.")
-    .max(500, "La descripción no puede superar 500 caracteres."),
-  categoria: z.enum(DOC_CATEGORIAS, { error: "Elige la categoría." }),
-  estado: z.enum(DOC_ESTADOS),
-  publico: z.boolean(),
-});
-
-export const adjuntoSchema = z.object({
-  nombre: z.string().trim().min(1).max(160),
-  url: z.string().max(300),
-  tipo: z.literal("application/pdf"),
-  pesoBytes: z.number().int().nonnegative(),
-  paginas: z.number().int().positive().optional(),
-});
-
-export const versionSchema = z.object({
-  nota: z
-    .string()
-    .trim()
-    .min(5, "Cuenta en una frase qué cambió (mínimo 5 caracteres).")
-    .max(300, "La nota no puede superar 300 caracteres."),
-  tipo: z.enum(["menor", "mayor"]),
-});
-
-export type LoginInput = z.infer<typeof loginSchema>;
-export type AceptarInvitacionInput = z.infer<typeof aceptarInvitacionSchema>;
-export type CrearAlcaldiaInput = z.infer<typeof crearAlcaldiaSchema>;
-export type BrandingInput = z.infer<typeof brandingSchema>;
-export type InvitarUsuarioInput = z.infer<typeof invitarUsuarioSchema>;
-export type TransicionParticipacionInput = z.infer<typeof transicionParticipacionSchema>;
-export type NoticiaInput = z.infer<typeof noticiaSchema>;
-export type BannerInput = z.infer<typeof bannerSchema>;
-export type DocumentoInput = z.infer<typeof documentoSchema>;

@@ -1,19 +1,16 @@
 import { expect, test } from "@playwright/test";
-import { CONTRASENA_DEMO, esperarMarca, ingresar, prohibido } from "./utilidades";
+import { CONTRASENA_DEMO, ingresar, prohibido } from "./utilidades";
 
 /*
- * Backlog 2.3–2.5: cada rol entra a su destino, ve solo sus estaciones, recibe 403 en lo ajeno,
- * y el historial no vuelve al formulario de ingreso ni a la cuenta tras cerrar sesión.
+ * Panel de la Alcaldía de Iribarren (una sola alcaldía): cada rol entra al tablero, ve solo sus
+ * estaciones, recibe 403 en lo ajeno, y el historial no vuelve al formulario de ingreso.
  */
 
 const DESTINOS = [
-  ["superadmin@plataforma.test", /\/plataforma$/],
-  ["avipri@plataforma.test", /\/plataforma$/],
+  ["superadmin@plataforma.test", /\/tablero$/],
   ["admin@iribarren.test", /\/tablero$/],
   ["operador@iribarren.test", /\/tablero$/],
   ["revisor@iribarren.test", /\/tablero$/],
-  ["admin@palavecino.test", /\/onboarding(\?paso=\w+)?$/],
-  ["multi@lara.test", /\/alcaldia$/],
 ] as const;
 
 test.describe("destino al entrar", () => {
@@ -32,8 +29,6 @@ const AJENAS: [string, string[]][] = [
     ["/participaciones", "/ciudadanos", "/equipo", "/configuracion", "/bitacora"],
   ],
   ["revisor@iribarren.test", ["/contenido", "/equipo", "/configuracion", "/bitacora"]],
-  ["admin@iribarren.test", ["/plataforma", "/plataforma/alcaldias"]],
-  ["avipri@plataforma.test", ["/plataforma/representantes"]],
 ];
 
 test.describe("protección por rol", () => {
@@ -64,11 +59,19 @@ test.describe("protección por rol", () => {
     await expect(page).toHaveURL(/\/participaciones$/);
   });
 
-  test("con onboarding pendiente, el administrador no sale del asistente", async ({ page }) => {
-    await ingresar(page, "admin@palavecino.test");
-    await page.goto("/tablero");
-    await expect(page).toHaveURL(/\/onboarding(\?paso=\w+)?$/);
-    await esperarMarca(page, "#1F3864");
+  test("el Super Admin ve la franja de su sesión y todas las estaciones", async ({ page }) => {
+    await ingresar(page, "superadmin@plataforma.test");
+    await expect(page.getByText(/Sesión de Super Admin/)).toBeVisible();
+    await page.goto("/configuracion");
+    await expect(page.getByRole("heading", { level: 1, name: "Configuración" })).toBeVisible();
+  });
+
+  test("ya no existen el selector de alcaldía ni la plataforma", async ({ page }) => {
+    await ingresar(page, "admin@iribarren.test");
+    for (const ruta of ["/alcaldia", "/plataforma", "/onboarding"]) {
+      await page.goto(ruta);
+      await expect(page.getByRole("heading", { name: "Esta estación no existe" })).toBeVisible();
+    }
   });
 });
 
@@ -102,7 +105,7 @@ test.describe("historial y sesión", () => {
   test("bloquea la cuenta tras 5 intentos fallidos", async ({ page }) => {
     await page.goto("/ingresar");
     for (let i = 0; i < 5; i++) {
-      await page.getByLabel("Correo institucional").fill("universitas@plataforma.test");
+      await page.getByLabel("Correo institucional").fill("bloqueo@iribarren.test");
       await page.locator("#contrasena").fill("NoEsLaClave#1");
       await page.getByRole("button", { name: "Iniciar sesión" }).click();
       await expect(page.getByRole("alert").first()).toBeVisible();
@@ -116,38 +119,6 @@ test.describe("historial y sesión", () => {
     await page.locator("#contrasena").fill(CONTRASENA_DEMO);
     await page.getByRole("button", { name: "Iniciar sesión" }).click();
     await expect(page.getByText(/Tu cuenta está desactivada/)).toBeVisible();
-  });
-});
-
-test.describe("alcaldía y marca", () => {
-  test("un representante entra a una alcaldía y el panel toma su marca", async ({ page }) => {
-    await ingresar(page, "superadmin@plataforma.test");
-    await esperarMarca(page, "#1F3864");
-    await page.waitForLoadState("networkidle");
-    await page.getByRole("button", { name: /Entrar a Alcaldía del Municipio Jiménez/ }).click();
-    // Con `next dev` bajo carga, la primera visita a /tablero compila.
-    await expect(page).toHaveURL(/\/tablero$/, { timeout: 30_000 });
-    // En el teléfono la franja muestra el nombre corto («Jiménez»).
-    await expect(
-      page
-        .getByRole("banner")
-        .getByText(/Jiménez/)
-        .filter({ visible: true })
-        .first(),
-    ).toBeVisible();
-    await esperarMarca(page, "#0B6E4F");
-  });
-
-  test("el personal de dos alcaldías elige y cambia", async ({ page }) => {
-    await ingresar(page, "multi@lara.test");
-    await page.waitForLoadState("networkidle");
-    await page.getByRole("button", { name: /Entrar a Alcaldía del Municipio Iribarren/ }).click();
-    // Con `next dev` bajo carga, la primera visita a /tablero compila.
-    await expect(page).toHaveURL(/\/tablero$/, { timeout: 30_000 });
-    await esperarMarca(page, "#C32026");
-    await page.getByRole("link", { name: "Cambiar" }).click();
-    await page.getByRole("button", { name: /Entrar a Alcaldía del Municipio Jiménez/ }).click();
-    await esperarMarca(page, "#0B6E4F");
   });
 });
 

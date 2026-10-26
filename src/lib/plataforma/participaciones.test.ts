@@ -7,9 +7,11 @@ import {
   conteosParticipaciones,
   csvBandeja,
   resumenParticipaciones,
+  tieneSeguimiento,
   transicionesValidas,
 } from "./participaciones";
 import { iniciarSesion } from "./servicio";
+import { dentroDelMunicipio } from "@/lib/ubicacion";
 
 function sesionDe(correo: string) {
   const alm = almacenDemo();
@@ -26,7 +28,7 @@ describe("bandeja del Revisor", () => {
     const c = conteosParticipaciones(alm, "iribarren");
     expect(c.PENDIENTE + c.EN_REVISION).toBe(resumenParticipaciones(alm, "iribarren").cola.length);
     const lista = bandeja(alm, "iribarren");
-    expect(lista[0]!.folio).toBe("IRI-2026-0031");
+    expect(lista[0]!.folio).toBe("IRI-2026-0018");
     expect(lista.every((p) => p.alcaldiaId === "iribarren")).toBe(true);
   });
 
@@ -35,11 +37,12 @@ describe("bandeja del Revisor", () => {
     expect(bandeja(alm, "iribarren", { q: "0042" }).map((p) => p.folio)).toEqual(["IRI-2026-0042"]);
     expect(bandeja(alm, "iribarren", { q: "jose rodriguez" })).toHaveLength(1);
     expect(bandeja(alm, "iribarren", { q: "14.567.890" })).toHaveLength(1);
-    expect(bandeja(alm, "iribarren", { estado: "PUBLICADA" })).toHaveLength(1);
+    expect(bandeja(alm, "iribarren", { estado: "PUBLICADA" })).toHaveLength(2);
+    expect(bandeja(alm, "iribarren", { tipo: "PROPUESTA_FORMAL" })).toHaveLength(5);
   });
 });
 
-describe("máquina de estados", () => {
+describe("máquina de estados de la propuesta formal", () => {
   it("solo ofrece las transiciones válidas", () => {
     const { alm } = sesionDe("revisor@iribarren.test");
     const p = (f: string) => alm.participaciones.get(f)!;
@@ -48,7 +51,8 @@ describe("máquina de estados", () => {
       "APROBADA",
       "RECHAZADA",
     ]);
-    expect(transicionesValidas(p("IRI-2026-0042"))).toEqual(["APROBADA", "RECHAZADA"]);
+    expect(transicionesValidas(p("IRI-2026-0021"))).toEqual(["PUBLICADA", "RECHAZADA"]);
+    expect(transicionesValidas(p("IRI-2026-0015"))).toEqual(["APROBADA"]);
     expect(transicionesValidas(p("IRI-2026-0012"))).toEqual([]);
   });
 
@@ -72,7 +76,7 @@ describe("máquina de estados", () => {
 
   it("rechazar exige motivo de catálogo y un texto de 20 caracteres o más", () => {
     const { alm, s } = sesionDe("revisor@iribarren.test");
-    const f = "IRI-2026-0042";
+    const f = "IRI-2026-0040";
     expect(cambiarEstado(alm, s, f, "RECHAZADA", { texto: TEXTO })).toBe("SIN_MOTIVO");
     expect(cambiarEstado(alm, s, f, "RECHAZADA", { motivo: "INVENTADO", texto: TEXTO })).toBe(
       "SIN_MOTIVO",
@@ -87,6 +91,32 @@ describe("máquina de estados", () => {
       motivo: "FUERA_DE_ALCANCE",
       comentario: TEXTO,
     });
+  });
+
+  it("las propuestas de ejemplo traen su ubicación dentro del municipio", () => {
+    const { alm } = sesionDe("revisor@iribarren.test");
+    const formales = [...alm.participaciones.values()].filter((p) => tieneSeguimiento(p.tipo));
+    expect(formales.every((p) => p.ubicacion && dentroDelMunicipio(p.ubicacion))).toBe(true);
+  });
+});
+
+describe("opiniones: sin seguimiento", () => {
+  it("solo se publican o se despublican", () => {
+    const { alm, s } = sesionDe("revisor@iribarren.test");
+    const f = "IRI-2026-0042";
+    expect(transicionesValidas(alm.participaciones.get(f)!)).toEqual(["PUBLICADA"]);
+    for (const destino of ["EN_REVISION", "APROBADA", "RECHAZADA"] as const)
+      expect(cambiarEstado(alm, s, f, destino, { motivo: "OTRO", texto: TEXTO })).toBe(
+        "TRANSICION_INVALIDA",
+      );
+    expect(cambiarEstado(alm, s, f, "PUBLICADA")).toBe("OK");
+    expect(transicionesValidas(alm.participaciones.get(f)!)).toEqual(["PENDIENTE"]);
+    expect(cambiarEstado(alm, s, f, "PENDIENTE")).toBe("OK");
+    expect(alm.participaciones.get(f)!.historial.map((h) => h.estado)).toEqual([
+      "PENDIENTE",
+      "PUBLICADA",
+      "PENDIENTE",
+    ]);
   });
 
   it("no publica si el autor no autorizó mostrar su nombre", () => {
@@ -105,8 +135,8 @@ describe("permisos y notas", () => {
 
   it("verifica directo desde pendiente y agrega notas internas", () => {
     const { alm, s } = sesionDe("revisor@iribarren.test");
-    expect(cambiarEstado(alm, s, "IRI-2026-0033", "APROBADA")).toBe("OK");
-    expect(alm.participaciones.get("IRI-2026-0033")!.estado).toBe("APROBADA");
+    expect(cambiarEstado(alm, s, "IRI-2026-0040", "APROBADA")).toBe("OK");
+    expect(alm.participaciones.get("IRI-2026-0040")!.estado).toBe("APROBADA");
     expect(agregarNota(alm, s, "IRI-2026-0031", "   ")).toBe("NOTA_VACIA");
     expect(agregarNota(alm, s, "IRI-2026-0031", "Revisar con movilidad")).toBe("OK");
     expect(alm.participaciones.get("IRI-2026-0031")!.notas).toHaveLength(1);

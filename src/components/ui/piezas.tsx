@@ -76,7 +76,7 @@ const ESTADO_INSIGNIA = {
   PENDIENTE: { texto: "Pendiente", clase: "border-tenue text-tinta", relleno: false },
   EN_REVISION: {
     texto: "En revisión",
-    clase: "border-transparent bg-[#E6EBF3] text-tinta",
+    clase: "border-transparent bg-amarillo/20 text-tinta",
     relleno: true,
   },
   APROBADA: { texto: "Verificada", clase: "border-turquesa/40 text-turquesa-texto", relleno: true },
@@ -87,17 +87,24 @@ const ESTADO_INSIGNIA = {
     relleno: true,
   },
   ACTIVA: { texto: "Activa", clase: "border-turquesa/40 text-turquesa-texto", relleno: true },
-  ONBOARDING_PENDIENTE: {
-    texto: "Onboarding pendiente",
-    clase: "border-ambar/50 text-ambar-texto",
-    relleno: false,
-  },
   SUSPENDIDA: { texto: "Suspendida", clase: "border-peligro/40 text-peligro", relleno: false },
 } as const;
 
-/** Insignia de estado: el punto lleno o hueco repite el estado sin depender del color. */
-export function InsigniaEstado({ estado }: { estado: keyof typeof ESTADO_INSIGNIA }) {
-  const e = ESTADO_INSIGNIA[estado];
+/**
+ * Insignia de estado: el punto lleno o hueco repite el estado sin depender del color. Con `tipo`,
+ * una opinión pendiente se lee «Recibida», como la ve el ciudadano en el portal.
+ */
+export function InsigniaEstado({
+  estado,
+  tipo,
+}: {
+  estado: keyof typeof ESTADO_INSIGNIA;
+  tipo?: string;
+}) {
+  const recibida = estado === "PENDIENTE" && !!tipo && tipo !== "PROPUESTA_FORMAL";
+  const e = recibida
+    ? { ...ESTADO_INSIGNIA.PENDIENTE, texto: "Recibida" }
+    : ESTADO_INSIGNIA[estado];
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[0.8125rem] font-semibold whitespace-nowrap ${e.clase}`}

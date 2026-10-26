@@ -1,20 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { CONTRASENA_DEMO, almacenDemo } from "./fixtures";
-import { PERMISOS_ALCALDIA, permisoDeRuta, permisosDe, puede, seccionesDe } from "./permisos";
+import { PERMISOS, permisoDeRuta, permisosDe, puede, seccionesDe } from "./permisos";
 import {
   aceptarInvitacion,
   cambiarContrasena,
   cerrarTodas,
-  completarOnboarding,
   contextoDe,
-  elegirAlcaldia,
-  guardarColores,
-  guardarLema,
-  guardarLogo,
   iniciarSesion,
-  logoDe,
-  MAX_LEMA,
-  MAX_LOGO,
   recuperar,
   reenviarInvitacion,
   restablecer,
@@ -33,55 +25,45 @@ describe("permisos por rol", () => {
   const alm = almacenDemo();
   const u = (id: string) => alm.usuarios.get(id)!;
 
-  it("el Super Admin tiene lo reservado; el Representante no", () => {
-    expect(puede(u("u-super"), "plataforma.reservado")).toBe(true);
-    expect(puede(u("u-avipri"), "plataforma.reservado")).toBe(false);
-    expect(puede(u("u-avipri"), "alcaldias.gestionar")).toBe(true);
-  });
-
-  it("los roles de plataforma solo operan una alcaldía cuando entran en ella", () => {
-    expect(puede(u("u-avipri"), "contenido.editar")).toBe(false);
-    expect(puede(u("u-avipri"), "contenido.editar", "iribarren")).toBe(true);
+  it("el Super Admin tiene todos los permisos de la alcaldía", () => {
+    expect([...permisosDe(u("u-super"))].sort()).toEqual([...PERMISOS].sort());
   });
 
   it("matriz de la alcaldía: Admin todo, Operador contenido, Revisor participaciones", () => {
-    expect([...permisosDe(u("u-admin-iri"), "iribarren")].sort()).toEqual(
-      [...PERMISOS_ALCALDIA].sort(),
+    expect([...permisosDe(u("u-admin-iri"))].sort()).toEqual([...PERMISOS].sort());
+    const op = permisosDe(u("u-operador-iri"));
+    expect(op.has("contenido.editar") && op.has("inicio.editar") && op.has("proceso.editar")).toBe(
+      true,
     );
-    const op = permisosDe(u("u-operador-iri"), "iribarren");
-    expect(op.has("contenido.editar")).toBe(true);
     expect(op.has("participaciones.evaluar")).toBe(false);
     expect(op.has("bitacora.ver")).toBe(false);
-    const rev = permisosDe(u("u-revisor-iri"), "iribarren");
+    const rev = permisosDe(u("u-revisor-iri"));
     expect(rev.has("participaciones.evaluar")).toBe(true);
     expect(rev.has("ciudadanos.ver")).toBe(true);
     expect(rev.has("ciudadanos.suspender")).toBe(false);
     expect(rev.has("contenido.editar")).toBe(false);
   });
 
-  it("Operador y Revisor combinados suman permisos; sin membresía, nada", () => {
-    const eq = permisosDe(u("u-equipo-iri"), "iribarren");
+  it("Operador y Revisor combinados suman permisos; una cuenta desactivada no tiene ninguno", () => {
+    const eq = permisosDe(u("u-equipo-iri"));
     expect(eq.has("contenido.editar") && eq.has("participaciones.evaluar")).toBe(true);
-    expect(permisosDe(u("u-revisor-iri"), "jimenez").size).toBe(0);
+    expect(permisosDe(u("u-inactivo")).size).toBe(0);
+    expect(puede(u("u-revisor-iri"), "equipo.gestionar")).toBe(false);
   });
 
-  it("el menú sale de los permisos y del ámbito", () => {
-    expect(seccionesDe(u("u-operador-iri"), "iribarren").map((s) => s.etiqueta)).toEqual([
+  it("el menú sale de los permisos", () => {
+    expect(seccionesDe(u("u-operador-iri")).map((s) => s.etiqueta)).toEqual([
       "Tablero",
       "Contenido",
     ]);
-    expect(seccionesDe(u("u-avipri")).map((s) => s.href)).toEqual([
-      "/plataforma",
-      "/plataforma/alcaldias",
-      "/plataforma/bitacora",
-    ]);
+    expect(seccionesDe(u("u-super")).map((s) => s.href)).toContain("/configuracion");
   });
 
   it("cada ruta exige el permiso de su sección más específica", () => {
-    expect(permisoDeRuta("/plataforma/representantes")?.permiso).toBe("plataforma.reservado");
     expect(permisoDeRuta("/participaciones/IRI-2026-0031")?.permiso).toBe(
       "participaciones.evaluar",
     );
+    expect(permisoDeRuta("/plataforma")).toBeUndefined();
     expect(permisoDeRuta("/otra")).toBeUndefined();
   });
 });
@@ -89,10 +71,12 @@ describe("permisos por rol", () => {
 describe("inicio de sesión", () => {
   it("lleva a cada rol a su destino", () => {
     const alm = almacenDemo();
-    expect(entrar(alm, "superadmin@plataforma.test").destino).toBe("/plataforma");
+    expect(entrar(alm, "superadmin@plataforma.test").destino).toBe("/tablero");
     expect(entrar(alm, "revisor@iribarren.test").destino).toBe("/tablero");
-    expect(entrar(alm, "admin@palavecino.test").destino).toBe("/onboarding");
-    expect(entrar(alm, "multi@lara.test").destino).toBe("/alcaldia");
+    // El Super Admin entra a operar la alcaldía: queda en la bitácora.
+    expect(alm.bitacora.some((e) => e.accion === "OPERAR_COMO_SUPER_ADMIN")).toBe(true);
+    const s = entrar(alm, "operador@iribarren.test").sesion;
+    expect(contextoDe(alm, s)?.alcaldia.id).toBe("iribarren");
   });
 
   it("bloquea 15 minutos tras 5 intentos y no revela si el correo existe", () => {
@@ -119,27 +103,6 @@ describe("inicio de sesión", () => {
     expect(iniciarSesion(almacenDemo(), "desactivado@iribarren.test", CONTRASENA_DEMO).estado).toBe(
       "DESACTIVADA",
     );
-  });
-});
-
-describe("alcaldía activa", () => {
-  it("el personal solo entra a sus alcaldías; la plataforma a todas, con bitácora", () => {
-    const alm = almacenDemo();
-    const multi = entrar(alm, "multi@lara.test").sesion;
-    expect(elegirAlcaldia(alm, multi, "palavecino").estado).toBe("SIN_ACCESO");
-    expect(elegirAlcaldia(alm, multi, "jimenez")).toEqual({ estado: "OK", destino: "/tablero" });
-    expect(contextoDe(alm, multi)?.roles).toEqual(["OPERADOR"]);
-
-    const rep = entrar(alm, "avipri@plataforma.test").sesion;
-    const antes = alm.bitacora.length;
-    expect(elegirAlcaldia(alm, rep, "torres")).toEqual({ estado: "OK", destino: "/tablero" });
-    expect(alm.bitacora.at(-1)?.accion).toBe("OPERAR_EN_ALCALDIA");
-    expect(alm.bitacora.length).toBe(antes + 1);
-    // En una alcaldía sin onboarding, la plataforma puede completarlo.
-    expect(elegirAlcaldia(alm, rep, "palavecino")).toEqual({
-      estado: "OK",
-      destino: "/onboarding",
-    });
   });
 });
 
@@ -216,64 +179,6 @@ describe("bitácora", () => {
     expect(verificarIntegridad(alm)).toEqual({ ok: true });
     alm.bitacora[1]!.accion = "OTRA_COSA";
     expect(verificarIntegridad(alm)).toEqual({ ok: false, eventoId: 2 });
-  });
-});
-
-describe("onboarding de la alcaldía", () => {
-  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
-  const SVG = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
-
-  function adminPalavecino() {
-    const alm = almacenDemo();
-    return { alm, s: entrar(alm, "admin@palavecino.test").sesion };
-  }
-
-  it("acepta PNG y SVG por su firma real y rechaza lo demás", () => {
-    const { alm, s } = adminPalavecino();
-    expect(guardarLogo(alm, s, PNG).estado).toBe("OK");
-    expect(alm.alcaldias.get("palavecino")?.borradorMarca?.logo).toMatchObject({
-      tipo: "image/png",
-      version: 1,
-    });
-    expect(guardarLogo(alm, s, SVG).estado).toBe("OK");
-    expect(guardarLogo(alm, s, new TextEncoder().encode("hola")).estado).toBe("FORMATO");
-    expect(guardarLogo(alm, s, new Uint8Array()).estado).toBe("VACIO");
-    expect(guardarLogo(alm, s, new Uint8Array(MAX_LOGO + 1).fill(0x89)).estado).toBe("MUY_GRANDE");
-  });
-
-  it("solo configura el administrador o la plataforma operando en la alcaldía", () => {
-    const alm = almacenDemo();
-    const op = entrar(alm, "operador@iribarren.test").sesion;
-    expect(guardarLogo(alm, op, PNG).estado).toBe("SIN_PERMISO");
-    const rep = entrar(alm, "avipri@plataforma.test").sesion;
-    elegirAlcaldia(alm, rep, "palavecino");
-    expect(guardarLogo(alm, rep, PNG).estado).toBe("OK");
-  });
-
-  it("rechaza colores sin contraste y sugiere uno que cumple", () => {
-    const { alm, s } = adminPalavecino();
-    const r = guardarColores(alm, s, "#ECA52B");
-    expect(r.estado).toBe("CONTRASTE");
-    if (r.estado === "CONTRASTE") expect(guardarColores(alm, s, r.sugerencia).estado).toBe("OK");
-    expect(guardarLema(alm, s, "x".repeat(MAX_LEMA + 1)).estado).toBe("MUY_LARGO");
-    expect(guardarLema(alm, s, "  Cabudare   participa ").estado).toBe("OK");
-    expect(alm.alcaldias.get("palavecino")?.borradorMarca?.lema).toBe("Cabudare participa");
-  });
-
-  it("confirma solo con logo y color, activa la alcaldía y deja bitácora", () => {
-    const { alm, s } = adminPalavecino();
-    expect(completarOnboarding(alm, s)).toEqual({ estado: "FALTA", paso: "logo" });
-    guardarLogo(alm, s, PNG);
-    expect(completarOnboarding(alm, s)).toEqual({ estado: "FALTA", paso: "colores" });
-    guardarColores(alm, s, "#0B4F8A");
-    expect(completarOnboarding(alm, s)).toEqual({ estado: "OK" });
-    const a = alm.alcaldias.get("palavecino")!;
-    expect(a.estado).toBe("ACTIVA");
-    expect(a.marca).toMatchObject({ primario: "#0B4F8A", logo: { tipo: "image/png" } });
-    expect(logoDe(alm, "palavecino")?.bytes).toEqual(PNG);
-    expect(alm.bitacora.at(-1)?.accion).toBe("ONBOARDING_COMPLETADO");
-    expect(completarOnboarding(alm, s).estado).toBe("YA_ACTIVA");
-    expect(verificarIntegridad(alm)).toEqual({ ok: true });
   });
 });
 

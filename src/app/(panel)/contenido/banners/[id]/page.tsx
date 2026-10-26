@@ -8,7 +8,7 @@ import { idsPrerender } from "@/lib/plataforma/servicio";
 import { almacen, exigirEnAlcaldia, idSesion } from "@/lib/plataforma/sesion";
 import { bannersDemo } from "@/lib/plataforma/fixtures-contenido";
 
-export const metadata: Metadata = { title: "Banner" };
+export const metadata: Metadata = { title: "Diapositiva" };
 
 /*
  * Todos los ids de ejemplo: en Netlify, un id que no se generó al compilar devuelve 500 (el

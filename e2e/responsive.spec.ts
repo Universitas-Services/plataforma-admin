@@ -27,17 +27,13 @@ test.describe("responsive", () => {
         "/tablero",
         "/participaciones",
         "/participaciones?estado=APROBADA",
+        "/participaciones/IRI-2026-0031",
         "/no-existe",
       ])
         await sinDesborde(page, ruta);
       await page.context().clearCookies();
-      await ingresar(page, "admin@palavecino.test");
-      for (const paso of ["logo", "colores", "lema"])
-        await sinDesborde(page, `/onboarding?paso=${paso}`);
-      await page.context().clearCookies();
       await ingresar(page, "superadmin@plataforma.test");
-      for (const ruta of ["/plataforma", "/alcaldia", "/plataforma/representantes"])
-        await sinDesborde(page, ruta);
+      for (const ruta of ["/configuracion", "/equipo", "/bitacora"]) await sinDesborde(page, ruta);
       await page.context().clearCookies();
       await ingresar(page, "operador@iribarren.test");
       for (const ruta of [
@@ -45,8 +41,8 @@ test.describe("responsive", () => {
         "/contenido/noticias/n-ejemplo-mesas",
         "/contenido/noticias/n-ejemplo-galeria",
         "/contenido/noticias/n-ejemplo-video",
-        "/contenido/banners",
-        "/contenido/banners/b-ejemplo-diagnostico",
+        "/contenido/inicio",
+        "/contenido/proceso",
         "/contenido/documentos",
         "/contenido/documentos/d-ejemplo-plan",
       ])

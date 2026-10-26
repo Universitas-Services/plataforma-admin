@@ -181,7 +181,7 @@ export type Medio = {
 
 export const urlMedio = (id: string) => `/medios/${id}`;
 
-/* ---------- Banners del Inicio (backlog 1.14) ---------- */
+/* ---------- Diapositivas de la tarjeta de transiciones del Inicio ---------- */
 
 /** Tonos del portal: «rojo» es el color de marca de la alcaldía; «tinta», oscuro; «cálido», claro. */
 export const TONOS_BANNER = ["rojo", "tinta", "calido"] as const;

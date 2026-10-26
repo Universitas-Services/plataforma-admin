@@ -127,7 +127,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
             role="region"
             aria-label="Ciudadanos registrados"
             tabIndex={0}
-            className="overflow-x-auto rounded-lg border border-linea"
+            className="relative overflow-x-auto rounded-lg border border-linea"
           >
             <table className="w-full border-collapse text-left text-[0.9375rem]">
               <caption className="sr-only">Ciudadanos registrados</caption>

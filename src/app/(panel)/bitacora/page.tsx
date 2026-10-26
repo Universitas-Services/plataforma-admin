@@ -175,7 +175,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
             role="region"
             aria-label="Eventos de la bitácora"
             tabIndex={0}
-            className="overflow-x-auto rounded-lg border border-linea xl:self-start"
+            className="relative overflow-x-auto rounded-lg border border-linea xl:self-start"
           >
             <table className="w-full border-collapse text-left text-[0.9375rem]">
               <caption className="sr-only">Eventos de la bitácora, del más reciente</caption>

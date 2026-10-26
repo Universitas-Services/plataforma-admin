@@ -1,33 +1,22 @@
-import { ArrowRight } from "lucide-react";
 import type { Banner, Vigencia } from "@/lib/contenido/tipos";
 import { TramoEstado, formatearFecha } from "./estado-noticia";
+import { VistaPreviaTarjeta } from "./vista-previa-tarjeta";
 
 /*
- * Piezas de los banners: la vista aproximada del banner del portal y su vigencia dibujada con
- * el mismo tramo que el estado de las noticias.
+ * Piezas de las diapositivas de la tarjeta con transiciones del Inicio: su vista previa (la misma
+ * tarjeta del portal) y su vigencia dibujada con el mismo tramo que el estado de las noticias.
  */
 
-const TONO: Record<Banner["tono"], { panel: string; texto: string; boton: string }> = {
-  rojo: {
-    panel: "bg-marca text-sobre-marca",
-    texto: "",
-    boton: "bg-papel text-tinta",
-  },
-  tinta: {
-    panel: "bg-banner-oscuro text-papel",
-    texto: "text-papel/85",
-    boton: "bg-banner-calido text-banner-oscuro",
-  },
-  calido: {
-    panel: "bg-banner-calido text-banner-oscuro",
-    texto: "text-banner-oscuro/85",
-    boton: "bg-banner-oscuro text-papel",
-  },
+/** Fondos del portal por tono, para las miniaturas de la lista. */
+const PANEL: Record<Banner["tono"], string> = {
+  rojo: "bg-rojo-oscuro text-papel",
+  tinta: "bg-noche text-papel",
+  calido: "bg-amarillo text-noche",
 };
 
 /**
- * Aproximación del banner en el Inicio del portal: tono de fondo o foto con velo, título,
- * texto y botón. `compacta` para las tarjetas de la lista.
+ * Vista previa de una diapositiva: la tarjeta del portal completa, o una miniatura (`compacta`)
+ * para la lista.
  */
 export function VistaBanner({
   banner: b,
@@ -36,14 +25,28 @@ export function VistaBanner({
   banner: Pick<Banner, "titulo" | "texto" | "enlace" | "tono" | "imagen">;
   compacta?: boolean;
 }) {
-  const t = TONO[b.tono];
+  if (!compacta)
+    return (
+      <VistaPreviaTarjeta
+        diapositivas={[
+          {
+            id: "previa",
+            titulo: b.titulo,
+            texto: b.texto,
+            etiqueta: b.enlace.etiqueta,
+            tono: b.tono,
+            imagen: b.imagen?.src ? { src: b.imagen.src, alt: b.imagen.alt } : undefined,
+          },
+        ]}
+      />
+    );
   const conFoto = Boolean(b.imagen?.src);
   return (
     <div
-      aria-hidden={compacta ? true : undefined}
-      className={`relative isolate overflow-hidden rounded-lg ${conFoto ? "bg-banner-oscuro text-papel" : t.panel} ${
-        compacta ? "aspect-[16/9] p-3 sm:aspect-[16/7]" : "min-h-64 p-5 sm:p-7"
-      } flex flex-col justify-end`}
+      aria-hidden="true"
+      className={`relative isolate flex aspect-[16/9] flex-col justify-end overflow-hidden rounded-lg p-3 sm:aspect-[16/7] ${
+        conFoto ? "bg-noche text-papel" : PANEL[b.tono]
+      }`}
     >
       {conFoto && (
         <>
@@ -51,32 +54,14 @@ export function VistaBanner({
           <img
             src={b.imagen!.src}
             alt=""
-            aria-hidden="true"
             className="absolute inset-0 -z-10 size-full object-cover"
           />
-          <div className="absolute inset-0 -z-10 bg-gradient-to-t from-banner-oscuro/90 via-banner-oscuro/55 to-banner-oscuro/10" />
+          <div className="absolute inset-0 -z-10 bg-[linear-gradient(0deg,rgb(46_19_77/0.95)_0%,rgb(46_19_77/0.6)_50%,rgb(46_19_77/0.15)_100%)]" />
         </>
       )}
-      <p
-        className={`font-bold text-balance ${compacta ? "line-clamp-2 hidden text-sm leading-snug sm:block" : "text-xl leading-tight sm:text-2xl"}`}
-      >
-        {b.titulo || "Título del banner"}
+      <p className="line-clamp-2 hidden text-sm leading-snug font-bold text-balance sm:block">
+        {b.titulo || "Título de la diapositiva"}
       </p>
-      {!compacta && (
-        <p
-          className={`mt-2 max-w-prose text-sm sm:text-base ${conFoto ? "text-papel/90" : t.texto}`}
-        >
-          {b.texto || "Texto del banner."}
-        </p>
-      )}
-      {!compacta && (
-        <span
-          className={`mt-4 inline-flex w-fit items-center gap-2 rounded-control px-4 py-2 text-sm font-semibold ${conFoto ? "bg-papel text-tinta" : t.boton}`}
-        >
-          {b.enlace.etiqueta || "Texto del botón"}
-          <ArrowRight size={16} aria-hidden="true" />
-        </span>
-      )}
     </div>
   );
 }

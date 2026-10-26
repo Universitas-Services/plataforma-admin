@@ -44,7 +44,16 @@ test.describe("acceso", () => {
 });
 
 const POR_ROL: [string, string[]][] = [
-  ["revisor@iribarren.test", ["/tablero", "/participaciones", "/ciudadanos"]],
+  [
+    "revisor@iribarren.test",
+    [
+      "/tablero",
+      "/participaciones",
+      "/participaciones/IRI-2026-0031",
+      "/participaciones/IRI-2026-0036",
+      "/ciudadanos",
+    ],
+  ],
   ["admin@iribarren.test", ["/tablero", "/contenido", "/equipo", "/configuracion", "/bitacora"]],
   [
     "operador@iribarren.test",
@@ -59,21 +68,15 @@ const POR_ROL: [string, string[]][] = [
       "/contenido/noticias/n-ejemplo-video",
       "/contenido/noticias/n-ejemplo-documento",
       "/contenido/noticias/n-ejemplo-puntos",
-      "/contenido/banners",
-      "/contenido/banners?vigencia=VENCIDO",
-      "/contenido/banners/b-ejemplo-diagnostico",
-      "/contenido/banners/nuevo",
+      "/contenido/inicio",
+      "/contenido/proceso",
       "/contenido/documentos",
       "/contenido/documentos?visibilidad=oculto",
       "/contenido/documentos/d-ejemplo-plan",
       "/contenido/documentos/nuevo",
     ],
   ],
-  [
-    "superadmin@plataforma.test",
-    ["/plataforma", "/plataforma/alcaldias", "/plataforma/representantes", "/alcaldia"],
-  ],
-  ["admin@palavecino.test", ["/onboarding"]],
+  ["superadmin@plataforma.test", ["/tablero", "/configuracion", "/contenido/proceso"]],
 ];
 
 test.describe("panel", () => {
@@ -89,33 +92,6 @@ test.describe("panel", () => {
       }
     });
   }
-
-  test("asistente de onboarding, paso a paso", async ({ page }) => {
-    test.slow();
-    await ingresar(page, "admin@palavecino.test");
-    await page.goto("/onboarding?paso=logo");
-    await auditar(page);
-    // Esperar la hidratación: antes, el cambio del archivo no llega a React.
-    await page.waitForLoadState("networkidle");
-    await page.locator("#logo").setInputFiles("public/marca/isotipo-256px.png");
-    await expect(page.getByLabel("Acercar")).toBeVisible();
-    await auditar(page);
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
-    await expect(page).toHaveURL(/paso=colores/, { timeout: 30_000 });
-    await page.locator("#colorPrimario").fill("#ECA52B");
-    await expect(page.getByText("No cumple el contraste AA")).toBeVisible();
-    await page.getByRole("button", { name: "Añadir color secundario" }).click();
-    await auditar(page);
-    await page.locator("#colorPrimario").fill("#0B4F8A");
-    await page.getByRole("button", { name: "Guardar y continuar" }).click();
-    await expect(page).toHaveURL(/paso=lema/);
-    await auditar(page);
-    await page.getByRole("button", { name: /Guardar y continuar|Continuar sin lema/ }).click();
-    await expect(page).toHaveURL(/paso=resumen/);
-    await auditar(page);
-    // Sin borrador de por medio: Palavecino queda como en la demo.
-    expect((await page.request.delete("/api/desarrollo/onboarding/palavecino")).status()).toBe(204);
-  });
 
   test("404 dentro del panel", async ({ page }) => {
     await ingresar(page, "revisor@iribarren.test");

@@ -5,9 +5,13 @@ import type { Banner, CamposBanner, Vigencia } from "@/lib/contenido/tipos";
 import { instante, vigenciaDe } from "@/lib/contenido/vigencia";
 
 /*
- * Banners del carrusel del Inicio (backlog 1.14 y 2.9): vigencia, orden por arrastre y
- * bitácora. Misma regla de vigencia que el portal (portal-iribarren/src/lib/banners.ts).
+ * Diapositivas de la tarjeta con transiciones del Inicio, bajo el termómetro (antes «banners»,
+ * backlog 1.14 y 2.9): vigencia, orden por arrastre y bitácora. El portal muestra las primeras
+ * 6 vigentes en su orden. Misma regla de vigencia que el portal (portal-iribarren/src/lib/banners.ts).
  */
+
+/** Diapositivas que la tarjeta muestra a la vez. */
+export const MAX_EN_PORTAL = 6;
 
 export { instante, vigenciaDe };
 
@@ -19,7 +23,14 @@ const activosDe = (alm: Almacen, alcaldiaId: string) =>
 export type FilaBanner = Banner & { estadoVigencia: Vigencia };
 
 export type ResultadoBanners =
-  | { estado: "OK"; items: FilaBanner[]; conteos: Record<Vigencia, number>; total: number }
+  | {
+      estado: "OK";
+      items: FilaBanner[];
+      conteos: Record<Vigencia, number>;
+      total: number;
+      /** Lo que el portal muestra hoy: las primeras 6 vigentes, en su orden. */
+      enPortal: FilaBanner[];
+    }
   | { estado: "SIN_SESION" | "SIN_PERMISO" };
 
 export function listarBanners(
@@ -41,6 +52,7 @@ export function listarBanners(
     items: filtro ? todos.filter((b) => b.estadoVigencia === filtro) : todos,
     conteos,
     total: todos.length,
+    enPortal: todos.filter((b) => b.estadoVigencia === "VIGENTE").slice(0, MAX_EN_PORTAL),
   };
 }
 

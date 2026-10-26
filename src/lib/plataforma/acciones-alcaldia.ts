@@ -1,16 +1,12 @@
 "use server";
 
 import { refresh, revalidatePath } from "next/cache";
-import { evaluarMarca, explicarContraste } from "@/lib/marca";
 import {
-  actualizarMarca,
-  cambiarActivoItem,
   cambiarActivoMiembro,
   cambiarMembresia,
   editarRoles,
   fijarFaseActual,
   guardarFase,
-  guardarItem,
   invitarMiembro,
   MOTIVO_MIN,
   moverFase,
@@ -18,7 +14,6 @@ import {
 } from "./alcaldia";
 import { verificarIntegridad } from "./servicio";
 import { almacen, esDemo, getContexto, idSesion } from "./sesion";
-import type { TipoCatalogo } from "./tipos";
 
 /*
  * Acciones del Admin de alcaldía (backlog 2.8, 2.11, 2.12 y 2.13). Devuelven el resultado a la
@@ -140,43 +135,8 @@ export async function membresiaAccion(
     ok: true,
     mensaje:
       estado === "SUSPENDIDA"
-        ? "Membresía suspendida: no podrá participar en esta alcaldía."
-        : "Membresía reactivada.",
-  };
-}
-
-/* ---------- Catálogos ---------- */
-
-export async function guardarItemAccion(
-  tipo: TipoCatalogo,
-  nombre: string,
-  id?: string,
-): Promise<Respuesta> {
-  const r = guardarItem(almacen(), await idSesion(), tipo, nombre, id);
-  if (r.estado === "VACIO")
-    return { ok: false, mensaje: "Escribe el nombre.", errores: { nombre: "Escribe el nombre." } };
-  if (r.estado === "REPETIDO")
-    return {
-      ok: false,
-      mensaje: "Ese valor ya existe.",
-      errores: { nombre: "Ya existe un valor con ese nombre." },
-    };
-  if (r.estado !== "OK") return COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
-  purgar("/configuracion");
-  return { ok: true, mensaje: id ? "Valor actualizado." : "Valor agregado." };
-}
-
-export async function activarItemAccion(
-  tipo: TipoCatalogo,
-  id: string,
-  activo: boolean,
-): Promise<Respuesta> {
-  const r = cambiarActivoItem(almacen(), await idSesion(), tipo, id, activo);
-  if (r.estado !== "OK") return COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
-  purgar("/configuracion");
-  return {
-    ok: true,
-    mensaje: activo ? "Valor activado." : "Valor desactivado: ya no se ofrece en el portal.",
+        ? "Cuenta suspendida: no podrá iniciar sesión ni participar."
+        : "Cuenta reactivada.",
   };
 }
 
@@ -200,69 +160,22 @@ export async function guardarFaseAccion(datos: {
     };
   if (r.estado === "LIMITE") return { ok: false, mensaje: "El proceso admite hasta 12 fases." };
   if (r.estado !== "OK") return COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
-  purgar("/configuracion");
+  purgar("/contenido/proceso");
   return { ok: true, mensaje: datos.id ? "Fase actualizada." : "Fase agregada." };
 }
 
 export async function moverFaseAccion(id: string, direccion: -1 | 1): Promise<Respuesta> {
   const r = moverFase(almacen(), await idSesion(), id, direccion);
   if (r.estado !== "OK") return COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
-  purgar("/configuracion");
+  purgar("/contenido/proceso");
   return { ok: true, mensaje: "Orden de las fases guardado." };
 }
 
 export async function faseActualAccion(id: string): Promise<Respuesta> {
   const r = fijarFaseActual(almacen(), await idSesion(), id);
   if (r.estado !== "OK") return COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
-  purgar("/configuracion");
+  purgar("/contenido/proceso");
   return { ok: true, mensaje: "Fase actual actualizada: el termómetro del portal la mostrará." };
-}
-
-/* ---------- Marca ---------- */
-
-export async function marcaAccion(fd: FormData): Promise<Respuesta> {
-  const primario = String(fd.get("primario") ?? "");
-  const secundario = String(fd.get("secundario") ?? "") || undefined;
-  const lema = String(fd.get("lema") ?? "");
-  const archivo = fd.get("logo");
-  const logo =
-    archivo instanceof File && archivo.size > 0
-      ? new Uint8Array(await archivo.arrayBuffer())
-      : undefined;
-  if (!/^#[0-9a-f]{6}$/i.test(primario))
-    return {
-      ok: false,
-      mensaje: "Revisa el color primario.",
-      errores: { primario: "Usa un código como #C32026." },
-    };
-  const r = actualizarMarca(almacen(), await idSesion(), { primario, secundario, lema }, logo);
-  switch (r.estado) {
-    case "OK":
-      purgar("/");
-      return { ok: true, mensaje: "Marca actualizada: el panel ya la usa." };
-    case "CONTRASTE":
-      return {
-        ok: false,
-        mensaje: "El color no cumple el contraste mínimo.",
-        errores: { primario: explicarContraste(evaluarMarca(primario)) },
-      };
-    case "LEMA_LARGO":
-      return {
-        ok: false,
-        mensaje: "El lema es muy largo.",
-        errores: { lema: "Máximo 120 caracteres." },
-      };
-    case "LOGO_FORMATO":
-      return { ok: false, mensaje: "Revisa el logo.", errores: { logo: "Usa PNG, JPG o SVG." } };
-    case "LOGO_GRANDE":
-      return {
-        ok: false,
-        mensaje: "Revisa el logo.",
-        errores: { logo: "El logo no puede superar 1 MB." },
-      };
-    default:
-      return COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
-  }
 }
 
 /* ---------- Bitácora ---------- */

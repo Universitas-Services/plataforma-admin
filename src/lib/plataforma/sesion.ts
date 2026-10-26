@@ -69,8 +69,7 @@ export async function idSesion() {
     alm.sesiones.delete(token);
     return undefined;
   }
-  if (!alm.sesiones.has(token))
-    alm.sesiones.set(token, { usuarioId: datos.u, alcaldiaId: datos.a });
+  if (!alm.sesiones.has(token)) alm.sesiones.set(token, { usuarioId: datos.u });
   return token;
 }
 
@@ -96,8 +95,8 @@ export async function abrirSesion(sesion: string) {
 }
 
 /**
- * Vuelve a firmar la sesión actual: tras cambiar de alcaldía (el token la lleva) o cambiar la
- * contraseña (los tokens anteriores quedaron revocados). Solo en Server Actions.
+ * Vuelve a firmar la sesión actual tras cambiar la contraseña (los tokens anteriores quedaron
+ * revocados). Solo en Server Actions.
  */
 export async function refrescarSesion(actual?: string) {
   const id = actual ?? (await idSesion());
@@ -126,22 +125,6 @@ export async function exigirSesion(volver: string): Promise<Contexto> {
   return c;
 }
 
-/**
- * Exige una alcaldía en uso: sin ella, al selector. Con el onboarding pendiente, el
- * administrador va al asistente; el resto del personal espera a que termine.
- */
-export async function exigirAlcaldia(volver: string) {
-  const c = await exigirSesion(volver);
-  if (!c.alcaldia) redirect(c.usuario.rolPlataforma ? "/plataforma" : "/alcaldia");
-  if (c.alcaldia.estado === "ONBOARDING_PENDIENTE")
-    redirect(
-      c.roles.includes("ADMIN") || c.usuario.rolPlataforma
-        ? "/onboarding"
-        : "/alcaldia?pendiente=1",
-    );
-  return { ...c, alcaldia: c.alcaldia };
-}
-
 /** Exige un permiso; sin él, la página 403 (forbidden). */
 export async function exigirPermiso(permiso: Permiso, volver: string) {
   const c = await getContexto();
@@ -150,12 +133,8 @@ export async function exigirPermiso(permiso: Permiso, volver: string) {
   return c;
 }
 
-/** Pantallas de una alcaldía: exige estar operando en una y el permiso de la sección. */
-export async function exigirEnAlcaldia(permiso: Permiso, volver: string) {
-  const c = await exigirAlcaldia(volver);
-  if (!c.permisos.has(permiso)) forbidden();
-  return c;
-}
+/** Pantallas del panel: exige sesión y el permiso de la sección (sin él, 403). */
+export const exigirEnAlcaldia = exigirPermiso;
 
 /** Páginas de acceso: con la sesión abierta no se muestran. */
 export async function soloInvitados(destino = "/") {

@@ -1,4 +1,4 @@
-import type { Documento, Medio, Noticia } from "@/lib/contenido/tipos";
+import type { Banner, Documento, Medio, Noticia } from "@/lib/contenido/tipos";
 import type { Ubicacion } from "@/lib/ubicacion";
 
 /*
@@ -249,9 +249,9 @@ export type Almacen = {
   medios: Map<string, Medio>;
   /**
    * Lo que el Inicio del portal muestra elegido por la alcaldía: la noticia de texto del
-   * mensaje del alcalde y las noticias de la tarjeta de anuncios, en orden.
+   * mensaje del alcalde. La tarjeta con transiciones tiene sus diapositivas en `banners`.
    */
-  inicio: { mensajeAlcalde?: string; anuncios: string[] };
+  inicio: { mensajeAlcalde?: string };
   /** Vistas y reacciones por elemento: `noticia:<id>` o `aporte:<folio>` (backlog 1.14). */
   interacciones: Map<string, Interaccion>;
   /** Descargas de cada documento (para las métricas). */
@@ -264,6 +264,32 @@ export type Almacen = {
   catalogos: Map<string, Record<TipoCatalogo, ItemCatalogo[]>>;
   /** Fases del proceso de cada alcaldía (backlog 1.9). */
   procesos: Map<string, Proceso>;
+  /** Diapositivas de la tarjeta de transiciones del Inicio (6 vigentes a la vez). */
+  banners: Map<string, Banner>;
+  /** Ítems del Marco legal de Conoce el PDUL (anexo de la fase 7, 26-10-2026). */
+  marcoLegal: Map<string, ItemMarcoLegal>;
+};
+
+/* ---------- Marco legal de Conoce el PDUL (anexo de la fase 7) ---------- */
+
+/** A dónde lleva el botón opcional de un ítem: una noticia publicada o un documento público. */
+export type DestinoMarco = { tipo: "NOTICIA" | "DOCUMENTO"; id: string };
+
+export type ItemMarcoLegal = {
+  id: string;
+  alcaldiaId: string;
+  titulo: string;
+  descripcion: string;
+  /** Se muestra en el portal (10 como máximo). */
+  activo: boolean;
+  /** Posición entre los activos; los inactivos no tienen orden. */
+  orden?: number;
+  boton?: { texto: string; destino: DestinoMarco };
+  creadoEl: string;
+  actualizadoEl: string;
+  eliminadoEl?: string;
+  /** Ítem de ejemplo de la maqueta, no un texto oficial. */
+  ejemplo?: boolean;
 };
 
 /** Contadores por día (AAAA-MM-DD) de un elemento: vistas, «me gusta» y «no me gusta». */

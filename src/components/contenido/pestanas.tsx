@@ -7,10 +7,12 @@ const PESTANAS = [
   { href: "/contenido/noticias", texto: "Noticias" },
   { href: "/contenido/documentos", texto: "Documentos" },
   { href: "/contenido/inicio", texto: "Inicio del portal" },
+  { href: "/contenido/banners", texto: "Tarjeta de transiciones" },
   { href: "/contenido/proceso", texto: "Proceso" },
+  { href: "/contenido/marco-legal", texto: "Marco legal" },
 ] as const;
 
-/** Secciones de Contenido: noticias, documentos, lo que muestra el Inicio y el proceso. */
+/** Secciones de Contenido: noticias, documentos, el Inicio, el proceso y el Marco legal. */
 export function PestanasContenido() {
   const ruta = usePathname();
   return (

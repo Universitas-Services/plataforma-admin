@@ -7,6 +7,7 @@ import { PestanasContenido } from "@/components/contenido/pestanas";
 import { EsqueletoFormulario } from "@/components/ui/esqueletos";
 import { EncabezadoPagina } from "@/components/ui/piezas";
 import type { Noticia } from "@/lib/contenido/tipos";
+import { listarBanners } from "@/lib/plataforma/banners";
 import { inicioDe } from "@/lib/plataforma/inicio";
 import { almacen, exigirEnAlcaldia, idSesion } from "@/lib/plataforma/sesion";
 
@@ -33,8 +34,10 @@ const elegible = (n: Noticia): NoticiaElegible => ({
 async function Contenido() {
   await exigirEnAlcaldia("inicio.editar", "/contenido/inicio");
   await connection();
-  const r = inicioDe(almacen(), await idSesion());
+  const sesion = await idSesion();
+  const r = inicioDe(almacen(), sesion);
   if (r.estado !== "OK") return null;
+  const b = listarBanners(almacen(), sesion);
 
   return (
     <>
@@ -44,9 +47,9 @@ async function Contenido() {
       />
       <PestanasContenido />
       <p className="mb-6 max-w-3xl text-cuerpo">
-        El Inicio del portal es fijo, salvo el termómetro (en Proceso) y estas dos tarjetas, que
-        muestran noticias ya publicadas. «Noticias y novedades» y «La gente opina» se llenan solas
-        con lo más reciente, lo más visto y lo más valorado.
+        El Inicio del portal es fijo, salvo el termómetro (en Proceso), el mensaje del alcalde y la
+        tarjeta con transiciones bajo el termómetro. «Noticias y novedades» y «La gente opina» se
+        llenan solas con lo más reciente, lo más visto y lo más valorado.
       </p>
       {r.retiradas.length > 0 && (
         <p
@@ -66,9 +69,19 @@ async function Contenido() {
       )}
       <EditorInicio
         mensajeInicial={r.mensajeAlcalde?.id}
-        anunciosIniciales={r.anuncios.map((n) => n.id)}
         candidatosMensaje={r.candidatosMensaje.map(elegible)}
-        candidatosAnuncios={r.candidatosAnuncios.map(elegible)}
+        diapositivas={
+          b.estado === "OK"
+            ? b.enPortal.map((x) => ({
+                id: x.id,
+                titulo: x.titulo,
+                texto: x.texto,
+                etiqueta: x.enlace.etiqueta,
+                tono: x.tono,
+                imagen: x.imagen ? { src: x.imagen.src, alt: x.imagen.alt } : undefined,
+              }))
+            : []
+        }
       />
     </>
   );

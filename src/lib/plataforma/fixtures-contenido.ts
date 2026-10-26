@@ -1,5 +1,5 @@
-import type { Adjunto, Documento, Imagen, Noticia } from "@/lib/contenido/tipos";
-import type { Almacen, Interaccion } from "./tipos";
+import type { Adjunto, Banner, Documento, Imagen, Noticia } from "@/lib/contenido/tipos";
+import type { Almacen, Interaccion, ItemMarcoLegal } from "./tipos";
 
 /*
  * Noticias de demostración (backlog 2.9). Son contenido de EJEMPLO, no textos oficiales: llevan
@@ -257,7 +257,6 @@ export function noticiasDemo(ahora: number): Noticia[] {
 /** Lo que el Inicio muestra elegido por la alcaldía (ejemplo). */
 export const inicioDemo = () => ({
   mensajeAlcalde: "n-ejemplo-alcalde",
-  anuncios: ["n-ejemplo-mesas", "n-ejemplo-galeria"],
 });
 
 /** Número pseudoaleatorio estable a partir de un texto (los datos de ejemplo no cambian). */
@@ -392,6 +391,124 @@ export function documentosDemo(ahora: number): Documento[] {
       versiones: [{ version: "1.0", fecha: f(-1), nota: "Primera versión.", archivo: minuta }],
       publicadoEl: f(-1),
       actualizadoEl: f(-1),
+    },
+  ]);
+}
+
+/**
+ * Marco legal de Conoce el PDUL con los 7 ítems que hoy muestra el portal (texto del cliente, en
+ * `portal-iribarren/src/lib/conoce/contenido.ts`), activos y en su orden, más un ítem inactivo
+ * de ejemplo. El botón del decreto apunta al documento de ejemplo del repositorio; el de la
+ * sentencia no se incluye porque el panel de demostración no tiene esa noticia.
+ */
+export function marcoLegalDemo(ahora: number): ItemMarcoLegal[] {
+  const fecha = new Date(ahora - 20 * DIA).toISOString();
+  const base = { alcaldiaId: "iribarren", creadoEl: fecha, actualizadoEl: fecha };
+  const activos: Omit<
+    ItemMarcoLegal,
+    "id" | "alcaldiaId" | "creadoEl" | "actualizadoEl" | "activo"
+  >[] = [
+    {
+      titulo: "Constitución de la República Bolivariana de Venezuela (CRBV, arts. 168 y 178)",
+      descripcion:
+        "Consagra el gobierno local y otorga la competencia exclusiva e intangible a los municipios para regular la ordenación urbanística y el uso del suelo.",
+    },
+    {
+      titulo: "Agenda Hábitat III y ODS",
+      descripcion:
+        "Alineado con los Objetivos de Desarrollo Sostenible (Agenda 2030) y ONU-Hábitat para una Barquisimeto compacta, verde, accesible y resiliente al cambio climático.",
+    },
+    {
+      titulo: "Ley Orgánica de Ordenación Urbanística (LOOU, 1987, arts. 10 y 34)",
+      descripcion:
+        "Delimita el contenido obligatorio del PDUL y la potestad del Concejo Municipal para sancionar mediante Ordenanza.",
+    },
+    {
+      titulo: "Ley Orgánica del Poder Público Municipal (LOPPM, 2010, art. 54)",
+      descripcion:
+        "Define a las Ordenanzas como leyes locales de aplicación general y obligatorio cumplimiento.",
+    },
+    {
+      titulo: "Sentencia N° 928/2018 de la Sala Constitucional del TSJ",
+      descripcion:
+        "Hito jurisprudencial que constató el vencimiento del plazo de vigencia del plan de 2003 (previsto en su artículo 150) y decretó cautelarmente su ultractividad para evitar que Barquisimeto quedara en un vacío normativo, ordenando a las autoridades municipales la formulación del nuevo texto legal.",
+    },
+    {
+      titulo: "Guía metodológica MINFRA (Resolución N° 139 / G.O. N° 37.888)",
+      descripcion:
+        "Marco técnico oficial que fija las etapas de elaboración y la estructura exigida para el expediente urbano.",
+    },
+    {
+      titulo:
+        "Decreto Municipal N° 48-2026 (Gaceta Municipal Extraordinaria N° 5256 del 14-09-2026)",
+      descripcion:
+        "Acto administrativo dictado por el Alcalde del Municipio Iribarren, Yanys Enrique Agüero, mediante el cual se declara formalmente el inicio del procedimiento técnico, administrativo y participativo para la elaboración del nuevo PDUL, instruyendo a la Dirección de Planificación y Control Urbano (DPCU) la apertura del registro de actores y de esta plataforma tecnológica de participación ciudadana.",
+      boton: {
+        texto: "Ver en el repositorio",
+        destino: { tipo: "DOCUMENTO", id: "d-ejemplo-decreto" },
+      },
+    },
+  ];
+  return [
+    ...activos.map((a, n) => ({ ...base, ...a, id: `m-${n + 1}`, activo: true, orden: n })),
+    {
+      ...base,
+      id: "m-ejemplo-inactivo",
+      titulo: "Ejemplo: ítem guardado sin mostrar",
+      descripcion:
+        "Ítem de ejemplo inactivo: queda guardado en el panel y no aparece en el portal hasta que se active.",
+      activo: false,
+      ejemplo: true,
+    },
+  ];
+}
+
+const dia = (ahora: number, dias: number) =>
+  new Date(ahora + dias * DIA - 4 * 3_600_000).toISOString().slice(0, 10);
+
+export function bannersDemo(ahora: number): Banner[] {
+  const fecha = new Date(ahora - 5 * DIA).toISOString();
+  const base = { alcaldiaId: "iribarren", creadoEl: fecha, actualizadoEl: fecha, ejemplo: true };
+  return structuredClone<Banner[]>([
+    {
+      ...base,
+      id: "b-ejemplo-propuestas",
+      titulo: "Ejemplo: tu propuesta puede llegar al plan",
+      texto: "Banner de ejemplo con el color de la alcaldía y un enlace a participar.",
+      enlace: { href: "/participa", etiqueta: "Enviar una propuesta" },
+      tono: "rojo",
+      orden: 1,
+      vigencia: { desde: dia(ahora, -10) },
+    },
+    {
+      ...base,
+      id: "b-ejemplo-diagnostico",
+      titulo: "Ejemplo: así se prepara el diagnóstico",
+      texto: "Banner de ejemplo con foto de fondo y tono oscuro.",
+      enlace: { href: "/noticias", etiqueta: "Leer las noticias" },
+      tono: "tinta",
+      imagen: { ...FOTOS.skyline, ilustrativa: undefined },
+      orden: 2,
+    },
+    {
+      ...base,
+      id: "b-ejemplo-documentos",
+      titulo: "Ejemplo: consulta los documentos",
+      texto: "Banner de ejemplo en tono claro, programado para empezar dentro de tres días.",
+      enlace: { href: "/documentos", etiqueta: "Ver el repositorio" },
+      tono: "calido",
+      orden: 3,
+      vigencia: { desde: dia(ahora, 3), hasta: dia(ahora, 30) },
+    },
+    {
+      ...base,
+      id: "b-ejemplo-vencido",
+      titulo: "Ejemplo: jornada que ya pasó",
+      texto: "Banner de ejemplo cuya vigencia terminó: ya no se muestra en el portal.",
+      enlace: { href: "/noticias", etiqueta: "Ver más" },
+      tono: "tinta",
+      orden: 4,
+      vigencia: { desde: dia(ahora, -20), hasta: dia(ahora, -2) },
     },
   ]);
 }

@@ -31,13 +31,15 @@ export const crearAlmacen = (): Almacen => ({
   participaciones: new Map(),
   noticias: new Map(),
   medios: new Map(),
-  inicio: { anuncios: [] },
+  inicio: {},
   interacciones: new Map(),
   descargas: new Map(),
   documentos: new Map(),
   ciudadanos: new Map(),
   catalogos: new Map(),
   procesos: new Map(),
+  marcoLegal: new Map(),
+  banners: new Map(),
 });
 
 /* ---------- Contraseñas (scrypt con sal, comparación en tiempo constante) ---------- */

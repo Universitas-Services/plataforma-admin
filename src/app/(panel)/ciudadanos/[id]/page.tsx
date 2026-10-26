@@ -179,7 +179,7 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
                         {TIPOS_PARTICIPACION[p.tipo]} · {fecha(p.recibidaEl)}
                       </span>
                     </span>
-                    <InsigniaEstado estado={p.estado} />
+                    <InsigniaEstado estado={p.estado} tipo={p.tipo} />
                   </li>
                 ))}
               </ul>

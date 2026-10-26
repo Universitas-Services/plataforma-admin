@@ -324,6 +324,37 @@ Refactorización según `Backlog_Refactorizacion_API_Admin.docx`: **una base de 
 - **Capa de alcaldía hecha en el admin:** Equipo (2.8), Ciudadanos (2.11), Configuración (2.12) y Bitácora (2.13), con API simulada. **Sigue:** tablero de indicadores (2.14) y la capa de plataforma (2.7).
 - **Pruebas E2E opcionales en CI:** corren solo si el PR lleva la etiqueta `e2e` o al lanzarlas a mano (_Run workflow_). Los PR normales pasan solo los checks rápidos.
 
+## 6.5 Fase 7: Marco legal administrable y alineación entre portal y admin (26-10-2026)
+
+Detalle para backend en `Pdull/FASE-7-ANEXO-marco-legal-y-alineacion.md`, que complementa `FASE-7-API-y-alineacion.md` y el backlog de refactorización.
+
+- **D1 cerrada.** El Revisor puede verificar o rechazar una propuesta formal directo desde Pendiente, y rechazar una verificada. Los dos frontends usan la misma tabla de transiciones.
+- **Marco legal de Conoce el PDUL, administrable** (D11, nuevo):
+  - En el admin, en Contenido → Marco legal (`/contenido/marco-legal`, permiso `contenido.editar`), se pueden guardar todos los ítems que se quiera.
+  - Solo los activos (10 como máximo) se ven en el portal, en el orden manual que fija el Operador.
+  - Cada ítem tiene título, descripción y un botón opcional a una noticia publicada o a un documento público. El texto del botón es editable, con valor por defecto: «Leer la noticia» o «Ver el documento».
+  - Si el destino se despublica, el portal oculta el botón y el admin muestra un aviso.
+  - El portal lo lee con `getMarcoLegal()`, con la forma de `GET /portal/legal-framework`.
+- **Vista previa antes de publicar en el admin:**
+  - noticias: ya existía;
+  - proceso: el termómetro, ya existía;
+  - **Inicio y Tarjeta de transiciones**: el mensaje del alcalde y la tarjeta con sus diapositivas, que se puede recorrer como en el portal;
+  - **documentos**: la fila del repositorio, en vivo, al subir o editar la ficha;
+  - **Marco legal**: el ítem, en vivo, mientras se edita, y la sección completa en un diálogo.
+- **«Recibida»:** el admin muestra así las opiniones pendientes, como el portal.
+- **Portal sin membresías:**
+  - se quitaron `/unirme`, «Abandonar este portal», el aviso de abandono en el ingreso y el campo `membresias` de la cuenta simulada;
+  - la solicitud de baja se mantiene;
+  - la traducción de `MEMBERSHIP_*` en `src/lib/plataforma-api/mapeo.ts` sigue mientras la API no los retire.
+- **Inicio (D12): solo dos tarjetas editables.**
+  - El mensaje del alcalde: una noticia de texto, que el portal lee con `getHome()` (forma de `GET /portal/home`). Mientras no haya una elegida, muestra el texto provisional (D10 sigue abierta).
+  - La tarjeta con transiciones bajo el termómetro: **tiene sus propias diapositivas** (título, texto, botón, tono o foto, orden y vigencia), no noticias elegidas.
+    - En el admin se editan en Contenido → Tarjeta de transiciones (`/contenido/banners`), con la vista previa idéntica a la del portal.
+    - El portal muestra las 6 primeras vigentes (`getBanners()`, forma de `GET /portal/banners`).
+  - Se descartó la idea de «anuncios con noticias».
+- **Ramas:** `portal-iribarren` en `feat/alineacion-fase-7` (sale de `main`); `plataforma-admin` en `feat/marco-legal-y-alineacion` (sale de `feat/admin-iribarren`, que aún no está en `main`).
+- **Todavía sin API:** cada repo tiene sus datos simulados, así que lo que se guarda en el admin no se ve en el portal hasta conectar los dos a la API.
+
 ## 7. Noticias reales (Propuesta v4), ya cargadas
 
 | Slug                                    | Fecha | Categoría               | Formato                                            |

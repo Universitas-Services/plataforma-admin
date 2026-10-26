@@ -1,5 +1,12 @@
 import { HORAS_INVITACION, cifrar, crearAlmacen } from "./servicio";
-import { documentosDemo, inicioDemo, interaccionesDemo, noticiasDemo } from "./fixtures-contenido";
+import {
+  bannersDemo,
+  documentosDemo,
+  inicioDemo,
+  interaccionesDemo,
+  marcoLegalDemo,
+  noticiasDemo,
+} from "./fixtures-contenido";
 import { catalogosDemo, ciudadanosDemo, procesoDemo } from "./fixtures-alcaldia";
 import { participacionesDemo } from "./fixtures-participaciones";
 import { ALCALDIA } from "@/config/alcaldia";
@@ -127,6 +134,8 @@ export function almacenDemo(ahora = Date.now()): Almacen {
   for (const n of noticiasDemo(ahora)) alm.noticias.set(n.id, n);
   for (const d of documentosDemo(ahora)) alm.documentos.set(d.id, d);
   alm.inicio = inicioDemo();
+  for (const m of marcoLegalDemo(ahora)) alm.marcoLegal.set(m.id, m);
+  for (const b of bannersDemo(ahora)) alm.banners.set(b.id, b);
   interaccionesDemo(alm, ahora);
 
   return alm;

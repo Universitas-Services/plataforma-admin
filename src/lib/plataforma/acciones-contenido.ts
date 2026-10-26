@@ -4,13 +4,23 @@ import { refresh, revalidatePath } from "next/cache";
 import { RedirectType, redirect } from "next/navigation";
 import {
   adjuntoSchema,
+  bannerSchema,
   documentoSchema,
+  itemMarcoSchema,
   noticiaSchema,
   versionSchema,
 } from "@/lib/validation/schemas";
+import { eliminarBanner, guardarBanner, ordenarBanners } from "./banners";
 import { crearDocumento, eliminarDocumento, guardarDocumento, nuevaVersion } from "./documentos";
 import { cambiarEstadoNoticia, crearNoticia, guardarNoticia, type CambioEstado } from "./contenido";
-import { guardarInicio, MAX_ANUNCIOS } from "./inicio";
+import { guardarInicio } from "./inicio";
+import {
+  MAX_ACTIVOS,
+  crearItemMarco,
+  eliminarItemMarco,
+  guardarItemMarco,
+  ordenarMarco,
+} from "./marco-legal";
 import { almacen, guardarAviso, idSesion } from "./sesion";
 
 /*
@@ -227,23 +237,132 @@ export async function eliminarDocumentoAccion(id: string): Promise<Respuesta> {
 /* ---------- Inicio del portal ---------- */
 
 const ERROR_INICIO: Record<string, string> = {
-  NO_PUBLICADA: "Una de las noticias elegidas ya no está publicada. Recarga la página.",
+  NO_PUBLICADA: "La noticia elegida ya no está publicada. Recarga la página.",
   NO_ES_TEXTO: "El mensaje del alcalde tiene que ser una noticia de formato Texto.",
-  REPETIDA: "Una noticia aparece dos veces en anuncios.",
-  DEMASIADAS: `La tarjeta de anuncios admite hasta ${MAX_ANUNCIOS} noticias.`,
 };
 
-/** Guarda lo que muestra el Inicio: el mensaje del alcalde y las noticias de anuncios. */
+/** Guarda el mensaje del alcalde que muestra el Inicio. */
 export async function guardarInicioAccion(datos: {
   mensajeAlcalde: string | null;
-  anuncios: string[];
 }): Promise<Respuesta> {
-  const r = guardarInicio(almacen(), await idSesion(), {
-    mensajeAlcalde: datos.mensajeAlcalde,
-    anuncios: Array.isArray(datos.anuncios) ? datos.anuncios.map(String) : [],
-  });
+  const r = guardarInicio(almacen(), await idSesion(), { mensajeAlcalde: datos.mensajeAlcalde });
   if (r.estado === "SIN_SESION" || r.estado === "SIN_PERMISO") return COMUNES[r.estado];
   if (r.estado !== "OK") return { ok: false, mensaje: ERROR_INICIO[r.estado]! };
   invalidar();
   return { ok: true, mensaje: "Inicio actualizado: el portal ya muestra tu selección." };
+}
+
+/* ---------- Marco legal de Conoce el PDUL ---------- */
+
+const ERROR_MARCO: Record<string, Respuesta> = {
+  DEMASIADOS_ACTIVOS: {
+    ok: false,
+    errores: { activo: `Ya hay ${MAX_ACTIVOS} ítems en el portal: desactiva uno antes.` },
+    mensaje: `El portal muestra hasta ${MAX_ACTIVOS} ítems a la vez.`,
+  },
+  DESTINO_NO_DISPONIBLE: {
+    ok: false,
+    errores: { "boton-destino-id": "Elige una noticia publicada o un documento público." },
+    mensaje: "El botón tiene que llevar a contenido publicado.",
+  },
+  ORDEN_INVALIDO: {
+    ok: false,
+    mensaje: "La lista cambió mientras la ordenabas. Recarga la página.",
+  },
+};
+
+function respuestaMarco(estado: string): Respuesta {
+  return (
+    ERROR_MARCO[estado] ??
+    COMUNES[estado as keyof typeof COMUNES] ?? { ok: false, mensaje: "No se pudo guardar." }
+  );
+}
+
+/** Crea un ítem (POST /admin/legal-framework). */
+export async function crearItemMarcoAccion(datos: unknown): Promise<Respuesta> {
+  const p = itemMarcoSchema.safeParse(datos);
+  if (!p.success) return erroresDe(p.error.issues);
+  const r = crearItemMarco(almacen(), await idSesion(), p.data);
+  if (r.estado !== "OK") return respuestaMarco(r.estado);
+  invalidar();
+  refresh();
+  return {
+    ok: true,
+    mensaje: r.item.activo
+      ? "Ítem creado: ya aparece al final del Marco legal del portal."
+      : "Ítem guardado sin mostrarse en el portal.",
+  };
+}
+
+/** Edita un ítem: texto, botón y si se muestra (PATCH /admin/legal-framework/:id). */
+export async function guardarItemMarcoAccion(id: string, datos: unknown): Promise<Respuesta> {
+  const p = itemMarcoSchema.safeParse(datos);
+  if (!p.success) return erroresDe(p.error.issues);
+  const r = guardarItemMarco(almacen(), await idSesion(), String(id), p.data);
+  if (r.estado !== "OK") return respuestaMarco(r.estado);
+  invalidar();
+  refresh();
+  return { ok: true, mensaje: "Ítem guardado." };
+}
+
+/** Guarda el orden de los ítems activos (PUT /admin/legal-framework/order). */
+export async function ordenarMarcoAccion(ids: unknown): Promise<Respuesta> {
+  const lista = Array.isArray(ids) ? ids.map(String) : [];
+  const r = ordenarMarco(almacen(), await idSesion(), lista);
+  if (r.estado !== "OK") return respuestaMarco(r.estado);
+  invalidar();
+  refresh();
+  return { ok: true, mensaje: "Orden guardado: el portal ya lo muestra así." };
+}
+
+/** Elimina un ítem (borrado lógico). */
+export async function eliminarItemMarcoAccion(id: string): Promise<Respuesta> {
+  const r = eliminarItemMarco(almacen(), await idSesion(), String(id));
+  if (r.estado !== "OK") return respuestaMarco(r.estado);
+  invalidar();
+  refresh();
+  return { ok: true, mensaje: "Ítem eliminado." };
+}
+
+/* ---------- Diapositivas de la tarjeta de transiciones del Inicio ---------- */
+
+/** Crea (id vacío) o actualiza un banner y vuelve a la lista. */
+export async function guardarBannerAccion(id: string | null, datos: unknown): Promise<Respuesta> {
+  const p = bannerSchema.safeParse(datos);
+  if (!p.success) return erroresDe(p.error.issues);
+  const r = guardarBanner(almacen(), await idSesion(), id ?? undefined, p.data);
+  if (r.estado === "FECHAS")
+    return {
+      ok: false,
+      errores: { vigencia: "La fecha final tiene que ser igual o posterior a la inicial." },
+      mensaje: "Revisa las fechas.",
+    };
+  if (r.estado !== "OK") return COMUNES[r.estado];
+  await guardarAviso(
+    id ? "Diapositiva actualizada." : "Diapositiva creada al final de la tarjeta.",
+  );
+  invalidar();
+  refresh();
+  return ir("/contenido/banners");
+}
+
+export async function eliminarBannerAccion(id: string): Promise<Respuesta> {
+  const r = eliminarBanner(almacen(), await idSesion(), id);
+  if (r.estado !== "OK") return COMUNES[r.estado];
+  await guardarAviso("Diapositiva eliminada.");
+  invalidar();
+  refresh();
+  return ir("/contenido/banners");
+}
+
+export async function ordenarBannersAccion(ids: string[]): Promise<Respuesta> {
+  const r = ordenarBanners(almacen(), await idSesion(), ids);
+  if (r.estado === "LISTA_INVALIDA")
+    return {
+      ok: false,
+      mensaje: "Alguien del equipo cambió las diapositivas mientras ordenabas. Recarga la página.",
+    };
+  if (r.estado !== "OK") return COMUNES[r.estado];
+  // Sin refresh: la lista ya muestra el orden nuevo y recargarla borraría el aviso.
+  return { ok: true, mensaje: "Orden guardado: así se verán en el carrusel." };
 }

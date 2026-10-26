@@ -185,7 +185,56 @@ function Ficha({
           </span>
         </span>
       </label>
+      <VistaPreviaDocumento c={c} />
     </div>
+  );
+}
+
+/**
+ * Aproximación de la fila del repositorio en el portal (sello de estado, categoría, título y
+ * descripción), para ver el documento antes de guardarlo. Si está oculto, lo dice.
+ */
+function VistaPreviaDocumento({ c }: { c: CamposDocumento }) {
+  return (
+    <figure>
+      <p className="mb-1.5 text-sm font-bold text-tinta">Vista previa</p>
+      {c.publico ? (
+        <div className="grid grid-cols-[auto_1fr] gap-x-4 rounded-[1.25rem] border border-linea bg-papel p-5">
+          <span
+            aria-hidden="true"
+            className="relative grid h-14 w-11 place-items-center rounded-md bg-superficie"
+          >
+            <FileText size={22} className="text-tinta/60" />
+            <span
+              className={`absolute -right-1.5 -bottom-1.5 size-4 rounded-full ring-2 ring-papel ${
+                c.estado === "OFICIAL" ? "bg-turquesa" : "bg-ambar"
+              }`}
+            />
+          </span>
+          <div className="min-w-0">
+            <p className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+              <span className="rounded-full bg-superficie px-2 py-0.5 text-tinta">
+                {c.estado === "OFICIAL" ? "Oficial" : "Borrador"}
+              </span>
+              <span className="text-rojo-oscuro">{c.categoria ?? "Sin categoría"}</span>
+            </p>
+            <p className="mt-2 font-display text-lg leading-snug font-extrabold text-noche">
+              {c.titulo || "Sin título"}
+            </p>
+            <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-tinta">
+              {c.descripcion || "Sin descripción"}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <p className="rounded-lg border border-dashed border-linea p-4 text-sm text-gris">
+          Oculto: este documento no aparece en el repositorio del portal.
+        </p>
+      )}
+      <figcaption className="mt-2 text-sm text-gris">
+        Aproximación de cómo se verá en el repositorio de documentos del portal.
+      </figcaption>
+    </figure>
   );
 }
 

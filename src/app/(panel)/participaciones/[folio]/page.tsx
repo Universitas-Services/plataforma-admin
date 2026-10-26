@@ -136,7 +136,7 @@ async function Contenido({ params }: { params: Promise<{ folio: string }> }) {
           </p>
           <h1 className="mt-1 text-[1.75rem] leading-tight font-bold tabular-nums">{p.folio}</h1>
         </div>
-        <InsigniaEstado estado={p.estado} />
+        <InsigniaEstado estado={p.estado} tipo={p.tipo} />
       </div>
 
       <div className="mb-6 rounded-lg border border-linea bg-cabecera p-5">

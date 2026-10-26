@@ -7,6 +7,7 @@ import {
   FORMATOS,
   FUENTES_VIDEO,
   TIPOS_NOTICIA,
+  TONOS_BANNER,
 } from "@/lib/contenido/tipos";
 
 /** CU-01 Iniciar sesión (personal interno). */
@@ -208,3 +209,74 @@ export type InvitarUsuarioInput = z.infer<typeof invitarUsuarioSchema>;
 export type TransicionParticipacionInput = z.infer<typeof transicionParticipacionSchema>;
 export type NoticiaInput = z.infer<typeof noticiaSchema>;
 export type DocumentoInput = z.infer<typeof documentoSchema>;
+
+/* ---------- Marco legal de Conoce el PDUL (anexo de la fase 7) ---------- */
+
+export const itemMarcoSchema = z.object({
+  titulo: z
+    .string()
+    .trim()
+    .min(3, "Escribe el título (al menos 3 caracteres).")
+    .max(200, "El título no puede superar 200 caracteres."),
+  descripcion: z
+    .string()
+    .trim()
+    .min(10, "Escribe la descripción (al menos 10 caracteres).")
+    .max(1200, "La descripción no puede superar 1200 caracteres."),
+  activo: z.boolean(),
+  boton: z
+    .object({
+      texto: z
+        .string()
+        .trim()
+        .min(2, "Escribe el texto del botón.")
+        .max(40, "El texto del botón no puede superar 40 caracteres."),
+      destino: z.object({
+        tipo: z.enum(["NOTICIA", "DOCUMENTO"]),
+        id: z.string().min(1, "Elige a dónde lleva el botón."),
+      }),
+    })
+    .nullable()
+    .optional(),
+});
+
+/* ---------- Diapositivas de la tarjeta de transiciones del Inicio ---------- */
+
+const diaSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Usa el formato AAAA-MM-DD.")
+  .optional()
+  .or(z.literal("").transform(() => undefined));
+
+export const bannerSchema = z
+  .object({
+    titulo: z
+      .string()
+      .trim()
+      .min(1, "Escribe el título.")
+      .max(80, "El título no puede superar 80 caracteres."),
+    texto: z
+      .string()
+      .trim()
+      .min(1, "Escribe el texto.")
+      .max(200, "El texto no puede superar 200 caracteres."),
+    enlace: z.object({
+      href: enlaceBoton,
+      etiqueta: z
+        .string()
+        .trim()
+        .min(1, "Escribe el texto del botón.")
+        .max(40, "El texto del botón no puede superar 40 caracteres."),
+    }),
+    tono: z.enum(TONOS_BANNER),
+    imagen: imagenSchema.optional(),
+    vigencia: z.object({ desde: diaSchema, hasta: diaSchema }).optional(),
+  })
+  .refine((b) => !b.imagen || b.imagen.alt.trim().length > 0, {
+    path: ["imagen", "alt"],
+    error: "Describe qué muestra la foto.",
+  })
+  .refine((b) => !b.vigencia?.desde || !b.vigencia?.hasta || b.vigencia.hasta >= b.vigencia.desde, {
+    path: ["vigencia"],
+    error: "La fecha final tiene que ser igual o posterior a la inicial.",
+  });

@@ -33,11 +33,11 @@ export const viewport: Viewport = { themeColor: "#2E134D" };
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="es" className={`${montserrat.variable} ${roboto.variable} h-full antialiased`}>
-      <body className="min-h-full">
+      <body className="flex min-h-full flex-col">
         {esDemo && (
           <aside
             aria-label="Entorno de demostración"
-            className="border-b border-linea bg-noche px-4 py-1.5 text-center text-xs font-medium text-papel"
+            className="shrink-0 border-b border-linea bg-noche px-4 py-1.5 text-center text-xs font-medium text-papel"
           >
             Entorno de demostración: los datos de ejemplo se reinician de vez en cuando.
           </aside>

@@ -22,7 +22,7 @@ export const ALCALDIA = {
 /** Archivos en public/brand, copiados del portal. */
 export const LOGOS = {
   /** PDUL YA con la línea divisoria: para fondos claros. */
-  horizontal: { src: "/brand/pdul-ya-horizontal-divisor.png", ancho: 1200, alto: 411 },
+  horizontal: { src: "/brand/pdul-ya-horizontal-divisor.png", ancho: 1200, alto: 402 },
   /** Isotipo «Catastral Verde»: se lee bien sobre fondo oscuro. */
   isotipo: { src: "/brand/pdul-ya-isotipo.png", ancho: 800, alto: 708 },
   /** Logo de la Alcaldía: texto gris oscuro, solo sobre fondo claro. */

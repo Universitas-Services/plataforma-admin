@@ -46,7 +46,7 @@ export function PaginaError({
             src="/brand/pdul-ya-horizontal-divisor.png"
             alt="PDUL YA"
             width={1200}
-            height={411}
+            height={402}
             className="mb-10 h-12 w-auto"
           />
         )}

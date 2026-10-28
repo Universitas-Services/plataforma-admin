@@ -366,6 +366,28 @@ Guía `docs/frontend/FRONTEND_R8_DOCUMENTOS.md` de la API. Mismo patrón que not
 - **El PDF** se sube igual que antes, por R6 (clase `pdf`).
 - **Netlify:** el editor de un documento creado después del build puede dar 500, igual que el de noticias (parámetros no generados al compilar). Si pasa, se aplica el mismo arreglo que se defina para noticias.
 
+## 6.7 Sesión por inactividad y R9 Marco legal (28-10-2026, rama `feat/sesion-r9`)
+
+**Sesión (decisión de Frank: se cierra a los 15 minutos sin usar el panel).** Es la misma pieza del portal.
+
+- **Por qué se cerraba sola:** el refresh token rota y la API revoca toda la sesión si uno se usa dos veces (`REFRESH_TOKEN_REUSED`). Al navegar, la página y los prefetch salían a la vez con la misma cookie y todas renovaban.
+- **`renovacion.ts`** (`revisarCookie`, usado por `src/proxy.ts`):
+  - cierra la sesión tras 15 minutos sin actividad (`SESION_INACTIVIDAD_MIN`; se lee al compilar el layout, así que cambiarla pide volver a desplegar);
+  - los prefetch no renuevan ni cuentan como actividad;
+  - las renovaciones simultáneas comparten una sola llamada a `/auth/refresh` (recordada 30 s);
+  - la última actividad viaja en la cookie (`v`) y se reescribe como mucho una vez por minuto.
+- **`GET /api/sesion`** responde `{ conSesion }`. Como pasa por Proxy, también renueva y anota la actividad.
+- **`VigiaSesion`** (layout) consulta `/api/sesion` al usar la página (cada 4 min como mucho), al volver a la pestaña, al cambiar de ruta y al cumplirse el plazo. Si la sesión se cerró, refresca o lleva a `/ingresar?aviso=inactividad`, que muestra el aviso.
+- **Comprobado contra la API local** (access de 90 s, inactividad de 2 min): sin actividad, cierra y avisa; navegando cada 50 s, la sesión sigue más de 4 min sin ninguna `SESSION_REVOKED` nueva en la bitácora.
+- En el panel, al cerrarse lleva siempre a `/ingresar?volver=…&aviso=inactividad`. `/api/sesion` nunca se redirige en Proxy.
+- **Pantalla en blanco del video** (`/ingresar?volver=%2Fcontenido` en producción): no se reprodujo en local, ni con el token vencido ni con la sesión revocada, y la página responde bien sin sesión. Si vuelve a pasar, abrir la consola del navegador (F12) y anotar el error y la hora.
+
+**R9, Marco legal** (guía `FRONTEND_R9_MARCO_LEGAL.md`):
+
+- `src/lib/api/marco-legal.ts`: `marcoLegalApi` (ítems, activos y destinos de `/admin/legal-framework` y `/destinos`), crear, guardar (`boton: null` quita el botón), ordenar (`PUT …/order`) y eliminar.
+- Los códigos (`DEMASIADOS_ACTIVOS`, `DESTINO_NO_DISPONIBLE`, `ORDEN_INVALIDO`) pasan tal cual a `respuestaMarco()`; `VALIDATION_ERROR` se reparte por campo.
+- Con la API, la página ya no usa el reflejo del almacén. Comprobado: reordenar, quitar y volver a mostrar se ven en `GET /portal/legal-framework`.
+
 ## 7. Noticias reales (Propuesta v4), ya cargadas
 
 | Slug                                    | Fecha | Categoría               | Formato                                            |

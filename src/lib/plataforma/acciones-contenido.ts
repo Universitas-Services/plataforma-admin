@@ -17,6 +17,12 @@ import {
   guardarDocumentoApi,
   nuevaVersionApi,
 } from "@/lib/api/documentos";
+import {
+  crearItemMarcoApi,
+  eliminarItemMarcoApi,
+  guardarItemMarcoApi,
+  ordenarMarcoApi,
+} from "@/lib/api/marco-legal";
 import { cambiarEstadoApi, crearNoticiaApi, guardarNoticiaApi } from "@/lib/api/noticias";
 import { eliminarBanner, guardarBanner, ordenarBanners } from "./banners";
 import { crearDocumento, eliminarDocumento, guardarDocumento, nuevaVersion } from "./documentos";
@@ -300,7 +306,9 @@ const ERROR_MARCO: Record<string, Respuesta> = {
   },
 };
 
-function respuestaMarco(estado: string): Respuesta {
+function respuestaMarco(estado: string, r?: { errores?: Record<string, string> }): Respuesta {
+  if (estado === "INVALIDO" && r?.errores)
+    return { ok: false, errores: r.errores, mensaje: "Revisa los campos marcados." };
   return (
     ERROR_MARCO[estado] ??
     COMUNES[estado as keyof typeof COMUNES] ?? { ok: false, mensaje: "No se pudo guardar." }
@@ -311,9 +319,10 @@ function respuestaMarco(estado: string): Respuesta {
 export async function crearItemMarcoAccion(datos: unknown): Promise<Respuesta> {
   const p = itemMarcoSchema.safeParse(datos);
   if (!p.success) return erroresDe(p.error.issues);
-  await contenidoAlDia();
-  const r = crearItemMarco(almacen(), await idSesion(), p.data);
-  if (r.estado !== "OK") return respuestaMarco(r.estado);
+  const r = usaApi()
+    ? await crearItemMarcoApi(p.data)
+    : (await contenidoAlDia(), crearItemMarco(almacen(), await idSesion(), p.data));
+  if (r.estado !== "OK") return respuestaMarco(r.estado, r as { errores?: Record<string, string> });
   invalidar();
   refresh();
   return {
@@ -328,9 +337,10 @@ export async function crearItemMarcoAccion(datos: unknown): Promise<Respuesta> {
 export async function guardarItemMarcoAccion(id: string, datos: unknown): Promise<Respuesta> {
   const p = itemMarcoSchema.safeParse(datos);
   if (!p.success) return erroresDe(p.error.issues);
-  await contenidoAlDia();
-  const r = guardarItemMarco(almacen(), await idSesion(), String(id), p.data);
-  if (r.estado !== "OK") return respuestaMarco(r.estado);
+  const r = usaApi()
+    ? await guardarItemMarcoApi(String(id), p.data)
+    : (await contenidoAlDia(), guardarItemMarco(almacen(), await idSesion(), String(id), p.data));
+  if (r.estado !== "OK") return respuestaMarco(r.estado, r as { errores?: Record<string, string> });
   invalidar();
   refresh();
   return { ok: true, mensaje: "Ítem guardado." };
@@ -339,8 +349,10 @@ export async function guardarItemMarcoAccion(id: string, datos: unknown): Promis
 /** Guarda el orden de los ítems activos (PUT /admin/legal-framework/order). */
 export async function ordenarMarcoAccion(ids: unknown): Promise<Respuesta> {
   const lista = Array.isArray(ids) ? ids.map(String) : [];
-  const r = ordenarMarco(almacen(), await idSesion(), lista);
-  if (r.estado !== "OK") return respuestaMarco(r.estado);
+  const r = usaApi()
+    ? await ordenarMarcoApi(lista)
+    : ordenarMarco(almacen(), await idSesion(), lista);
+  if (r.estado !== "OK") return respuestaMarco(r.estado, r as { errores?: Record<string, string> });
   invalidar();
   refresh();
   return { ok: true, mensaje: "Orden guardado: el portal ya lo muestra así." };
@@ -348,8 +360,10 @@ export async function ordenarMarcoAccion(ids: unknown): Promise<Respuesta> {
 
 /** Elimina un ítem (borrado lógico). */
 export async function eliminarItemMarcoAccion(id: string): Promise<Respuesta> {
-  const r = eliminarItemMarco(almacen(), await idSesion(), String(id));
-  if (r.estado !== "OK") return respuestaMarco(r.estado);
+  const r = usaApi()
+    ? await eliminarItemMarcoApi(String(id))
+    : eliminarItemMarco(almacen(), await idSesion(), String(id));
+  if (r.estado !== "OK") return respuestaMarco(r.estado, r as { errores?: Record<string, string> });
   invalidar();
   refresh();
   return { ok: true, mensaje: "Ítem eliminado." };

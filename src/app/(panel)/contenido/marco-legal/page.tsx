@@ -5,6 +5,8 @@ import { EditorMarcoLegal } from "@/components/contenido/editor-marco-legal";
 import { PestanasContenido } from "@/components/contenido/pestanas";
 import { EsqueletoFormulario } from "@/components/ui/esqueletos";
 import { EncabezadoPagina } from "@/components/ui/piezas";
+import { usaApi } from "@/lib/api/cliente";
+import { marcoLegalApi } from "@/lib/api/marco-legal";
 import { marcoLegalDe } from "@/lib/plataforma/marco-legal";
 import { almacen, exigirEnAlcaldia, idSesion, contenidoAlDia } from "@/lib/plataforma/sesion";
 
@@ -22,8 +24,10 @@ export default function MarcoLegalPage() {
 async function Contenido() {
   await exigirEnAlcaldia("contenido.editar", "/contenido/marco-legal");
   await connection();
-  await contenidoAlDia();
-  const r = marcoLegalDe(almacen(), await idSesion());
+  // Con la API, el Marco legal y sus destinos salen de ella (R9); sin ella, del almacén.
+  const r = usaApi()
+    ? await marcoLegalApi()
+    : (await contenidoAlDia(), marcoLegalDe(almacen(), await idSesion()));
   if (r.estado !== "OK") return null;
 
   return (

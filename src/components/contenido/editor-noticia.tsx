@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Selector } from "@/components/ui/selector";
+import { SelectorFecha } from "@/components/ui/selector-fecha";
 import { Dialogo } from "@/components/ui/dialogo";
 import { Aviso, useAviso } from "@/components/ui/aviso";
 import {
@@ -103,6 +104,22 @@ const camposDe = (n: Noticia): CamposNoticia => ({
 const aIsoCaracas = (local: string) => `${local}:00-04:00`;
 const ahoraLocalCaracas = (masMin = 0) =>
   new Date(Date.now() - 4 * 3_600_000 + masMin * 60_000).toISOString().slice(0, 16);
+
+/** Horas de la publicación programada, cada 30 minutos; la ya elegida se conserva aunque no caiga en punto. */
+function opcionesHora(actual: string) {
+  const horas = Array.from(
+    { length: 48 },
+    (_, i) => `${String(Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`,
+  );
+  if (/^\d{2}:\d{2}$/.test(actual) && !horas.includes(actual)) horas.push(actual);
+  return horas.sort().map((h) => {
+    const [hh, mm] = h.split(":").map(Number) as [number, number];
+    return {
+      valor: h,
+      texto: `${hh % 12 || 12}:${String(mm).padStart(2, "0")} ${hh < 12 ? "a. m." : "p. m."}`,
+    };
+  });
+}
 
 type Guardado = { estado: "guardado" | "pendiente" | "guardando" | "error"; en?: string };
 
@@ -1147,22 +1164,35 @@ function DialogoProgramar({
         }}
         className="mt-4"
       >
-        <label htmlFor="publicarEl" className="mb-1.5 block text-sm font-bold text-tinta">
-          Fecha y hora
-        </label>
-        <input
-          id="publicarEl"
-          type="datetime-local"
-          value={fecha}
-          min={ahoraLocalCaracas(2)}
-          onChange={(e) => {
-            setFecha(e.target.value);
-            setErrorLocal(undefined);
-          }}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? "publicarEl-error" : undefined}
-          className={claseEntrada(error)}
-        />
+        <fieldset>
+          <legend className="sr-only">Fecha y hora</legend>
+          <div className="grid gap-3 sm:grid-cols-[1fr_10rem]">
+            <SelectorFecha
+              id="publicarEl"
+              etiqueta="Fecha"
+              valor={fecha.slice(0, 10)}
+              onCambio={(dia) => {
+                setFecha(`${dia}T${fecha.slice(11, 16) || "08:00"}`);
+                setErrorLocal(undefined);
+              }}
+              min={ahoraLocalCaracas().slice(0, 10)}
+              permitirVacio={false}
+              invalido={!!error}
+              describe={error ? "publicarEl-error" : undefined}
+            />
+            <Selector
+              id="publicarEl-hora"
+              etiqueta="Hora"
+              opciones={opcionesHora(fecha.slice(11, 16))}
+              valor={fecha.slice(11, 16)}
+              onCambio={(hora) => {
+                setFecha(`${fecha.slice(0, 10)}T${hora}`);
+                setErrorLocal(undefined);
+              }}
+              invalido={!!error}
+            />
+          </div>
+        </fieldset>
         <MensajeError id="publicarEl" error={error} />
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button

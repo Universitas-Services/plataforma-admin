@@ -12,6 +12,7 @@ import { AvisoInicial } from "@/components/ui/aviso";
 import { EsqueletoBandeja } from "@/components/ui/esqueletos";
 import { BotonEnlace, EncabezadoPagina, EstadoVacio } from "@/components/ui/piezas";
 import { Selector } from "@/components/ui/selector";
+import { SelectorFecha } from "@/components/ui/selector-fecha";
 import { DOC_CATEGORIAS, DOC_ESTADOS, type Documento } from "@/lib/contenido/tipos";
 import { usaApi } from "@/lib/api/cliente";
 import { listarDocumentosApi } from "@/lib/api/documentos";
@@ -105,7 +106,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
         <form
           role="search"
           action="/contenido/documentos"
-          className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))_auto]"
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[minmax(0,1.6fr)_repeat(2,minmax(0,1fr))_repeat(2,minmax(9.5rem,1fr))_auto]"
         >
           {estado && <input type="hidden" name="estado" value={estado} />}
           <div className="relative min-w-0 sm:col-span-2 lg:col-span-3 xl:col-span-1">
@@ -199,16 +200,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
 function CampoFecha({ id, etiqueta, valor }: { id: string; etiqueta: string; valor: string }) {
   return (
     <div className="min-w-0">
-      <label htmlFor={id} className="mb-1.5 block text-sm font-bold text-tinta">
-        {etiqueta}
-      </label>
-      <input
-        id={id}
-        name={id}
-        type="date"
-        defaultValue={valor}
-        className="h-11 w-full rounded-control border border-linea bg-papel px-3 text-tinta outline-none hover:border-tenue focus-visible:border-marca-texto"
-      />
+      <SelectorFecha id={id} name={id} etiqueta={etiqueta} valorInicial={valor} vacio="Elegir" />
     </div>
   );
 }

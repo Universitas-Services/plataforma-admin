@@ -9,7 +9,7 @@ import { EncabezadoPagina } from "@/components/ui/piezas";
 import type { Noticia } from "@/lib/contenido/tipos";
 import { listarBanners } from "@/lib/plataforma/banners";
 import { inicioDe } from "@/lib/plataforma/inicio";
-import { almacen, exigirEnAlcaldia, idSesion, noticiasAlDia } from "@/lib/plataforma/sesion";
+import { almacen, exigirEnAlcaldia, idSesion, contenidoAlDia } from "@/lib/plataforma/sesion";
 
 export const metadata: Metadata = { title: "Inicio del portal" };
 
@@ -35,7 +35,7 @@ async function Contenido() {
   await exigirEnAlcaldia("inicio.editar", "/contenido/inicio");
   await connection();
   const sesion = await idSesion();
-  await noticiasAlDia();
+  await contenidoAlDia();
   const r = inicioDe(almacen(), sesion);
   if (r.estado !== "OK") return null;
   const b = listarBanners(almacen(), sesion);

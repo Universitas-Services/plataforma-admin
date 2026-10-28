@@ -6,7 +6,7 @@ import { PestanasContenido } from "@/components/contenido/pestanas";
 import { EsqueletoFormulario } from "@/components/ui/esqueletos";
 import { EncabezadoPagina } from "@/components/ui/piezas";
 import { marcoLegalDe } from "@/lib/plataforma/marco-legal";
-import { almacen, exigirEnAlcaldia, idSesion, noticiasAlDia } from "@/lib/plataforma/sesion";
+import { almacen, exigirEnAlcaldia, idSesion, contenidoAlDia } from "@/lib/plataforma/sesion";
 
 export const metadata: Metadata = { title: "Marco legal" };
 
@@ -22,7 +22,7 @@ export default function MarcoLegalPage() {
 async function Contenido() {
   await exigirEnAlcaldia("contenido.editar", "/contenido/marco-legal");
   await connection();
-  await noticiasAlDia();
+  await contenidoAlDia();
   const r = marcoLegalDe(almacen(), await idSesion());
   if (r.estado !== "OK") return null;
 

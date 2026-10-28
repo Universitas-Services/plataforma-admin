@@ -1,5 +1,5 @@
 import { csvMetricas, esRango, indicadoresDe, rangoDe } from "@/lib/plataforma/metricas";
-import { almacen, getContexto, noticiasAlDia } from "@/lib/plataforma/sesion";
+import { almacen, getContexto, contenidoAlDia } from "@/lib/plataforma/sesion";
 
 /** CSV de los indicadores del rango, solo con las secciones que el rol puede ver. */
 export async function GET(request: Request) {
@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     return new Response("Sin permiso", { status: 403 });
   const pedido = new URL(request.url).searchParams.get("rango");
   const r = rangoDe(esRango(pedido) ? pedido : "30d");
-  await noticiasAlDia();
+  await contenidoAlDia();
   const csv = csvMetricas(r, indicadoresDe(almacen(), c.alcaldia.id, c.permisos, r));
   return new Response(csv, {
     headers: {

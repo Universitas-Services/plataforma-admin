@@ -13,6 +13,8 @@ import { EsqueletoBandeja } from "@/components/ui/esqueletos";
 import { BotonEnlace, EncabezadoPagina, EstadoVacio } from "@/components/ui/piezas";
 import { Selector } from "@/components/ui/selector";
 import { DOC_CATEGORIAS, DOC_ESTADOS, type Documento } from "@/lib/contenido/tipos";
+import { usaApi } from "@/lib/api/cliente";
+import { listarDocumentosApi } from "@/lib/api/documentos";
 import { VISIBILIDADES, listarDocumentos } from "@/lib/plataforma/documentos";
 import { totalesDe } from "@/lib/plataforma/inicio";
 import { almacen, exigirEnAlcaldia, idSesion, leerAviso } from "@/lib/plataforma/sesion";
@@ -49,17 +51,24 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
   const [desde, hasta] = [fechaValida(texto("desde")), fechaValida(texto("hasta"))];
 
   const alm = almacen();
-  const r = listarDocumentos(alm, await idSesion(), {
+  const filtros = {
     estado,
     categoria,
     visibilidad,
     q,
     desde: desde || undefined,
     hasta: hasta || undefined,
-  });
+  };
+  const r = usaApi()
+    ? await listarDocumentosApi(filtros)
+    : listarDocumentos(alm, await idSesion(), filtros);
   if (r.estado !== "OK") return null;
+  // Con la API, cada documento trae sus descargas contadas; sin ella, salen de las métricas.
   const descargas = new Map(
-    r.items.map((d) => [d.id, totalesDe(alm, `documento:${d.id}`, alm.descargas).vistas]),
+    r.items.map((d) => [
+      d.id,
+      d.descargas ?? totalesDe(alm, `documento:${d.id}`, alm.descargas).vistas,
+    ]),
   );
   const aviso = await leerAviso();
   const activos = [categoria, visibilidad, desde, hasta].filter(Boolean).length;

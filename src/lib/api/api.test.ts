@@ -10,6 +10,7 @@ vi.mock("./sesion-api", async (original) => ({
 
 const { ErrorApi } = await import("./cliente");
 const { mensajeDeError } = await import("./errores");
+const documentos = await import("./documentos");
 const noticias = await import("./noticias");
 const { reflejarUsuario } = await import("./sesion-api");
 const { abrirSello, sellar } = await import("./sello");
@@ -191,5 +192,131 @@ describe("noticias contra la API", () => {
     await noticias.sincronizarNoticiasApi(alm);
     expect([...alm.noticias.keys()]).toEqual([NOTICIA.id]);
     expect(alm.noticias.get(NOTICIA.id)).toMatchObject({ autorId: "u-api", estado: "PUBLICADO" });
+  });
+});
+
+const PDF = {
+  nombre: "decreto.pdf",
+  url: `${API}/media/8e7c9a1f-0000-4000-8000-000000000002.pdf`,
+  tipo: "application/pdf" as const,
+  pesoBytes: 1024,
+};
+
+const DOCUMENTO = {
+  id: "d-api-1",
+  slug: "decreto-48-2026",
+  titulo: "Decreto N° 48-2026",
+  descripcion: "Decreto del PDUL.",
+  categoria: "Decretos y normativa",
+  estado: "OFICIAL",
+  publico: true,
+  version: "1.0",
+  archivo: PDF,
+  versiones: [
+    { version: "1.0", fecha: "2026-10-28T12:00:00.000Z", nota: "Primera versión.", archivo: PDF },
+  ],
+  publicadoEl: "2026-10-28T12:00:00.000Z",
+  actualizadoEl: "2026-10-28T12:00:00.000Z",
+  descargas: 7,
+  descargaUrl: `${API}/portal/documents/decreto-48-2026/download`,
+};
+
+describe("documentos contra la API", () => {
+  it("lista todas las páginas con los conteos y el total general", async () => {
+    const llamadas = simularFetch(
+      {
+        cuerpo: {
+          data: [DOCUMENTO],
+          meta: {
+            page: 1,
+            limit: 100,
+            total: 2,
+            totalPages: 2,
+            conteos: { BORRADOR: 1, OFICIAL: 1 },
+            totalGeneral: 5,
+          },
+        },
+      },
+      {
+        cuerpo: {
+          data: [{ ...DOCUMENTO, id: "d-api-2", estado: "BORRADOR" }],
+          meta: {
+            page: 2,
+            limit: 100,
+            total: 2,
+            totalPages: 2,
+            conteos: { BORRADOR: 1, OFICIAL: 1 },
+            totalGeneral: 5,
+          },
+        },
+      },
+    );
+    const r = await documentos.listarDocumentosApi({ visibilidad: "publico", q: "decreto" });
+    if (r.estado !== "OK") throw new Error(r.estado);
+    expect(r.items.map((d) => d.id)).toEqual(["d-api-1", "d-api-2"]);
+    expect(r.items[0]).toMatchObject({ descargas: 7, alcaldiaId: expect.any(String) });
+    expect(r.items[0]).not.toHaveProperty("descargaUrl");
+    expect(r.conteos).toEqual({ BORRADOR: 1, OFICIAL: 1 });
+    expect(r.total).toBe(5);
+    expect(llamadas[0]!.url).toBe(
+      `${API}/admin/documents?visibilidad=publico&q=decreto&limit=100&page=1`,
+    );
+  });
+
+  it("crea con el archivo en el cuerpo y la versión nueva lleva nota y tipo", async () => {
+    const llamadas = simularFetch(
+      { status: 201, cuerpo: DOCUMENTO },
+      { status: 201, cuerpo: DOCUMENTO },
+    );
+    const campos = {
+      titulo: "Decreto N° 48-2026",
+      descripcion: "Decreto del PDUL.",
+      categoria: "Decretos y normativa",
+      estado: "OFICIAL",
+      publico: true,
+    } as const;
+    expect((await documentos.crearDocumentoApi(campos, PDF)).estado).toBe("OK");
+    expect(JSON.parse(String(llamadas[0]!.init.body))).toEqual({ ...campos, archivo: PDF });
+    await documentos.nuevaVersionApi("d1", PDF, "  Corrige el anexo.  ", "mayor");
+    expect(llamadas[1]!.url).toBe(`${API}/admin/documents/d1/versions`);
+    expect(JSON.parse(String(llamadas[1]!.init.body))).toEqual({
+      archivo: PDF,
+      nota: "Corrige el anexo.",
+      tipo: "mayor",
+    });
+  });
+
+  it("traduce MEDIO_AJENO, VALIDATION_ERROR, la categoría y 404", async () => {
+    simularFetch({ status: 422, cuerpo: { code: "MEDIO_AJENO" } });
+    expect(await documentos.nuevaVersionApi("d1", PDF, "Nota larga", "menor")).toEqual({
+      estado: "MEDIO_AJENO",
+    });
+    simularFetch({
+      status: 400,
+      cuerpo: {
+        code: "VALIDATION_ERROR",
+        details: ["Escribe el título.", "Escribe una descripción breve."],
+      },
+    });
+    expect(await documentos.guardarDocumentoApi("d1", {} as never)).toEqual({
+      estado: "INVALIDO",
+      errores: { titulo: "Escribe el título.", descripcion: "Escribe una descripción breve." },
+    });
+    simularFetch({ status: 400, cuerpo: { code: "INVALID_CATALOG_VALUE" } });
+    expect(await documentos.guardarDocumentoApi("d1", {} as never)).toMatchObject({
+      estado: "INVALIDO",
+      errores: { categoria: expect.any(String) },
+    });
+    simularFetch({ status: 404, cuerpo: { code: "NOT_FOUND" } });
+    expect(await documentos.eliminarDocumentoApi("d1")).toEqual({ estado: "NO_EXISTE" });
+  });
+
+  it("refleja los documentos en el almacén y quita los de ejemplo", async () => {
+    const alm = almacenDemo();
+    simularFetch({
+      cuerpo: { data: [DOCUMENTO], meta: { page: 1, limit: 100, total: 1, totalPages: 1 } },
+    });
+    await documentos.sincronizarDocumentosApi(alm);
+    expect([...alm.documentos.keys()]).toEqual(["d-api-1"]);
   });
 });

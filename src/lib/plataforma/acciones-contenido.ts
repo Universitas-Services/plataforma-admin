@@ -11,6 +11,12 @@ import {
   versionSchema,
 } from "@/lib/validation/schemas";
 import { usaApi } from "@/lib/api/cliente";
+import {
+  crearDocumentoApi,
+  eliminarDocumentoApi,
+  guardarDocumentoApi,
+  nuevaVersionApi,
+} from "@/lib/api/documentos";
 import { cambiarEstadoApi, crearNoticiaApi, guardarNoticiaApi } from "@/lib/api/noticias";
 import { eliminarBanner, guardarBanner, ordenarBanners } from "./banners";
 import { crearDocumento, eliminarDocumento, guardarDocumento, nuevaVersion } from "./documentos";
@@ -23,7 +29,7 @@ import {
   guardarItemMarco,
   ordenarMarco,
 } from "./marco-legal";
-import { almacen, guardarAviso, idSesion, noticiasAlDia } from "./sesion";
+import { almacen, guardarAviso, idSesion, contenidoAlDia } from "./sesion";
 
 /*
  * Acciones del editor de noticias (backlog 2.9). Guardar y cambiar de estado devuelven el
@@ -186,14 +192,24 @@ const COMUNES = {
   MEDIO_AJENO: { ok: false, mensaje: "El archivo no pertenece a esta alcaldía." },
 } satisfies Record<string, Respuesta>;
 
+/** Resultado de un documento (simulado o de la API) → la respuesta del formulario. */
+function fallaDocumento(
+  r: { estado: keyof typeof COMUNES } | { estado: "INVALIDO"; errores: Record<string, string> },
+): Respuesta {
+  if (r.estado !== "INVALIDO") return COMUNES[r.estado];
+  return { ok: false, errores: r.errores, mensaje: "Revisa los campos marcados." };
+}
+
 export async function crearDocumentoAccion(datos: unknown, archivo: unknown): Promise<Respuesta> {
   const p = documentoSchema.safeParse(datos);
   if (!p.success) return erroresDe(p.error.issues);
   const a = adjuntoSchema.safeParse(archivo);
   if (!a.success)
     return { ok: false, errores: { archivo: "Sube el PDF." }, mensaje: "Falta el archivo." };
-  const r = crearDocumento(almacen(), await idSesion(), p.data, a.data);
-  if (r.estado !== "OK") return COMUNES[r.estado];
+  const r = usaApi()
+    ? await crearDocumentoApi(p.data, a.data)
+    : crearDocumento(almacen(), await idSesion(), p.data, a.data);
+  if (r.estado !== "OK") return fallaDocumento(r);
   await guardarAviso("Documento subido: versión 1.0.");
   invalidar();
   refresh();
@@ -203,8 +219,10 @@ export async function crearDocumentoAccion(datos: unknown, archivo: unknown): Pr
 export async function guardarDocumentoAccion(id: string, datos: unknown): Promise<Respuesta> {
   const p = documentoSchema.safeParse(datos);
   if (!p.success) return erroresDe(p.error.issues);
-  const r = guardarDocumento(almacen(), await idSesion(), id, p.data);
-  if (r.estado !== "OK") return COMUNES[r.estado];
+  const r = usaApi()
+    ? await guardarDocumentoApi(id, p.data)
+    : guardarDocumento(almacen(), await idSesion(), id, p.data);
+  if (r.estado !== "OK") return fallaDocumento(r);
   invalidar();
   refresh();
   return { ok: true, mensaje: "Datos del documento guardados." };
@@ -224,16 +242,20 @@ export async function nuevaVersionAccion(
       errores: { archivo: "Sube el PDF de la nueva versión." },
       mensaje: "Falta el archivo.",
     };
-  const r = nuevaVersion(almacen(), await idSesion(), id, a.data, v.data.nota, v.data.tipo);
-  if (r.estado !== "OK") return COMUNES[r.estado];
+  const r = usaApi()
+    ? await nuevaVersionApi(id, a.data, v.data.nota, v.data.tipo)
+    : nuevaVersion(almacen(), await idSesion(), id, a.data, v.data.nota, v.data.tipo);
+  if (r.estado !== "OK") return fallaDocumento(r);
   invalidar();
   refresh();
   return { ok: true, mensaje: `Versión ${r.documento.version} publicada como vigente.` };
 }
 
 export async function eliminarDocumentoAccion(id: string): Promise<Respuesta> {
-  const r = eliminarDocumento(almacen(), await idSesion(), id);
-  if (r.estado !== "OK") return COMUNES[r.estado];
+  const r = usaApi()
+    ? await eliminarDocumentoApi(id)
+    : eliminarDocumento(almacen(), await idSesion(), id);
+  if (r.estado !== "OK") return fallaDocumento(r);
   await guardarAviso("Documento eliminado del repositorio.");
   invalidar();
   refresh();
@@ -251,7 +273,7 @@ const ERROR_INICIO: Record<string, string> = {
 export async function guardarInicioAccion(datos: {
   mensajeAlcalde: string | null;
 }): Promise<Respuesta> {
-  await noticiasAlDia();
+  await contenidoAlDia();
   const r = guardarInicio(almacen(), await idSesion(), { mensajeAlcalde: datos.mensajeAlcalde });
   if (r.estado === "SIN_SESION" || r.estado === "SIN_PERMISO") return COMUNES[r.estado];
   if (r.estado !== "OK") return { ok: false, mensaje: ERROR_INICIO[r.estado]! };
@@ -289,7 +311,7 @@ function respuestaMarco(estado: string): Respuesta {
 export async function crearItemMarcoAccion(datos: unknown): Promise<Respuesta> {
   const p = itemMarcoSchema.safeParse(datos);
   if (!p.success) return erroresDe(p.error.issues);
-  await noticiasAlDia();
+  await contenidoAlDia();
   const r = crearItemMarco(almacen(), await idSesion(), p.data);
   if (r.estado !== "OK") return respuestaMarco(r.estado);
   invalidar();
@@ -306,7 +328,7 @@ export async function crearItemMarcoAccion(datos: unknown): Promise<Respuesta> {
 export async function guardarItemMarcoAccion(id: string, datos: unknown): Promise<Respuesta> {
   const p = itemMarcoSchema.safeParse(datos);
   if (!p.success) return erroresDe(p.error.issues);
-  await noticiasAlDia();
+  await contenidoAlDia();
   const r = guardarItemMarco(almacen(), await idSesion(), String(id), p.data);
   if (r.estado !== "OK") return respuestaMarco(r.estado);
   invalidar();

@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { EditarDocumento, NuevoDocumento } from "@/components/contenido/formulario-documento";
 import { EsqueletoEditor } from "@/components/ui/esqueletos";
+import { usaApi } from "@/lib/api/cliente";
+import { obtenerDocumentoApi } from "@/lib/api/documentos";
 import { obtenerDocumento } from "@/lib/plataforma/documentos";
 import { idsPrerender } from "@/lib/plataforma/servicio";
 import { almacen, exigirEnAlcaldia, idSesion, leerAviso } from "@/lib/plataforma/sesion";
@@ -35,7 +37,9 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   await exigirEnAlcaldia("contenido.editar", `/contenido/documentos/${id}`);
   if (id === "nuevo") return <NuevoDocumento />;
-  const r = obtenerDocumento(almacen(), await idSesion(), id);
+  const r = usaApi()
+    ? await obtenerDocumentoApi(id)
+    : obtenerDocumento(almacen(), await idSesion(), id);
   if (r.estado !== "OK") notFound();
   const aviso = await leerAviso();
   return (

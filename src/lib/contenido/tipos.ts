@@ -267,6 +267,8 @@ export type Documento = {
   actualizadoEl: string;
   eliminadoEl?: string;
   ejemplo?: boolean;
+  /** Descargas contadas por plataforma-api (R8); sin la API salen de las métricas simuladas. */
+  descargas?: number;
 };
 
 export type CamposDocumento = Pick<

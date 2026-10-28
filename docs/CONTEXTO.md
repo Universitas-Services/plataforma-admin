@@ -355,6 +355,17 @@ Detalle para backend en `Pdull/FASE-7-ANEXO-marco-legal-y-alineacion.md`, que co
 - **Ramas:** `portal-iribarren` en `feat/alineacion-fase-7` (sale de `main`); `plataforma-admin` en `feat/marco-legal-y-alineacion` (sale de `feat/admin-iribarren`, que aún no está en `main`).
 - **Todavía sin API:** cada repo tiene sus datos simulados, así que lo que se guarda en el admin no se ve en el portal hasta conectar los dos a la API.
 
+## 6.6 R8 de plataforma-api: repositorio de documentos (28-10-2026, rama `feat/api-r8-documentos`)
+
+Guía `docs/frontend/FRONTEND_R8_DOCUMENTOS.md` de la API. Mismo patrón que noticias (R7): con `API_URL` va a la API; sin ella, sigue simulado.
+
+- **`src/lib/api/documentos.ts`:** `listarDocumentosApi` (recorre las páginas de 100; `total` = `meta.totalGeneral`), `obtenerDocumentoApi`, `crearDocumentoApi`, `guardarDocumentoApi`, `nuevaVersionApi` y `eliminarDocumentoApi`. Devuelven los mismos resultados que `src/lib/plataforma/documentos.ts`.
+- **Errores:** 401, 403 y 404 como en noticias; `MEDIO_AJENO`; `VALIDATION_ERROR` llega con los mismos textos del panel y se reparte por campo; `INVALID_CATALOG_VALUE` va a la categoría.
+- **Descargas:** la columna del listado usa `descargas` de la API; sin ella, las métricas simuladas.
+- **`contenidoAlDia()`** (antes `noticiasAlDia()`, en `sesion.ts`): refleja en el almacén las noticias publicadas y los documentos de la API, para el Marco legal, el Inicio y el tablero, que siguen simulados.
+- **El PDF** se sube igual que antes, por R6 (clase `pdf`).
+- **Netlify:** el editor de un documento creado después del build puede dar 500, igual que el de noticias (parámetros no generados al compilar). Si pasa, se aplica el mismo arreglo que se defina para noticias.
+
 ## 7. Noticias reales (Propuesta v4), ya cargadas
 
 | Slug                                    | Fecha | Categoría               | Formato                                            |

@@ -8,6 +8,7 @@ import { contextoDe, type Contexto } from "./servicio";
 import { DURACION_SESION_MS, firmarSesion, leerSesion } from "./token-sesion";
 import type { Almacen } from "./tipos";
 import { usaApi } from "@/lib/api/cliente";
+import { sincronizarDocumentosApi } from "@/lib/api/documentos";
 import { sincronizarNoticiasApi } from "@/lib/api/noticias";
 import { borrarTokens, idSesionApi } from "@/lib/api/sesion-api";
 
@@ -83,11 +84,14 @@ export async function idSesion() {
 }
 
 /**
- * Con plataforma-api, refleja en el almacén las noticias publicadas de la API antes de usar un
- * módulo simulado que las elige o las cuenta (Inicio, Marco legal, tablero). Sin la API, nada.
+ * Con plataforma-api, refleja en el almacén las noticias publicadas y los documentos de la API
+ * antes de usar un módulo simulado que los elige o los cuenta (Inicio, Marco legal, tablero).
+ * Sin la API, nada.
  */
-export async function noticiasAlDia() {
-  if (usaApi()) await sincronizarNoticiasApi(almacen());
+export async function contenidoAlDia() {
+  if (!usaApi()) return;
+  const alm = almacen();
+  await Promise.all([sincronizarNoticiasApi(alm), sincronizarDocumentosApi(alm)]);
 }
 
 export async function getContexto(): Promise<Contexto | null> {

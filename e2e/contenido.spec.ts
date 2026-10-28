@@ -64,7 +64,7 @@ test("crea una noticia con imagen, se guarda sola y se programa", async ({ page 
 
   await test.step("programar para mañana", async () => {
     await page.getByRole("button", { name: "Programar" }).click();
-    await expect(page.locator("#publicarEl")).toHaveValue(/T08:00$/);
+    await expect(page.locator("#publicarEl-hora")).toContainText("8:00 a. m.");
     await confirmar(page, "Programar");
     await expect(page.getByText("Noticia programada.")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/^Se publicará sola el/)).toBeVisible();

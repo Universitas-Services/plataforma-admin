@@ -16,6 +16,7 @@ import { AvisoInicial } from "@/components/ui/aviso";
 import { EsqueletoBandeja } from "@/components/ui/esqueletos";
 import { EncabezadoPagina, EstadoVacio } from "@/components/ui/piezas";
 import { Selector } from "@/components/ui/selector";
+import { SelectorFecha } from "@/components/ui/selector-fecha";
 import { crearNoticiaAccion } from "@/lib/plataforma/acciones-contenido";
 import {
   ORDENES,
@@ -154,7 +155,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
         <form
           role="search"
           action="/contenido/noticias"
-          className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[minmax(0,2fr)_repeat(5,minmax(0,1fr))_auto]"
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))_repeat(2,minmax(9.5rem,1fr))_auto]"
         >
           {estado && <input type="hidden" name="estado" value={estado} />}
           {orden !== "recientes" && <input type="hidden" name="orden" value={orden} />}
@@ -266,16 +267,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
 function CampoFecha({ id, etiqueta, valor }: { id: string; etiqueta: string; valor: string }) {
   return (
     <div className="min-w-0">
-      <label htmlFor={id} className="mb-1.5 block text-sm font-bold text-tinta">
-        {etiqueta}
-      </label>
-      <input
-        id={id}
-        name={id}
-        type="date"
-        defaultValue={valor}
-        className="h-11 w-full rounded-control border border-linea bg-papel px-3 text-tinta outline-none hover:border-tenue focus-visible:border-marca-texto"
-      />
+      <SelectorFecha id={id} name={id} etiqueta={etiqueta} valorInicial={valor} vacio="Elegir" />
     </div>
   );
 }

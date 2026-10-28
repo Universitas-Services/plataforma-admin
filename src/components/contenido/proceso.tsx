@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, Flag, Loader2, Pencil, Plus } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Aviso } from "@/components/ui/aviso";
 import { Dialogo } from "@/components/ui/dialogo";
+import { SelectorFecha } from "@/components/ui/selector-fecha";
 import {
   faseActualAccion,
   guardarFaseAccion,
@@ -92,13 +93,27 @@ function DialogoFase({
             <Etiqueta htmlFor="fase-inicio" opcional>
               Inicio
             </Etiqueta>
-            <input {...campo("inicio")} type="date" className={`${claseCampo()} h-11`} />
+            <SelectorFecha
+              id="fase-inicio"
+              valor={datos.inicio}
+              onCambio={(dia) => setDatos({ ...datos, inicio: dia })}
+              max={datos.fin || undefined}
+              vacio="Sin fecha"
+            />
           </div>
           <div>
             <Etiqueta htmlFor="fase-fin" opcional>
               Cierre
             </Etiqueta>
-            <input {...campo("fin")} type="date" className={`${claseCampo(errores.fin)} h-11`} />
+            <SelectorFecha
+              id="fase-fin"
+              valor={datos.fin}
+              onCambio={(dia) => setDatos({ ...datos, fin: dia })}
+              min={datos.inicio || undefined}
+              vacio="Sin fecha"
+              invalido={!!errores.fin}
+              describe={errores.fin ? "fase-fin-error" : undefined}
+            />
           </div>
         </div>
         <ErrorCampo id="fase-fin-error" error={errores.fin} />

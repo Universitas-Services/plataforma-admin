@@ -4,6 +4,7 @@ import { AlertCircle, ArrowLeft, Loader2, Save, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Dialogo } from "@/components/ui/dialogo";
+import { SelectorFecha } from "@/components/ui/selector-fecha";
 import { Aviso, useAviso } from "@/components/ui/aviso";
 import { NOMBRE_TONO, TONOS_BANNER, type CamposBanner } from "@/lib/contenido/tipos";
 import {
@@ -225,16 +226,19 @@ export function FormularioBanner({ id, inicial }: { id?: string; inicial?: Campo
                   >
                     {k === "desde" ? "Desde" : "Hasta"}
                   </label>
-                  <input
+                  <SelectorFecha
                     id={`vigencia-${k}`}
-                    type="date"
-                    value={c.vigencia?.[k] ?? ""}
-                    onChange={(e) => {
-                      poner("vigencia", { ...c.vigencia, [k]: e.target.value || undefined });
+                    valor={c.vigencia?.[k] ?? ""}
+                    onCambio={(dia) => {
+                      poner("vigencia", { ...c.vigencia, [k]: dia || undefined });
                       setErrores(({ vigencia: _, ...resto }) => resto);
                     }}
-                    aria-invalid={err("vigencia") ? true : undefined}
-                    className={claseEntrada(err("vigencia"))}
+                    // El último día no puede ser anterior al primero (y al revés).
+                    min={k === "hasta" ? c.vigencia?.desde : undefined}
+                    max={k === "desde" ? c.vigencia?.hasta : undefined}
+                    vacio="Sin fecha"
+                    invalido={!!err("vigencia")}
+                    describe={err("vigencia") ? "vigencia-error" : undefined}
                   />
                 </div>
               ))}

@@ -8,6 +8,7 @@ import { FiltrosPlegables } from "@/components/panel/filtros-plegables";
 import { EsqueletoTabla } from "@/components/ui/esqueletos";
 import { EncabezadoPagina, EstadoVacio } from "@/components/ui/piezas";
 import { Selector } from "@/components/ui/selector";
+import { SelectorFecha } from "@/components/ui/selector-fecha";
 import { diferencias, eventosDe, filtrosBitacora, nombreAccion } from "@/lib/plataforma/alcaldia";
 import { nombreCompleto } from "@/lib/plataforma/servicio";
 import { almacen, exigirEnAlcaldia } from "@/lib/plataforma/sesion";
@@ -136,30 +137,20 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
             permitirVacio
             vacio="Todas"
           />
-          <div>
-            <label htmlFor="desde" className="mb-1.5 block text-sm font-bold text-tinta">
-              Desde
-            </label>
-            <input
-              id="desde"
-              name="desde"
-              type="date"
-              defaultValue={f.desde}
-              className="h-11 w-full rounded-control border border-linea bg-papel px-3 text-tinta hover:border-tenue focus-visible:border-marca-texto"
-            />
-          </div>
-          <div>
-            <label htmlFor="hasta" className="mb-1.5 block text-sm font-bold text-tinta">
-              Hasta
-            </label>
-            <input
-              id="hasta"
-              name="hasta"
-              type="date"
-              defaultValue={f.hasta}
-              className="h-11 w-full rounded-control border border-linea bg-papel px-3 text-tinta hover:border-tenue focus-visible:border-marca-texto"
-            />
-          </div>
+          <SelectorFecha
+            id="desde"
+            name="desde"
+            etiqueta="Desde"
+            valorInicial={f.desde}
+            vacio="Elegir"
+          />
+          <SelectorFecha
+            id="hasta"
+            name="hasta"
+            etiqueta="Hasta"
+            valorInicial={f.hasta}
+            vacio="Elegir"
+          />
           <button
             type="submit"
             className="h-11 rounded-control border border-linea bg-papel px-5 text-sm font-semibold text-tinta hover:border-tenue"

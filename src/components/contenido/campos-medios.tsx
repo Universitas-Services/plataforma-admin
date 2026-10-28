@@ -190,8 +190,8 @@ export function CampoImagenRecortada({
       if (!s.ok) return setFalla(s.error);
       onCambio({
         src: s.url,
-        ancho: r.ancho,
-        alto: r.alto,
+        ancho: s.ancho ?? r.ancho,
+        alto: s.alto ?? r.alto,
         alt: valor?.alt ?? "",
         credito: valor?.credito,
         ilustrativa: valor?.ilustrativa,
@@ -365,7 +365,7 @@ export function CampoGaleria({
       const { ancho, alto } = await medidas(url).catch(() => ({ ancho: 1600, alto: 1067 }));
       URL.revokeObjectURL(url);
       const r = await subirMedio(f, "imagen", (p) => setProgreso((i + p) / archivos.length));
-      if (r.ok) nuevas.push({ src: r.url, ancho, alto, alt: "" });
+      if (r.ok) nuevas.push({ src: r.url, ancho: r.ancho ?? ancho, alto: r.alto ?? alto, alt: "" });
       else fallas.push(`«${f.name}»: ${r.error}`);
     }
     setProgreso(undefined);
@@ -498,7 +498,7 @@ export function CampoDocumento({
     const r = await subirMedio(f, "pdf", setProgreso);
     setProgreso(undefined);
     if (!r.ok) return setFalla(r.error);
-    onCambio({ nombre: r.nombre, url: r.url, tipo: "application/pdf", pesoBytes: r.peso });
+    onCambio({ nombre: r.nombre, url: r.url, tipo: "application/pdf", pesoBytes: r.pesoBytes });
   }
 
   if (!valor)

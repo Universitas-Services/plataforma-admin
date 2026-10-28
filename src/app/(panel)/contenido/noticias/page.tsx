@@ -26,6 +26,8 @@ import {
 } from "@/lib/plataforma/contenido";
 import { totalesDe } from "@/lib/plataforma/inicio";
 import { exigirEnAlcaldia, almacen, idSesion, leerAviso } from "@/lib/plataforma/sesion";
+import { usaApi } from "@/lib/api/cliente";
+import { listarNoticiasApi } from "@/lib/api/noticias";
 import type { ConteoDia } from "@/lib/plataforma/tipos";
 import {
   CATEGORIAS,
@@ -86,7 +88,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
   // La lista depende de la hora (las programadas vencidas se publican al leer).
   await connection();
   const alm = almacen();
-  const r = listarNoticias(alm, await idSesion(), {
+  const filtros = {
     estado,
     tipo,
     formato,
@@ -95,9 +97,19 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
     desde: desde || undefined,
     hasta: hasta || undefined,
     orden,
-  });
+  };
+  const r = usaApi()
+    ? await listarNoticiasApi(filtros)
+    : listarNoticias(alm, await idSesion(), filtros);
   if (r.estado !== "OK") return null; // exigirEnAlcaldia ya cubrió sesión y permiso.
-  const totales = new Map(r.items.map((n) => [n.id, totalesDe(alm, `noticia:${n.id}`)]));
+  // Con la API, cada fila trae sus totales; en la simulación salen del almacén.
+  const totales = new Map<string, ConteoDia>(
+    r.items.map((n) => [
+      n.id,
+      ("totales" in n ? (n.totales as ConteoDia | undefined) : undefined) ??
+        totalesDe(alm, `noticia:${n.id}`),
+    ]),
+  );
   const aviso = await leerAviso();
   const activos = [tipo, formato, categoria, desde, hasta].filter(Boolean).length;
   const filtrando = Boolean(estado || q || activos);

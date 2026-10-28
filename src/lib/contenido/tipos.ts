@@ -160,13 +160,14 @@ export type ClaseMedio = (typeof CLASES_MEDIO)[number];
 const MB = 1024 * 1024;
 
 /**
- * Límites por clase. Imagen 5 MB (backlog 1.13) y PDF 20 MB (1.15). Los de video y
- * subtítulos son propios del admin: **pendientes de definir con plataforma-api**.
+ * Límites por clase, los mismos de plataforma-api (guía R6): imagen 5 MB, PDF 20 MB, video
+ * 30 MB (Cloud Run no acepta peticiones de más de 32 MiB; para más, YouTube o Instagram) y
+ * subtítulos 200 KB.
  */
 export const LIMITES_MEDIO: Record<ClaseMedio, { tipos: readonly TipoMedio[]; max: number }> = {
   imagen: { tipos: TIPOS_IMAGEN, max: 5 * MB },
   pdf: { tipos: ["application/pdf"], max: 20 * MB },
-  video: { tipos: ["video/mp4", "video/webm"], max: 50 * MB },
+  video: { tipos: ["video/mp4", "video/webm"], max: 30 * MB },
   subtitulos: { tipos: ["text/vtt"], max: 200 * 1024 },
 };
 

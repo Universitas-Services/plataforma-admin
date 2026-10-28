@@ -33,7 +33,7 @@ describe("documentos", () => {
   function subirPdf(alm: ReturnType<typeof almacenDemo>, s: string): Adjunto {
     const m = guardarMedio(alm, s, "pdf", "informe.pdf", PDF, AHORA);
     if (m.estado !== "OK") throw new Error(m.estado);
-    return { nombre: m.nombre, url: m.url, tipo: "application/pdf", pesoBytes: m.peso };
+    return { nombre: m.nombre, url: m.url, tipo: "application/pdf", pesoBytes: m.pesoBytes };
   }
 
   it("calcula la versión siguiente", () => {

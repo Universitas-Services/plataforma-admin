@@ -10,6 +10,8 @@ import {
   noticiaSchema,
   versionSchema,
 } from "@/lib/validation/schemas";
+import { usaApi } from "@/lib/api/cliente";
+import { cambiarEstadoApi, crearNoticiaApi, guardarNoticiaApi } from "@/lib/api/noticias";
 import { eliminarBanner, guardarBanner, ordenarBanners } from "./banners";
 import { crearDocumento, eliminarDocumento, guardarDocumento, nuevaVersion } from "./documentos";
 import { cambiarEstadoNoticia, crearNoticia, guardarNoticia, type CambioEstado } from "./contenido";
@@ -21,7 +23,7 @@ import {
   guardarItemMarco,
   ordenarMarco,
 } from "./marco-legal";
-import { almacen, guardarAviso, idSesion } from "./sesion";
+import { almacen, guardarAviso, idSesion, noticiasAlDia } from "./sesion";
 
 /*
  * Acciones del editor de noticias (backlog 2.9). Guardar y cambiar de estado devuelven el
@@ -56,7 +58,7 @@ const SIN_PERMISO: RespuestaEditor = {
 const NO_EXISTE: RespuestaEditor = { ok: false, mensaje: "Esta noticia ya no existe." };
 
 export async function crearNoticiaAccion() {
-  const r = crearNoticia(almacen(), await idSesion());
+  const r = usaApi() ? await crearNoticiaApi() : crearNoticia(almacen(), await idSesion());
   if (r.estado !== "OK")
     return ir(
       r.estado === "SIN_SESION" ? "/ingresar?volver=/contenido/noticias" : "/contenido/noticias",
@@ -72,7 +74,9 @@ export async function guardarNoticiaAccion(id: string, datos: unknown): Promise<
     for (const i of p.error.issues) errores[String(i.path[0] ?? "formulario")] ??= i.message;
     return { ok: false, errores, mensaje: "Revisa los campos marcados." };
   }
-  const r = guardarNoticia(almacen(), await idSesion(), id, p.data);
+  const r = usaApi()
+    ? await guardarNoticiaApi(id, p.data)
+    : guardarNoticia(almacen(), await idSesion(), id, p.data);
   switch (r.estado) {
     case "OK":
       return {
@@ -112,7 +116,9 @@ export async function cambiarEstadoAccion(
   cambio: CambioEstado,
   publicarEl?: string,
 ): Promise<RespuestaEditor> {
-  const r = cambiarEstadoNoticia(almacen(), await idSesion(), id, cambio, { publicarEl });
+  const r = usaApi()
+    ? await cambiarEstadoApi(id, cambio, publicarEl)
+    : cambiarEstadoNoticia(almacen(), await idSesion(), id, cambio, { publicarEl });
   switch (r.estado) {
     case "OK":
       if (cambio === "eliminar") {
@@ -136,12 +142,12 @@ export async function cambiarEstadoAccion(
         errores: r.errores,
         mensaje: "Antes de publicar o programar, completa lo que falta.",
       };
-    case "FECHA_PASADA":
-      return {
-        ok: false,
-        errores: { publicarEl: "Elige una fecha y hora futuras." },
-        mensaje: "Elige una fecha y hora futuras.",
-      };
+    case "FECHA_PASADA": {
+      // La API manda su texto en details.campos.publicarEl; el almacén, ninguno.
+      const deApi = "errores" in r ? (r.errores as Record<string, string>).publicarEl : undefined;
+      const texto = deApi || "Elige una fecha y hora futuras.";
+      return { ok: false, errores: { publicarEl: texto }, mensaje: texto };
+    }
     case "TRANSICION":
       return {
         ok: false,
@@ -245,6 +251,7 @@ const ERROR_INICIO: Record<string, string> = {
 export async function guardarInicioAccion(datos: {
   mensajeAlcalde: string | null;
 }): Promise<Respuesta> {
+  await noticiasAlDia();
   const r = guardarInicio(almacen(), await idSesion(), { mensajeAlcalde: datos.mensajeAlcalde });
   if (r.estado === "SIN_SESION" || r.estado === "SIN_PERMISO") return COMUNES[r.estado];
   if (r.estado !== "OK") return { ok: false, mensaje: ERROR_INICIO[r.estado]! };
@@ -282,6 +289,7 @@ function respuestaMarco(estado: string): Respuesta {
 export async function crearItemMarcoAccion(datos: unknown): Promise<Respuesta> {
   const p = itemMarcoSchema.safeParse(datos);
   if (!p.success) return erroresDe(p.error.issues);
+  await noticiasAlDia();
   const r = crearItemMarco(almacen(), await idSesion(), p.data);
   if (r.estado !== "OK") return respuestaMarco(r.estado);
   invalidar();
@@ -298,6 +306,7 @@ export async function crearItemMarcoAccion(datos: unknown): Promise<Respuesta> {
 export async function guardarItemMarcoAccion(id: string, datos: unknown): Promise<Respuesta> {
   const p = itemMarcoSchema.safeParse(datos);
   if (!p.success) return erroresDe(p.error.issues);
+  await noticiasAlDia();
   const r = guardarItemMarco(almacen(), await idSesion(), String(id), p.data);
   if (r.estado !== "OK") return respuestaMarco(r.estado);
   invalidar();

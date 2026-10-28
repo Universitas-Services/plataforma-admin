@@ -2,6 +2,9 @@
 
 import { RedirectType, redirect } from "next/navigation";
 import type { z } from "zod";
+import { ErrorApi, pedirApi, usaApi, type SesionApi } from "@/lib/api/cliente";
+import { mensajeDeError } from "@/lib/api/errores";
+import { borrarTokens, guardarTokens, tokensDeCookie } from "@/lib/api/sesion-api";
 import {
   aceptarInvitacionSchema,
   cambiarContrasenaSchema,
@@ -84,6 +87,7 @@ export async function ingresarAccion(
   const datos = leer(fd);
   const p = loginSchema.safeParse(datos);
   if (!p.success) return conErrores(p.error, datos);
+  if (usaApi()) return ingresarApi(p.data.correo, p.data.contrasena, fd.get("volver"));
   const r = iniciarSesion(almacen(), p.data.correo, p.data.contrasena);
   const valores = { correo: p.data.correo };
   if (r.estado === "CREDENCIALES")
@@ -111,13 +115,52 @@ export async function ingresarAccion(
   ir(destinoSeguro(fd.get("volver"), r.destino));
 }
 
+/** Login del personal contra la API: sin x-client-id, para que la sesión sea de «admin». */
+async function ingresarApi(correo: string, contrasena: string, volver: unknown) {
+  const valores = { correo };
+  try {
+    const r = await pedirApi<SesionApi>("/auth/login", {
+      cuerpo: { email: correo, password: contrasena },
+    });
+    await guardarTokens(r);
+  } catch (e) {
+    const texto =
+      e instanceof ErrorApi && e.code === "FORBIDDEN"
+        ? "Esta cuenta no es del personal de la alcaldía. Si eres ciudadano, entra por el portal."
+        : mensajeDeError(e);
+    return { valores, mensaje: { tipo: "error" as const, texto } };
+  }
+  return ir(destinoSeguro(volver, "/tablero"));
+}
+
+/** Cierra la sesión en la API; si ya no responde, igual se borra la cookie. */
+async function salirApi(ruta: "/auth/logout" | "/auth/sessions/revoke-all") {
+  const t = await tokensDeCookie();
+  if (t)
+    await pedirApi(ruta, {
+      metodo: "POST",
+      token: t.a,
+      cuerpo: ruta === "/auth/logout" ? { refreshToken: t.r } : undefined,
+    }).catch(() => undefined);
+  await borrarTokens();
+}
+
 export async function cerrarSesionAccion() {
+  if (usaApi()) {
+    await salirApi("/auth/logout");
+    ir("/ingresar");
+  }
   cerrarSesion(almacen(), await idSesion());
   await borrarSesion();
   ir("/ingresar");
 }
 
 export async function cerrarTodasAccion() {
+  if (usaApi()) {
+    await salirApi("/auth/sessions/revoke-all");
+    await guardarAviso("Cerramos tu sesión en todos los dispositivos.");
+    ir("/ingresar");
+  }
   cerrarTodas(almacen(), await idSesion());
   await borrarSesion();
   await guardarAviso("Cerramos tu sesión en todos los dispositivos.");
@@ -131,6 +174,7 @@ export async function cambiarContrasenaAccion(
   const datos = leer(fd);
   const p = cambiarContrasenaSchema.safeParse(datos);
   if (!p.success) return conErrores(p.error, datos);
+  if (usaApi()) return cambiarContrasenaApi(p.data.contrasenaActual, p.data.contrasena);
   const sesion = await idSesion();
   const r = cambiarContrasena(almacen(), sesion, p.data.contrasenaActual, p.data.contrasena);
   if (r === "SIN_SESION") ir("/ingresar");
@@ -140,6 +184,34 @@ export async function cambiarContrasenaAccion(
     return { errores: { contrasena: "La contraseña nueva debe ser distinta de la actual." } };
   // Los tokens anteriores quedaron revocados: la sesión actual se firma de nuevo.
   await refrescarSesion(sesion);
+  return {
+    mensaje: {
+      tipo: "exito",
+      texto: "Contraseña actualizada. Cerramos tu sesión en los demás dispositivos.",
+    },
+  };
+}
+
+/** La API devuelve tokens nuevos y revoca las demás sesiones. */
+async function cambiarContrasenaApi(actual: string, nueva: string): Promise<EstadoFormulario> {
+  const t = await tokensDeCookie();
+  if (!t) ir("/ingresar");
+  try {
+    const r = await pedirApi<SesionApi>("/auth/password", {
+      metodo: "PATCH",
+      token: t.a,
+      cuerpo: { passwordActual: actual, nuevaPassword: nueva },
+    });
+    await guardarTokens(r);
+  } catch (e) {
+    if (e instanceof ErrorApi && e.code === "INVALID_PASSWORD")
+      return { errores: { contrasenaActual: "La contraseña actual no es correcta." } };
+    if (e instanceof ErrorApi && e.code === "WEAK_PASSWORD")
+      return { errores: { contrasena: e.message } };
+    if (e instanceof ErrorApi && e.code === "VALIDATION_ERROR" && Array.isArray(e.details))
+      return { errores: { contrasena: e.details.join(" ") } };
+    return { mensaje: { tipo: "error", texto: mensajeDeError(e) } };
+  }
   return {
     mensaje: {
       tipo: "exito",

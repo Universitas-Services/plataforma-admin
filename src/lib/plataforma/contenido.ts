@@ -1,3 +1,4 @@
+import { esMedioApi } from "@/lib/contenido/medio-api";
 import { permisosDe } from "./permisos";
 import { alcaldiaDe, idSecuencial, nombreCompleto, nuevoId, registrar } from "./servicio";
 import type { Alcaldia, Almacen, UsuarioInterno } from "./tipos";
@@ -224,9 +225,10 @@ export function crearNoticia(
   return { estado: "OK", id: n.id };
 }
 
-/** Un archivo del propio panel: de los medios de esta alcaldía o de los ejemplos. */
+/** Un archivo del propio panel: de los medios de esta alcaldía, de la API o de los ejemplos. */
 export function medioPropio(alm: Almacen, alcaldiaId: string, url: string | undefined) {
   if (!url) return true;
+  if (esMedioApi(url)) return true;
   if (/^\/ejemplos\/[\w.-]+$/.test(url)) return true;
   const id = url.match(/^\/medios\/([\w-]+)$/)?.[1];
   return Boolean(id && alm.medios.get(id)?.alcaldiaId === alcaldiaId);
@@ -455,7 +457,7 @@ export function tipoMedio(bytes: Uint8Array): TipoMedio | undefined {
 }
 
 export type ResultadoMedio =
-  | { estado: "OK"; id: string; url: string; tipo: TipoMedio; nombre: string; peso: number }
+  | { estado: "OK"; id: string; url: string; tipo: TipoMedio; nombre: string; pesoBytes: number }
   | { estado: "SIN_SESION" | "SIN_PERMISO" | "VACIO" | "MUY_GRANDE" | "FORMATO" };
 
 export function guardarMedio(
@@ -494,7 +496,7 @@ export function guardarMedio(
     },
     ahora,
   );
-  return { estado: "OK", id, url: urlMedio(id), tipo, nombre: limpio, peso: bytes.length };
+  return { estado: "OK", id, url: urlMedio(id), tipo, nombre: limpio, pesoBytes: bytes.length };
 }
 
 /** Un medio solo se sirve con sesión del panel (los públicos los servirá el portal). */

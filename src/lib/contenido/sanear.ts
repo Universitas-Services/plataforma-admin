@@ -1,3 +1,4 @@
+import { esMedioApi } from "./medio-api";
 /*
  * Saneado del HTML del editor (backlog 1.13: «HTML sanitizado en el servidor»). Lista blanca
  * de etiquetas y atributos; todo lo demás se descarta. No depende del DOM: corre en el servidor
@@ -46,8 +47,9 @@ const PELIGROSAS = [
   "title",
 ];
 
-/** Imágenes solo de los medios del propio panel. */
+/** Imágenes solo de los medios del propio panel (simulados) o de la API (guía R6). */
 const ORIGEN_IMAGEN = /^\/(medios\/[\w-]+|ejemplos\/[\w.-]+)$/;
+const imagenPropia = (src: string) => ORIGEN_IMAGEN.test(src) || esMedioApi(src);
 
 const escapar = (t: string) =>
   t
@@ -128,7 +130,7 @@ export function sanearHtml(html: string): string {
     } else if (destino === "img") {
       const src = attrs.src?.trim() ?? "";
       const alt = attrs.alt?.trim();
-      if (!ORIGEN_IMAGEN.test(src) || !alt) continue;
+      if (!imagenPropia(src) || !alt) continue;
       salida.push(`<img src="${src}" alt="${escaparAtributo(decodificar(alt))}">`);
     } else if (VACIAS.has(destino)) {
       salida.push(`<${destino}>`);

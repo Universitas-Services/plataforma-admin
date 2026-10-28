@@ -11,6 +11,7 @@ vi.mock("./sesion-api", async (original) => ({
 const { ErrorApi } = await import("./cliente");
 const { mensajeDeError } = await import("./errores");
 const documentos = await import("./documentos");
+const marco = await import("./marco-legal");
 const noticias = await import("./noticias");
 const { reflejarUsuario } = await import("./sesion-api");
 const { abrirSello, sellar } = await import("./sello");
@@ -318,5 +319,100 @@ describe("documentos contra la API", () => {
     });
     await documentos.sincronizarDocumentosApi(alm);
     expect([...alm.documentos.keys()]).toEqual(["d-api-1"]);
+  });
+});
+
+describe("renovación de la cookie (Proxy)", () => {
+  it("cierra por inactividad y comparte la renovación entre peticiones simultáneas", async () => {
+    const { INACTIVIDAD_MS, revisarCookie } = await import("./renovacion");
+    const { secretoSesion } = await import("./sello");
+    const ahora = 10_000_000;
+    const cookie = (v: number, x = ahora + 1_000) =>
+      sellar({ a: "a", r: `r-${v}`, x, u: "u", v }, secretoSesion());
+    expect(
+      await revisarCookie(cookie(ahora - INACTIVIDAD_MS - 1), { prefetch: false, ahora }),
+    ).toEqual({ valor: null, motivo: "inactividad" });
+    const refrescar = vi.fn(async () => ({
+      accessToken: "a2",
+      refreshToken: "r2",
+      expiresIn: 900,
+      user: { id: "u" },
+    }));
+    const porVencer = cookie(ahora);
+    await Promise.all(
+      [1, 2, 3].map(() =>
+        revisarCookie(porVencer, { prefetch: false, ahora, refrescar: refrescar as never }),
+      ),
+    );
+    expect(refrescar).toHaveBeenCalledTimes(1);
+    expect(await revisarCookie(porVencer, { prefetch: true, ahora })).toBeUndefined();
+  });
+});
+
+describe("Marco legal contra la API (R9)", () => {
+  const ITEM = {
+    id: "m1",
+    titulo: "Sentencia N° 928/2018",
+    descripcion: "Descripción del ítem del marco legal.",
+    activo: true,
+    orden: 0,
+    botonDisponible: false,
+    creadoEl: "2026-10-28T12:00:00.000Z",
+    actualizadoEl: "2026-10-28T12:00:00.000Z",
+  };
+
+  it("arma la vista con los ítems, los activos y los destinos con su tipo", async () => {
+    const llamadas = simularFetch(
+      { cuerpo: { data: [ITEM], meta: { activos: 1, maxActivos: 10 } } },
+      {
+        cuerpo: {
+          noticias: [{ id: "n1", titulo: "Análisis", slug: "analisis" }],
+          documentos: [{ id: "d1", titulo: "Decreto", slug: "decreto-48-2026" }],
+        },
+      },
+    );
+    const r = await marco.marcoLegalApi();
+    if (r.estado !== "OK") throw new Error(r.estado);
+    expect(r.activos).toBe(1);
+    expect(r.items[0]).toMatchObject({ id: "m1", alcaldiaId: expect.any(String) });
+    expect(r.noticias[0]).toMatchObject({ tipo: "NOTICIA", slug: "analisis" });
+    expect(r.documentos[0]).toMatchObject({ tipo: "DOCUMENTO", id: "d1" });
+    expect(llamadas.map((l) => l.url)).toEqual([
+      `${API}/admin/legal-framework`,
+      `${API}/admin/legal-framework/destinos`,
+    ]);
+  });
+
+  it("guardar manda boton: null al quitarlo y ordenar usa PUT con los ids", async () => {
+    const llamadas = simularFetch({ cuerpo: ITEM }, { cuerpo: { data: [], meta: { activos: 0 } } });
+    await marco.guardarItemMarcoApi("m1", {
+      titulo: ITEM.titulo,
+      descripcion: ITEM.descripcion,
+      activo: true,
+    });
+    expect(llamadas[0]!.init.method).toBe("PATCH");
+    expect(JSON.parse(String(llamadas[0]!.init.body)).boton).toBeNull();
+    await marco.ordenarMarcoApi(["m2", "m1"]);
+    expect(llamadas[1]!.init.method).toBe("PUT");
+    expect(JSON.parse(String(llamadas[1]!.init.body))).toEqual({ ids: ["m2", "m1"] });
+  });
+
+  it("traduce los códigos del Marco y la validación por campo", async () => {
+    simularFetch({
+      status: 422,
+      cuerpo: { code: "DEMASIADOS_ACTIVOS", details: { maxActivos: 10 } },
+    });
+    expect(await marco.crearItemMarcoApi({ titulo: "x", descripcion: "y", activo: true })).toEqual({
+      estado: "DEMASIADOS_ACTIVOS",
+    });
+    simularFetch({
+      status: 400,
+      cuerpo: { code: "VALIDATION_ERROR", details: ["La descripción no admite HTML."] },
+    });
+    expect(
+      await marco.crearItemMarcoApi({ titulo: "x", descripcion: "<b>", activo: false }),
+    ).toEqual({ estado: "INVALIDO", errores: { descripcion: "La descripción no admite HTML." } });
+    simularFetch({ status: 404, cuerpo: { code: "NOT_FOUND" } });
+    expect(await marco.eliminarItemMarcoApi("m9")).toEqual({ estado: "NO_EXISTE" });
   });
 });

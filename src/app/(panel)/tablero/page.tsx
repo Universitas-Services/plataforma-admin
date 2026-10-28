@@ -23,7 +23,7 @@ import { connection } from "next/server";
 import { crearNoticiaAccion } from "@/lib/plataforma/acciones-contenido";
 import { esRango, indicadoresDe, rangoDe } from "@/lib/plataforma/metricas";
 import { resumenParticipaciones } from "@/lib/plataforma/participaciones";
-import { almacen, exigirEnAlcaldia, leerAviso } from "@/lib/plataforma/sesion";
+import { almacen, exigirEnAlcaldia, leerAviso, noticiasAlDia } from "@/lib/plataforma/sesion";
 
 export const metadata: Metadata = { title: "Tablero" };
 
@@ -43,6 +43,7 @@ async function Contenido({ searchParams }: Pick<PageProps<"/tablero">, "searchPa
   const alm = almacen();
   const datos = resumenParticipaciones(alm, c.alcaldia.id);
   const rango = rangoDe(esRango(pedido) ? pedido : "30d");
+  await noticiasAlDia();
   const indicadores = indicadoresDe(alm, c.alcaldia.id, c.permisos, rango);
   const aviso = await leerAviso();
   const evalua = c.permisos.has("participaciones.evaluar");

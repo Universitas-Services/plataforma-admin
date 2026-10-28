@@ -277,7 +277,7 @@ function useSubidaPdf() {
     const r = await subirMedio(f, "pdf", setProgreso);
     setProgreso(undefined);
     if (!r.ok) return setError(r.error);
-    setArchivo({ nombre: r.nombre, url: r.url, tipo: "application/pdf", pesoBytes: r.peso });
+    setArchivo({ nombre: r.nombre, url: r.url, tipo: "application/pdf", pesoBytes: r.pesoBytes });
   }
   return { archivo, setArchivo, progreso, error, subir };
 }

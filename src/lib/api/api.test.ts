@@ -1,0 +1,195 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type * as SesionApi from "./sesion-api";
+
+vi.mock("server-only", () => ({}));
+vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
+vi.mock("./sesion-api", async (original) => ({
+  ...(await original<typeof SesionApi>()),
+  tokensDeCookie: async () => ({ a: "acceso", r: "refresco", x: Date.now() + 600_000, u: "u1" }),
+}));
+
+const { ErrorApi } = await import("./cliente");
+const { mensajeDeError } = await import("./errores");
+const noticias = await import("./noticias");
+const { reflejarUsuario } = await import("./sesion-api");
+const { abrirSello, sellar } = await import("./sello");
+const { esMedioApi } = await import("@/lib/contenido/medio-api");
+const { almacenDemo } = await import("@/lib/plataforma/fixtures");
+
+const API = "https://api.ejemplo.test/api/v1";
+
+/** fetch simulado: responde en orden lo que se le da y guarda lo que recibió. */
+function simularFetch(...respuestas: { status?: number; cuerpo?: unknown }[]) {
+  const llamadas: { url: string; init: RequestInit }[] = [];
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+    llamadas.push({ url, init });
+    const r = respuestas.shift() ?? { status: 204 };
+    return new Response(r.cuerpo === undefined ? null : JSON.stringify(r.cuerpo), {
+      status: r.status ?? 200,
+    });
+  });
+  return llamadas;
+}
+
+const NOTICIA = {
+  id: "8e7c9a1f-0000-4000-8000-000000000001",
+  slug: "una-noticia",
+  tipo: "NOTICIA",
+  formato: "IMAGEN",
+  titulo: "Una noticia",
+  resumen: "Resumen",
+  cuerpo: "<p>Hola</p>",
+  imagenes: [],
+  destacada: false,
+  estado: "PUBLICADO",
+  publicadoEl: "2026-10-27T14:00:00.000Z",
+  actualizadoEl: "2026-10-27T14:00:00.000Z",
+  creadoEl: "2026-10-27T13:00:00.000Z",
+  autor: { id: "u-api", nombre: "Luisa Colmenárez" },
+  totales: { vistas: 0, likes: 0, dislikes: 0 },
+};
+
+beforeEach(() => {
+  process.env.API_URL = API;
+});
+afterEach(() => {
+  delete process.env.API_URL;
+  vi.unstubAllGlobals();
+});
+
+describe("cliente de la API", () => {
+  it("traduce los errores al español", () => {
+    expect(mensajeDeError(new ErrorApi(401, "INVALID_CREDENTIALS", "x"))).toMatch(/correo o la/);
+    expect(
+      mensajeDeError(new ErrorApi(403, "ACCOUNT_LOCKED", "x", { retryAfterSeconds: 120 })),
+    ).toMatch(/2 minutos/);
+    expect(mensajeDeError(new ErrorApi(500, "ALGO", "detalle interno"))).not.toMatch(/interno/);
+  });
+
+  it("la cookie de tokens no se puede leer ni alterar sin el secreto", () => {
+    const sello = sellar({ a: "acceso", r: "refresco", x: 1, u: "u1" }, "secreto");
+    expect(abrirSello(sello, "secreto")).toMatchObject({ a: "acceso", r: "refresco" });
+    expect(abrirSello(sello, "otro")).toBeNull();
+    expect(abrirSello(`${sello}x`, "secreto")).toBeNull();
+  });
+
+  it("refleja al usuario de la API en el almacén con sus roles", () => {
+    const alm = almacenDemo();
+    const u = reflejarUsuario(alm, {
+      id: "api-1",
+      email: "Operador@iribarren.test",
+      nombres: "Luisa",
+      apellidos: "Colmenárez",
+      context: "admin",
+      roles: ["OPERADOR", "REVISOR"],
+      permisos: [],
+      cuenta: { estado: "ACTIVA", desde: null, motivo: null },
+      alcaldia: { codigo: "IRI", nombre: "Alcaldía de Iribarren" },
+    });
+    expect(u.id).toBe("u-operador-iri");
+    expect(u.roles).toEqual(["OPERADOR", "REVISOR"]);
+    expect(alm.sesiones.get("api:api-1")).toEqual({ usuarioId: "u-operador-iri" });
+    const nuevo = reflejarUsuario(alm, {
+      id: "api-2",
+      email: "otra@iribarren.test",
+      nombres: null,
+      apellidos: null,
+      context: "admin",
+      roles: ["SUPER_ADMIN"],
+      permisos: [],
+      cuenta: { estado: "ACTIVA", desde: null, motivo: null },
+      alcaldia: { codigo: "IRI", nombre: "Alcaldía de Iribarren" },
+    });
+    expect(nuevo).toMatchObject({ id: "api-api-2", rolPlataforma: "SUPER_ADMIN", roles: [] });
+  });
+
+  it("reconoce solo los medios de la API configurada", () => {
+    expect(esMedioApi(`${API}/media/8e7c9a1f-0000-4000-8000-000000000001.webp`)).toBe(true);
+    expect(esMedioApi("https://otro.test/api/v1/media/8e7c9a1f-0000-4000-8000-000000000001")).toBe(
+      false,
+    );
+    expect(esMedioApi("/medios/abc")).toBe(false);
+  });
+});
+
+describe("noticias contra la API", () => {
+  it("lista todas las páginas con sus conteos y totales", async () => {
+    const llamadas = simularFetch(
+      {
+        cuerpo: {
+          data: [{ ...NOTICIA, autor: "Luisa Colmenárez" }],
+          meta: {
+            page: 1,
+            limit: 100,
+            total: 2,
+            totalPages: 2,
+            conteos: { BORRADOR: 1, PUBLICADO: 1 },
+          },
+        },
+      },
+      {
+        cuerpo: {
+          data: [{ ...NOTICIA, id: "otra", autor: "Luisa Colmenárez" }],
+          meta: { page: 2, limit: 100, total: 2, totalPages: 2, conteos: {} },
+        },
+      },
+    );
+    const r = await noticias.listarNoticiasApi({ estado: "PUBLICADO", q: "una" });
+    if (r.estado !== "OK") throw new Error(r.estado);
+    expect(r.items.map((n) => n.id)).toEqual([NOTICIA.id, "otra"]);
+    expect(r.items[0]!.autor).toBe("Luisa Colmenárez");
+    expect(llamadas[0]!.url).toBe(
+      `${API}/admin/posts?estado=PUBLICADO&q=una&sort=recientes&limit=100&page=1`,
+    );
+    expect(new Headers(llamadas[0]!.init.headers).get("Authorization")).toBe("Bearer acceso");
+  });
+
+  it("traduce INCOMPLETE, MEDIO_AJENO, INVALID_TRANSITION y 404 a los resultados del editor", async () => {
+    const campos = { titulo: "Escribe el título." };
+    simularFetch({ status: 422, cuerpo: { code: "INCOMPLETE", details: { campos } } });
+    expect(await noticias.guardarNoticiaApi("x", {} as never)).toEqual({
+      estado: "INCOMPLETA",
+      errores: campos,
+    });
+    simularFetch({ status: 422, cuerpo: { code: "MEDIO_AJENO" } });
+    expect(await noticias.guardarNoticiaApi("x", {} as never)).toEqual({ estado: "MEDIO_AJENO" });
+    simularFetch({ status: 422, cuerpo: { code: "INVALID_TRANSITION" } });
+    expect(await noticias.cambiarEstadoApi("x", "despublicar")).toEqual({ estado: "TRANSICION" });
+    simularFetch({
+      status: 422,
+      cuerpo: { code: "INCOMPLETE", details: { campos: { publicarEl: "Elige otra fecha." } } },
+    });
+    expect((await noticias.cambiarEstadoApi("x", "programar", "2020-01-01")).estado).toBe(
+      "FECHA_PASADA",
+    );
+    simularFetch({ status: 404, cuerpo: { code: "NOT_FOUND" } });
+    expect(await noticias.obtenerNoticiaApi("x")).toEqual({ estado: "NO_EXISTE" });
+  });
+
+  it("programar envía la fecha y eliminar usa DELETE", async () => {
+    const llamadas = simularFetch(
+      { cuerpo: { actualizadoEl: "t", estado: "PROGRAMADO", slug: "s" } },
+      { status: 204 },
+    );
+    await noticias.cambiarEstadoApi("n1", "programar", "2030-01-01T10:00:00.000Z");
+    expect(llamadas[0]!.url).toBe(`${API}/admin/posts/n1/schedule`);
+    expect(JSON.parse(String(llamadas[0]!.init.body))).toEqual({
+      publicarEl: "2030-01-01T10:00:00.000Z",
+    });
+    expect((await noticias.cambiarEstadoApi("n1", "eliminar")).estado).toBe("OK");
+    expect(llamadas[1]!.init.method).toBe("DELETE");
+  });
+
+  it("refleja las publicadas en el almacén y quita las de ejemplo", async () => {
+    const alm = almacenDemo();
+    simularFetch({
+      cuerpo: {
+        data: [NOTICIA],
+        meta: { page: 1, limit: 100, total: 1, totalPages: 1, conteos: {} },
+      },
+    });
+    await noticias.sincronizarNoticiasApi(alm);
+    expect([...alm.noticias.keys()]).toEqual([NOTICIA.id]);
+    expect(alm.noticias.get(NOTICIA.id)).toMatchObject({ autorId: "u-api", estado: "PUBLICADO" });
+  });
+});

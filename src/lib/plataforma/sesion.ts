@@ -7,10 +7,14 @@ import { type Permiso } from "./permisos";
 import { contextoDe, type Contexto } from "./servicio";
 import { DURACION_SESION_MS, firmarSesion, leerSesion } from "./token-sesion";
 import type { Almacen } from "./tipos";
+import { usaApi } from "@/lib/api/cliente";
+import { sincronizarNoticiasApi } from "@/lib/api/noticias";
+import { borrarTokens, idSesionApi } from "@/lib/api/sesion-api";
 
 /*
- * Sesión del panel sobre la API simulada. Con plataforma-api, estas funciones llamarán al BFF
- * y guardarán su token en la misma cookie httpOnly; las pantallas no cambian.
+ * Sesión del panel. Con plataforma-api (API_URL definida) la cookie guarda sus tokens cifrados
+ * (src/lib/api/sesion-api.ts) y el usuario se refleja en el almacén; sin ella, la sesión es la
+ * simulada de siempre, firmada por el propio panel. Las pantallas no cambian.
  */
 
 /** Mismo nombre que en src/proxy.ts. */
@@ -54,6 +58,11 @@ const opciones = {
  * siempre. Así una petición que cae en otra función de Netlify no devuelve al inicio de sesión.
  */
 export async function idSesion() {
+  if (usaApi()) {
+    // Lee la cookie y compara su vencimiento con la hora actual: siempre al pedir la página.
+    await connection();
+    return idSesionApi(almacen());
+  }
   const token = (await cookies()).get(COOKIE_SESION)?.value;
   if (!token) return undefined;
   // El vencimiento se compara con la hora actual: se calcula siempre al pedir la página.
@@ -71,6 +80,14 @@ export async function idSesion() {
   }
   if (!alm.sesiones.has(token)) alm.sesiones.set(token, { usuarioId: datos.u });
   return token;
+}
+
+/**
+ * Con plataforma-api, refleja en el almacén las noticias publicadas de la API antes de usar un
+ * módulo simulado que las elige o las cuenta (Inicio, Marco legal, tablero). Sin la API, nada.
+ */
+export async function noticiasAlDia() {
+  if (usaApi()) await sincronizarNoticiasApi(almacen());
 }
 
 export async function getContexto(): Promise<Contexto | null> {
@@ -105,6 +122,7 @@ export async function refrescarSesion(actual?: string) {
 
 export async function borrarSesion() {
   (await cookies()).delete(COOKIE_SESION);
+  if (usaApi()) await borrarTokens();
 }
 
 /** Aviso de una sola lectura para la pantalla siguiente (p. ej. «Contraseña actualizada»). */

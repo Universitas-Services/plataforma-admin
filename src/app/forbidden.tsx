@@ -9,7 +9,7 @@ export default function Prohibido() {
       titulo="Esta sección no es para tu rol"
       conLogo={false}
       acciones={
-        <Link href="/" className={claseAccionError}>
+        <Link href="/tablero" className={claseAccionError}>
           Ir a mi inicio
         </Link>
       }

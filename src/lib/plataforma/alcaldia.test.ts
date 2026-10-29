@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  cambiarActivoItem,
   catalogosDe,
   cambiarActivoMiembro,
   cambiarMembresia,
@@ -13,8 +14,10 @@ import {
   eventosDe,
   fijarFaseActual,
   guardarFase,
+  guardarItem,
   invitarMiembro,
   moverFase,
+  moverItem,
   reenviarInvitacionMiembro,
 } from "./alcaldia";
 import { CONTRASENA_DEMO, almacenDemo } from "./fixtures";
@@ -131,6 +134,39 @@ describe("catálogos y proceso", () => {
   it("los catálogos vienen del despliegue y se leen tal cual", () => {
     const alm = almacenDemo();
     expect(catalogosDe(alm, "iribarren")!.parroquias.length).toBeGreaterThan(0);
+  });
+
+  it("el Administrador crea, renombra sin repetir (sin tildes), ordena y desactiva", () => {
+    const { alm, s } = sesionDe(ADMIN);
+    const lista = () => catalogosDe(alm, "iribarren")!.parroquias;
+    const antes = lista().length;
+    expect(guardarItem(alm, s, "parroquias", "  Nueva   parroquia ").estado).toBe("OK");
+    expect(lista().at(-1)).toMatchObject({ nombre: "Nueva parroquia", activo: true });
+    expect(guardarItem(alm, s, "parroquias", "el cuji").estado).toBe("REPETIDO");
+    expect(guardarItem(alm, s, "parroquias", "   ").estado).toBe("VACIO");
+    const nueva = lista().at(-1)!;
+    expect(guardarItem(alm, s, "parroquias", "Parroquia renombrada", nueva.id).estado).toBe("OK");
+    expect(moverItem(alm, s, "parroquias", nueva.id, -1).estado).toBe("OK");
+    expect(lista()[antes - 1]!.id).toBe(nueva.id);
+    expect(moverItem(alm, s, "parroquias", lista()[0]!.id, -1).estado).toBe("NO_EXISTE");
+    expect(cambiarActivoItem(alm, s, "parroquias", nueva.id, false).estado).toBe("OK");
+    expect(lista().find((i) => i.id === nueva.id)?.activo).toBe(false);
+    expect(alm.bitacora.map((e) => e.accion)).toEqual(
+      expect.arrayContaining([
+        "CATALOGO_CREADO",
+        "CATALOGO_EDITADO",
+        "CATALOGO_REORDENADO",
+        "CATALOGO_DESACTIVADO",
+      ]),
+    );
+    expect(verificarIntegridad(alm).ok).toBe(true);
+  });
+
+  it("el Operador y el Revisor no editan los catálogos", () => {
+    for (const correo of ["operador@iribarren.test", "revisor@iribarren.test"]) {
+      const { alm, s } = sesionDe(correo);
+      expect(guardarItem(alm, s, "parroquias", "Otra").estado).toBe("SIN_PERMISO");
+    }
   });
 
   it("edita fases, valida fechas, reordena y mantiene la fase actual", () => {

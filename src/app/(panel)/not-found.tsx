@@ -17,7 +17,7 @@ export default function NoEncontradaPanel() {
       acciones={
         <Suspense
           fallback={
-            <Link href="/" className={claseAccionErrorPrimaria}>
+            <Link href="/tablero" className={claseAccionErrorPrimaria}>
               Ir a mi inicio
             </Link>
           }
@@ -37,7 +37,7 @@ async function Sugerencias() {
   const estaciones = (c?.secciones ?? []).slice(0, 4);
   if (!estaciones.length)
     return (
-      <Link href="/" className={claseAccionErrorPrimaria}>
+      <Link href="/tablero" className={claseAccionErrorPrimaria}>
         Ir a mi inicio
       </Link>
     );

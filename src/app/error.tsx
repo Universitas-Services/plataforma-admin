@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { PaginaError, claseAccionError } from "@/components/ui/pagina-error";
 
-/** 500: algo falló al cargar. Reintentar vuelve a pedir la página. */
+/** 500: algo falló al cargar. Reintentar vuelve a pedir la página (retry, Next 16.3+). */
 export default function ErrorPanel({
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   return (
     <PaginaError
@@ -16,10 +16,10 @@ export default function ErrorPanel({
       titulo="Algo falló al cargar"
       acciones={
         <>
-          <button type="button" onClick={reset} className={claseAccionError}>
+          <button type="button" onClick={() => retry()} className={claseAccionError}>
             Reintentar
           </button>
-          <Link href="/" className={claseAccionError}>
+          <Link href="/tablero" className={claseAccionError}>
             Ir a mi inicio
           </Link>
         </>

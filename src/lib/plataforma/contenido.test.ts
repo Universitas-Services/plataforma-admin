@@ -81,6 +81,33 @@ describe("guardar y publicar", () => {
     }
   });
 
+  it("un borrador guarda el botón a medio llenar y quita el vacío", () => {
+    const { alm, s, id } = nueva();
+    const medio = guardarNoticia(
+      alm,
+      s,
+      id,
+      campos({ boton: { texto: "Inscríbete", href: "" } }),
+      AHORA,
+    );
+    expect(medio.estado === "OK" && medio.noticia.boton).toEqual({ texto: "Inscríbete", href: "" });
+    const vacio = guardarNoticia(alm, s, id, campos({ boton: { texto: " ", href: "" } }), AHORA);
+    expect(vacio.estado === "OK" && vacio.noticia.boton).toBeUndefined();
+  });
+
+  it("para publicar, el botón empezado debe estar completo", () => {
+    expect(faltantesPublicacion(campos({ boton: { texto: "", href: "/documentos" } })).boton).toBe(
+      "Escribe el texto del botón.",
+    );
+    expect(
+      faltantesPublicacion(campos({ boton: { texto: "Ver", href: "ejemplo.com" } })).boton,
+    ).toMatch(/https:\/\/ o por \//);
+    expect(
+      faltantesPublicacion(campos({ boton: { texto: "Ver", href: "/documentos" } })).boton,
+    ).toBeUndefined();
+    expect(faltantesPublicacion(campos({ boton: { texto: "", href: "" } })).boton).toBeUndefined();
+  });
+
   it("el slug es único dentro de la alcaldía", () => {
     const { alm, s, id } = nueva();
     const otra = crearNoticia(alm, s, AHORA);

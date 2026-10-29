@@ -3,7 +3,12 @@ import { ErrorApi, pedirApi } from "./cliente";
 import { tokensDeCookie } from "./sesion-api";
 import { ALCALDIA } from "@/config/alcaldia";
 import type { CamposNoticia, EstadoNoticia, Noticia } from "@/lib/contenido/tipos";
-import type { CambioEstado, FiltrosNoticias, FilaNoticia } from "@/lib/plataforma/contenido";
+import {
+  botonUtil,
+  type CambioEstado,
+  type FiltrosNoticias,
+  type FilaNoticia,
+} from "@/lib/plataforma/contenido";
 import type { Almacen, ConteoDia } from "@/lib/plataforma/tipos";
 
 /*
@@ -135,7 +140,8 @@ export async function guardarNoticiaApi(id: string, campos: CamposNoticia) {
     const r = await pedirApi<EstadoCorto>(`/admin/posts/${encodeURIComponent(id)}`, {
       metodo: "PATCH",
       token: t,
-      cuerpo: campos,
+      // Sin botón (o vacío) se manda null: el PATCH lo quita en vez de conservar el anterior.
+      cuerpo: { ...campos, boton: botonUtil(campos.boton) ?? null },
     });
     return { estado: "OK" as const, noticia: r };
   } catch (e) {

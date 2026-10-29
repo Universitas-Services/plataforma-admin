@@ -1,11 +1,16 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { MarcoPanelEsqueleto } from "@/components/panel/marco-panel";
 import { getContexto } from "@/lib/plataforma/sesion";
 
-/** La raíz solo decide a dónde ir: al tablero con sesión, a ingresar sin ella. */
+/*
+ * La raíz solo decide a dónde ir: al tablero con sesión, a ingresar sin ella. Normalmente lo
+ * resuelve el proxy antes de renderizar; si llega aquí, mientras se revisa la sesión se ve el
+ * esqueleto del panel, nunca una pantalla en blanco.
+ */
 export default function Inicio() {
   return (
-    <Suspense>
+    <Suspense fallback={<MarcoPanelEsqueleto />}>
       <Destino />
     </Suspense>
   );

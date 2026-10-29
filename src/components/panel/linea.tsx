@@ -35,7 +35,11 @@ export function Linea({
   const ruta = usePathname();
   return (
     <div className="flex h-full flex-col">
-      <Link href="/" onClick={alNavegar} className="block border-b border-linea px-5 pt-5 pb-4">
+      <Link
+        href="/tablero"
+        onClick={alNavegar}
+        className="block border-b border-linea px-5 pt-5 pb-4"
+      >
         <Image
           src={LOGOS.horizontal.src}
           alt={`${ALCALDIA.programa}, ir al tablero`}

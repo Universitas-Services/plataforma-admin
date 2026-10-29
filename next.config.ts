@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /*
+   * Id del despliegue (Netlify: DEPLOY_ID). Tras un despliegue, una pestaña abierta con la
+   * versión anterior recarga la página completa en vez de pedir archivos o acciones que ya no
+   * existen (la pantalla en blanco). Sin id (en local), Next usa su comportamiento normal.
+   */
+  deploymentId: process.env.NEXT_DEPLOYMENT_ID || process.env.DEPLOY_ID || undefined,
   cacheComponents: true,
   experimental: {
     // forbidden() para las rutas que el rol no puede ver (página 403).

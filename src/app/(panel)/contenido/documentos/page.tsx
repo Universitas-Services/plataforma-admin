@@ -13,7 +13,8 @@ import { EsqueletoBandeja } from "@/components/ui/esqueletos";
 import { BotonEnlace, EncabezadoPagina, EstadoVacio } from "@/components/ui/piezas";
 import { Selector } from "@/components/ui/selector";
 import { SelectorFecha } from "@/components/ui/selector-fecha";
-import { DOC_CATEGORIAS, DOC_ESTADOS, type Documento } from "@/lib/contenido/tipos";
+import { DOC_ESTADOS, type Documento } from "@/lib/contenido/tipos";
+import { valoresActivos } from "@/lib/plataforma/catalogos-activos";
 import { usaApi } from "@/lib/api/cliente";
 import { listarDocumentosApi } from "@/lib/api/documentos";
 import { VISIBILIDADES, listarDocumentos } from "@/lib/plataforma/documentos";
@@ -40,13 +41,14 @@ export default function DocumentosPage({ searchParams }: { searchParams: SearchP
 const fechaValida = (v: string) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : "");
 
 async function Contenido({ searchParams }: { searchParams: SearchParams }) {
-  await exigirEnAlcaldia("contenido.editar", "/contenido/documentos");
+  const ctx = await exigirEnAlcaldia("contenido.editar", "/contenido/documentos");
   const sp = await searchParams;
   const texto = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string).trim() : "");
   const de = <T extends string>(lista: readonly T[], k: string) =>
     lista.find((v) => v === texto(k));
   const estado = de(DOC_ESTADOS, "estado");
-  const categoria = de(DOC_CATEGORIAS, "categoria");
+  const categorias = await valoresActivos("categoriasDocumentos", ctx.alcaldia.id);
+  const categoria = de(categorias, "categoria");
   const visibilidad = de(VISIBILIDADES, "visibilidad");
   const q = texto("q").slice(0, 80);
   const [desde, hasta] = [fechaValida(texto("desde")), fechaValida(texto("hasta"))];
@@ -136,7 +138,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
             <Selector
               id="categoria"
               etiqueta="Categoría"
-              opciones={DOC_CATEGORIAS}
+              opciones={categorias}
               valorInicial={categoria ?? ""}
               permitirVacio
               vacio="Todas"

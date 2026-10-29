@@ -222,6 +222,16 @@ export const TIPOS_CATALOGO = {
 } as const;
 export type TipoCatalogo = keyof typeof TIPOS_CATALOGO;
 
+/** Nombre de cada catálogo en la URL de plataforma-api (/admin/catalogs/:tipo). */
+export const SLUG_CATALOGO: Record<TipoCatalogo, string> = {
+  parroquias: "parroquias",
+  categoriasTecnicas: "categorias-tecnicas",
+  categoriasNoticias: "categorias-noticias",
+  categoriasDocumentos: "categorias-documentos",
+  ocupaciones: "ocupaciones",
+  tiposOrganizacion: "tipos-entidad",
+};
+
 export type ItemCatalogo = { id: string; nombre: string; activo: boolean };
 
 /**

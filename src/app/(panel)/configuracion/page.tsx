@@ -5,6 +5,9 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { EsqueletoFormulario } from "@/components/ui/esqueletos";
 import { EncabezadoPagina } from "@/components/ui/piezas";
+import { EditorCatalogo } from "@/components/configuracion/editor-catalogo";
+import { usaApi } from "@/lib/api/cliente";
+import { catalogosApi } from "@/lib/api/catalogos";
 import { catalogosDe } from "@/lib/plataforma/alcaldia";
 import { almacen, exigirEnAlcaldia } from "@/lib/plataforma/sesion";
 import { TIPOS_CATALOGO, type TipoCatalogo } from "@/lib/plataforma/tipos";
@@ -20,19 +23,20 @@ export default function ConfiguracionPage() {
 }
 
 /**
- * Catálogos de la alcaldía: solo lectura, fijos por despliegue (los carga el equipo técnico).
+ * Catálogos de la alcaldía: los desplegables del portal. El Administrador los edita (R16).
  * Las fases del proceso se editan en Contenido → Proceso.
  */
 async function Contenido() {
   const c = await exigirEnAlcaldia("configuracion.ver", "/configuracion");
   await connection();
-  const catalogos = catalogosDe(almacen(), c.alcaldia.id);
+  const catalogos = usaApi() ? await catalogosApi() : catalogosDe(almacen(), c.alcaldia.id);
+  const editable = c.permisos.has("catalogos.editar");
 
   return (
     <>
       <EncabezadoPagina
         titulo="Configuración"
-        bajada="Las listas que el portal ciudadano ofrece al registrarse y al participar."
+        bajada="Los desplegables que el portal ciudadano ofrece al registrarse y al participar."
       />
       {c.permisos.has("legal.editar") && (
         <Link
@@ -52,11 +56,22 @@ async function Contenido() {
         </Link>
       )}
       <p className="mb-4 max-w-3xl text-cuerpo">
-        Las define el equipo técnico al desplegar el panel de la alcaldía; si hace falta un cambio,
-        pídelo por soporte. Las fases del proceso se editan en Contenido → Proceso.
+        {editable
+          ? "Agrega, renombra u ordena los valores. Los valores no se borran: desactivado, el portal deja de ofrecerlo, pero lo ya guardado lo conserva."
+          : "Los administra el Administrador de la alcaldía."}{" "}
+        Las fases del proceso se editan en Contenido → Proceso.
       </p>
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid items-start gap-5 lg:grid-cols-2">
         {(Object.keys(TIPOS_CATALOGO) as TipoCatalogo[]).map((t) => {
+          if (editable)
+            return (
+              <EditorCatalogo
+                key={t}
+                tipo={t}
+                titulo={TIPOS_CATALOGO[t]}
+                items={catalogos?.[t] ?? []}
+              />
+            );
           const items = (catalogos?.[t] ?? []).filter((i) => i.activo);
           return (
             <section

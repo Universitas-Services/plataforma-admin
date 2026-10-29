@@ -8,7 +8,7 @@ export default function NoEncontrada() {
       codigo="404"
       titulo="Esta estación no existe"
       acciones={
-        <Link href="/" className={claseAccionErrorPrimaria}>
+        <Link href="/tablero" className={claseAccionErrorPrimaria}>
           Ir al inicio
         </Link>
       }

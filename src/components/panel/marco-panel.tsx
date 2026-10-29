@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { ShieldCheck } from "lucide-react";
 import { ALCALDIA } from "@/config/alcaldia";
+import { ErrorApi } from "@/lib/api/cliente";
 import { conteosParticipaciones } from "@/lib/plataforma/participaciones";
 import { nombreCompleto } from "@/lib/plataforma/servicio";
 import { almacen, getContexto } from "@/lib/plataforma/sesion";
@@ -10,6 +11,7 @@ import { Linea } from "./linea";
 import { MenuUsuario } from "./menu-usuario";
 import { NavegacionMovil } from "./navegacion-movil";
 import { SiglaAlcaldia } from "./sigla-alcaldia";
+import { SinConexion } from "./sin-conexion";
 
 /**
  * Marco del panel de la alcaldía: la línea (sidebar) con las estaciones según los permisos y la
@@ -17,7 +19,14 @@ import { SiglaAlcaldia } from "./sigla-alcaldia";
  * selector. El Super Admin ve una franja que recuerda que opera con todos los permisos.
  */
 export async function MarcoPanel({ children }: { children: ReactNode }) {
-  const c = await getContexto();
+  let c: Awaited<ReturnType<typeof getContexto>>;
+  try {
+    c = await getContexto();
+  } catch (e) {
+    // La API no respondió al revisar la sesión: un aviso con Reintentar, no un 500 en blanco.
+    if (e instanceof ErrorApi && e.status >= 500) return <SinConexion />;
+    throw e;
+  }
   if (!c) redirect("/ingresar");
   const { usuario: u, alcaldia: a } = c;
 

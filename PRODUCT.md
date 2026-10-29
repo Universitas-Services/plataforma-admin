@@ -53,7 +53,7 @@ Cada alcaldía tiene su propia API, su base de datos y su panel. El éxito es qu
   - opinión: Pendiente («Recibida» en el portal) ↔ Publicada;
   - se puede publicar cualquier aporte; el autor solo decide (Sí/No obligatorio) si aparece su nombre o «Ciudadano de Iribarren» (28-10-2026).
 - **Contenido:** noticias en 5 formatos (texto, imagen, galería, documento PDF y video), documentos con versiones, el Inicio del portal (mensaje del alcalde y anuncios) y las fases del proceso. Conoce el PDUL y el resto del Inicio son fijos.
-- **Catálogos:** fijos por despliegue; el panel solo los muestra.
+- **Catálogos (desplegables del portal):** el Administrador los crea, renombra, ordena y activa o desactiva en Configuración (permiso `catalogos.editar`, R16); no se borran. El portal los lee de la API.
 - **Seguridad:** bloqueo tras 5 intentos durante 15 minutos, invitaciones de un uso válidas 72 h, cambiar la contraseña y cerrar todas las sesiones.
 - **Validación compartida:** `src/lib/validation/common.ts` es idéntico al del portal.
 

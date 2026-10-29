@@ -14,12 +14,13 @@ import {
   type EventoBitacora,
   type FaseProceso,
   type RolAlcaldia,
+  type TipoCatalogo,
   type UsuarioInterno,
 } from "./tipos";
 
 /*
  * Capa del Admin de alcaldía sobre la API simulada (backlog 2.8, 2.11, 2.12 y 2.13): equipo,
- * ciudadanos, catálogos (solo lectura), proceso y bitácora. Lógica pura: se prueba con Vitest. Cada
+ * ciudadanos, catálogos, proceso y bitácora. Lógica pura: se prueba con Vitest. Cada
  * cambio queda en la bitácora encadenada.
  */
 
@@ -344,6 +345,131 @@ export function csvCiudadanos(lista: Ciudadano[]) {
 /** Catálogos fijos por despliegue (seed de la base de datos): el panel solo los lee. */
 export const catalogosDe = (alm: Almacen, alcaldiaId: string) => alm.catalogos.get(alcaldiaId);
 
+/*
+ * Edición de los desplegables del portal (R16): solo el Administrador (catalogos.editar). Los
+ * valores no se borran: se desactivan, así lo ya guardado conserva su valor y los formularios
+ * nuevos ofrecen solo los activos. El orden de la lista es el orden en que se ofrecen.
+ */
+
+export type ResultadoCatalogo = { estado: "OK" | Error | "VACIO" | "REPETIDO" | "NO_EXISTE" };
+
+/** Largo máximo de un valor de catálogo. */
+export const NOMBRE_CATALOGO_MAX = 80;
+
+function itemsDe(alm: Almacen, alcaldiaId: string, tipo: TipoCatalogo) {
+  let cat = alm.catalogos.get(alcaldiaId);
+  if (!cat) {
+    cat = {
+      parroquias: [],
+      categoriasTecnicas: [],
+      categoriasNoticias: [],
+      categoriasDocumentos: [],
+      ocupaciones: [],
+      tiposOrganizacion: [],
+    };
+    alm.catalogos.set(alcaldiaId, cat);
+  }
+  return cat[tipo];
+}
+
+/** Crea (sin id, al final) o renombra un valor. No se repiten nombres, sin importar tildes. */
+export function guardarItem(
+  alm: Almacen,
+  sesion: string | undefined,
+  tipo: TipoCatalogo,
+  nombre: string,
+  id?: string,
+  ahora = Date.now(),
+): ResultadoCatalogo {
+  const r = autorizado(alm, sesion, "catalogos.editar");
+  if ("error" in r) return { estado: r.error! };
+  const limpio = nombre.trim().replace(/\s+/g, " ").slice(0, NOMBRE_CATALOGO_MAX);
+  if (!limpio) return { estado: "VACIO" };
+  const items = itemsDe(alm, r.c.alcaldia.id, tipo);
+  if (items.some((i) => i.id !== id && plano(i.nombre) === plano(limpio)))
+    return { estado: "REPETIDO" };
+  let antes: string | undefined;
+  if (id) {
+    const item = items.find((i) => i.id === id);
+    if (!item) return { estado: "NO_EXISTE" };
+    antes = item.nombre;
+    item.nombre = limpio;
+  } else {
+    items.push({ id: `${tipo}-${nuevoId().slice(0, 8)}`, nombre: limpio, activo: true });
+  }
+  registrar(
+    alm,
+    {
+      actorId: r.c.usuario.id,
+      alcaldiaId: r.c.alcaldia.id,
+      accion: id ? "CATALOGO_EDITADO" : "CATALOGO_CREADO",
+      entidad: `catalogo:${tipo}`,
+      antes: antes ? { nombre: antes } : undefined,
+      despues: { nombre: limpio },
+    },
+    ahora,
+  );
+  return { estado: "OK" };
+}
+
+/** Activa o desactiva un valor: desactivado, el portal deja de ofrecerlo. */
+export function cambiarActivoItem(
+  alm: Almacen,
+  sesion: string | undefined,
+  tipo: TipoCatalogo,
+  id: string,
+  activo: boolean,
+  ahora = Date.now(),
+): ResultadoCatalogo {
+  const r = autorizado(alm, sesion, "catalogos.editar");
+  if ("error" in r) return { estado: r.error! };
+  const item = itemsDe(alm, r.c.alcaldia.id, tipo).find((i) => i.id === id);
+  if (!item) return { estado: "NO_EXISTE" };
+  item.activo = activo;
+  registrar(
+    alm,
+    {
+      actorId: r.c.usuario.id,
+      alcaldiaId: r.c.alcaldia.id,
+      accion: activo ? "CATALOGO_ACTIVADO" : "CATALOGO_DESACTIVADO",
+      entidad: `catalogo:${tipo}`,
+      despues: { nombre: item.nombre },
+    },
+    ahora,
+  );
+  return { estado: "OK" };
+}
+
+/** Sube (-1) o baja (+1) un valor en la lista. */
+export function moverItem(
+  alm: Almacen,
+  sesion: string | undefined,
+  tipo: TipoCatalogo,
+  id: string,
+  direccion: -1 | 1,
+  ahora = Date.now(),
+): ResultadoCatalogo {
+  const r = autorizado(alm, sesion, "catalogos.editar");
+  if ("error" in r) return { estado: r.error! };
+  const items = itemsDe(alm, r.c.alcaldia.id, tipo);
+  const i = items.findIndex((x) => x.id === id);
+  const j = i + direccion;
+  if (i < 0 || j < 0 || j >= items.length) return { estado: "NO_EXISTE" };
+  [items[i], items[j]] = [items[j]!, items[i]!];
+  registrar(
+    alm,
+    {
+      actorId: r.c.usuario.id,
+      alcaldiaId: r.c.alcaldia.id,
+      accion: "CATALOGO_REORDENADO",
+      entidad: `catalogo:${tipo}`,
+      despues: { orden: items.map((x) => x.nombre) },
+    },
+    ahora,
+  );
+  return { estado: "OK" };
+}
+
 /* ---------- Proceso: fases y fase actual (2.12) ---------- */
 
 export const procesoDe = (alm: Almacen, alcaldiaId: string) => alm.procesos.get(alcaldiaId);
@@ -547,6 +673,7 @@ const NOMBRE_ACCION: Record<string, string> = {
   CATALOGO_CREADO: "Valor de catálogo creado",
   CATALOGO_DESACTIVADO: "Valor de catálogo desactivado",
   CATALOGO_EDITADO: "Valor de catálogo renombrado",
+  CATALOGO_REORDENADO: "Catálogo reordenado",
   CERRAR_TODAS_SESIONES: "Cierre de todas las sesiones",
   DOCUMENTO_NUEVA_VERSION: "Nueva versión de documento",
   FASE_ACTUAL: "Fase actual cambiada",

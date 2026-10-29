@@ -17,7 +17,6 @@ import { Aviso, useAviso } from "@/components/ui/aviso";
 import { Dialogo } from "@/components/ui/dialogo";
 import { Selector } from "@/components/ui/selector";
 import {
-  DOC_CATEGORIAS,
   NOMBRE_DOC_ESTADO,
   DOC_ESTADOS,
   type Adjunto,
@@ -93,8 +92,11 @@ function Ficha({
   c,
   poner,
   errores,
+  categorias,
 }: {
   c: CamposDocumento;
+  /** Los valores activos del catálogo (más el actual, si ya no lo está). */
+  categorias: string[];
   poner: <K extends keyof CamposDocumento>(k: K, v: CamposDocumento[K]) => void;
   errores: Record<string, string>;
 }) {
@@ -144,7 +146,7 @@ function Ficha({
       <Selector
         id="categoria"
         etiqueta="Categoría"
-        opciones={DOC_CATEGORIAS}
+        opciones={categorias}
         valor={c.categoria ?? ""}
         onCambio={(v) => poner("categoria", v as CamposDocumento["categoria"])}
         error={errores.categoria}
@@ -319,7 +321,7 @@ const Volver = () => (
 
 /* ---------- Subir un documento nuevo ---------- */
 
-export function NuevoDocumento() {
+export function NuevoDocumento({ categorias }: { categorias: string[] }) {
   const [c, setC] = useState<CamposDocumento>({
     titulo: "",
     descripcion: "",
@@ -375,7 +377,7 @@ export function NuevoDocumento() {
             />
           )}
         </div>
-        <Ficha c={c} poner={poner} errores={errores} />
+        <Ficha categorias={categorias} c={c} poner={poner} errores={errores} />
       </div>
       <div className="mt-8 flex flex-col-reverse gap-2 border-t border-linea pt-6 sm:flex-row sm:justify-end">
         <Link
@@ -395,7 +397,13 @@ export function NuevoDocumento() {
 
 /* ---------- Ficha, versiones e historial de un documento ---------- */
 
-export function EditarDocumento({ documento: d }: { documento: Documento }) {
+export function EditarDocumento({
+  documento: d,
+  categorias,
+}: {
+  documento: Documento;
+  categorias: string[];
+}) {
   const [c, setC] = useState<CamposDocumento>({
     titulo: d.titulo,
     descripcion: d.descripcion,
@@ -435,7 +443,7 @@ export function EditarDocumento({ documento: d }: { documento: Documento }) {
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
         <form onSubmit={guardar} noValidate className="min-w-0">
           <h2 className="mb-4 text-lg font-bold">Ficha</h2>
-          <Ficha c={c} poner={poner} errores={errores} />
+          <Ficha categorias={categorias} c={c} poner={poner} errores={errores} />
           <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
             <button
               type="button"

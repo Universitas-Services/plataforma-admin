@@ -16,6 +16,7 @@ const inicio = await import("./inicio");
 const banners = await import("./banners");
 const proceso = await import("./proceso");
 const textos = await import("./textos-legales");
+const catalogos = await import("./catalogos");
 const noticias = await import("./noticias");
 const { reflejarUsuario } = await import("./sesion-api");
 const { abrirSello, sellar } = await import("./sello");
@@ -631,5 +632,59 @@ describe("Textos legales contra la API (R15)", () => {
     expect((await textos.publicarTextoApi("TERMINOS", d)).estado).toBe("SIN_CAMBIOS");
     expect((await textos.publicarTextoApi("TERMINOS", d)).estado).toBe("SIN_NOTA");
     expect((await textos.publicarTextoApi("TERMINOS", d)).estado).toBe("SIN_PERMISO");
+  });
+});
+
+describe("Catálogos contra la API (R16)", () => {
+  const ITEM = (id: string, valor: string, activo = true) => ({
+    id,
+    valor,
+    codigo: null,
+    orden: 0,
+    activo,
+  });
+
+  it("lee los 6 catálogos con su slug y los valores activos", async () => {
+    const llamadas = simularFetch(
+      ...Array.from({ length: 6 }, () => ({
+        cuerpo: { data: [ITEM("a", "Catedral"), ITEM("b", "Vieja", false)] },
+      })),
+      { cuerpo: { data: [ITEM("a", "Catedral"), ITEM("b", "Vieja", false)] } },
+    );
+    const r = await catalogos.catalogosApi();
+    expect(r?.parroquias).toEqual([
+      { id: "a", nombre: "Catedral", activo: true },
+      { id: "b", nombre: "Vieja", activo: false },
+    ]);
+    expect(llamadas.map((l) => l.url)).toContain(`${API}/admin/catalogs/tipos-entidad`);
+    expect(await catalogos.activosApi("categoriasNoticias")).toEqual(["Catedral"]);
+  });
+
+  it("crea, renombra, activa y reordena; traduce el repetido", async () => {
+    const llamadas = simularFetch(
+      { status: 201, cuerpo: ITEM("n", "Nueva") },
+      { status: 409, cuerpo: { code: "CATALOGO_REPETIDO", message: "x" } },
+      { cuerpo: ITEM("n", "Otra") },
+      { cuerpo: { data: [ITEM("a", "A"), ITEM("b", "B")] } },
+      { status: 204 },
+    );
+    expect((await catalogos.guardarItemApi("parroquias", "Nueva")).estado).toBe("OK");
+    expect(llamadas[0]).toMatchObject({
+      url: `${API}/admin/catalogs/parroquias`,
+      init: { method: "POST" },
+    });
+    expect((await catalogos.guardarItemApi("parroquias", "Nueva")).estado).toBe("REPETIDO");
+    expect((await catalogos.activarItemApi("parroquias", "n", false)).estado).toBe("OK");
+    expect(llamadas[2]).toMatchObject({
+      url: `${API}/admin/catalogs/parroquias/n`,
+      init: { method: "PATCH" },
+    });
+    expect(JSON.parse(String(llamadas[2]!.init.body))).toEqual({ activo: false });
+    expect((await catalogos.moverItemApi("parroquias", "b", -1)).estado).toBe("OK");
+    expect(llamadas[4]).toMatchObject({
+      url: `${API}/admin/catalogs/parroquias/order`,
+      init: { method: "PUT" },
+    });
+    expect(JSON.parse(String(llamadas[4]!.init.body))).toEqual({ ids: ["b", "a"] });
   });
 });

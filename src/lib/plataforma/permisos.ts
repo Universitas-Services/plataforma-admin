@@ -22,6 +22,8 @@ export const PERMISOS = [
   "bitacora.ver",
   /** Publicar los términos de uso y la política de datos del portal (R15). */
   "legal.editar",
+  /** Crear, renombrar, ordenar y activar los desplegables del portal (R16). */
+  "catalogos.editar",
 ] as const;
 
 export type Permiso = (typeof PERMISOS)[number];

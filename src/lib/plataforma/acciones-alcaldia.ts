@@ -2,21 +2,30 @@
 
 import { refresh, revalidatePath } from "next/cache";
 import {
+  cambiarActivoItem,
   cambiarActivoMiembro,
   cambiarMembresia,
   editarRoles,
   eliminarFase,
   fijarFaseActual,
   guardarFase,
+  guardarItem,
   invitarMiembro,
   MOTIVO_MIN,
   moverFase,
+  moverItem,
   reenviarInvitacionMiembro,
 } from "./alcaldia";
 import { verificarIntegridad } from "./servicio";
 import { almacen, esDemo, getContexto, idSesion } from "./sesion";
-import { ESTADOS_SIGUIENTE, type EstadoSiguiente } from "./tipos";
+import {
+  ESTADOS_SIGUIENTE,
+  TIPOS_CATALOGO,
+  type EstadoSiguiente,
+  type TipoCatalogo,
+} from "./tipos";
 import { usaApi } from "@/lib/api/cliente";
+import { activarItemApi, guardarItemApi, moverItemApi } from "@/lib/api/catalogos";
 import { eliminarFaseApi, faseActualApi, guardarFaseApi, moverFaseApi } from "@/lib/api/proceso";
 
 /*
@@ -142,6 +151,73 @@ export async function membresiaAccion(
         ? "Cuenta suspendida: no podrá iniciar sesión ni participar."
         : "Cuenta reactivada.",
   };
+}
+
+/* ---------- Catálogos: los desplegables del portal (R16) ---------- */
+
+const esTipoCatalogo = (t: unknown): t is TipoCatalogo =>
+  typeof t === "string" && t in TIPOS_CATALOGO;
+
+/** Crea (sin id) o renombra un valor de un catálogo. */
+export async function guardarItemAccion(
+  tipo: TipoCatalogo,
+  nombre: string,
+  id?: string,
+): Promise<Respuesta> {
+  if (!esTipoCatalogo(tipo)) return COMUNES.NO_EXISTE!;
+  const limpio = String(nombre ?? "");
+  const r = usaApi()
+    ? await guardarItemApi(tipo, limpio.trim(), id)
+    : guardarItem(almacen(), await idSesion(), tipo, limpio, id);
+  if (r.estado === "VACIO")
+    return { ok: false, mensaje: "Escribe el nombre.", errores: { nombre: "Escribe el nombre." } };
+  if (r.estado === "REPETIDO")
+    return {
+      ok: false,
+      mensaje: "Ese valor ya existe.",
+      errores: { nombre: "Ya existe un valor con ese nombre." },
+    };
+  if (r.estado !== "OK") return COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
+  purgar("/configuracion");
+  return {
+    ok: true,
+    mensaje: id
+      ? "Valor renombrado. Lo ya guardado con el nombre anterior se ve con el nuevo."
+      : "Valor agregado: el portal ya lo ofrece.",
+  };
+}
+
+export async function activarItemAccion(
+  tipo: TipoCatalogo,
+  id: string,
+  activo: boolean,
+): Promise<Respuesta> {
+  if (!esTipoCatalogo(tipo)) return COMUNES.NO_EXISTE!;
+  const r = usaApi()
+    ? await activarItemApi(tipo, String(id), Boolean(activo))
+    : cambiarActivoItem(almacen(), await idSesion(), tipo, String(id), Boolean(activo));
+  if (r.estado !== "OK") return COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
+  purgar("/configuracion");
+  return {
+    ok: true,
+    mensaje: activo
+      ? "Valor activado: el portal vuelve a ofrecerlo."
+      : "Valor desactivado: el portal deja de ofrecerlo; lo ya guardado lo conserva.",
+  };
+}
+
+export async function moverItemAccion(
+  tipo: TipoCatalogo,
+  id: string,
+  direccion: -1 | 1,
+): Promise<Respuesta> {
+  if (!esTipoCatalogo(tipo) || (direccion !== -1 && direccion !== 1)) return COMUNES.NO_EXISTE!;
+  const r = usaApi()
+    ? await moverItemApi(tipo, String(id), direccion)
+    : moverItem(almacen(), await idSesion(), tipo, String(id), direccion);
+  if (r.estado !== "OK") return COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
+  purgar("/configuracion");
+  return { ok: true, mensaje: "Orden guardado." };
 }
 
 /* ---------- Proceso ---------- */

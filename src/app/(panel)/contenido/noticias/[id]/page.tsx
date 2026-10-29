@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { EditorNoticia } from "@/components/contenido/editor-noticia";
+import { conActual, valoresActivos } from "@/lib/plataforma/catalogos-activos";
 import { EsqueletoEditor } from "@/components/ui/esqueletos";
 import { usaApi } from "@/lib/api/cliente";
 import { obtenerNoticiaApi } from "@/lib/api/noticias";
@@ -32,12 +33,15 @@ export default function EditarNoticiaPage({ params }: PageProps<"/contenido/noti
 
 async function Contenido({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  await exigirEnAlcaldia("contenido.editar", `/contenido/noticias/${id}`);
+  const ctx = await exigirEnAlcaldia("contenido.editar", `/contenido/noticias/${id}`);
   // La lista depende de la hora (las programadas vencidas se publican al leer).
   await connection();
   const r = usaApi()
     ? await obtenerNoticiaApi(id)
     : obtenerNoticia(almacen(), await idSesion(), id);
   if (r.estado !== "OK") notFound();
-  return <EditorNoticia noticia={r.noticia} />;
+  const categorias = await valoresActivos("categoriasNoticias", ctx.alcaldia.id);
+  return (
+    <EditorNoticia noticia={r.noticia} categorias={conActual(categorias, r.noticia.categoria)} />
+  );
 }

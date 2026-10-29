@@ -166,6 +166,7 @@ export type Participacion = {
   soporte?: ArchivoAporte;
   /** Dónde aplica (propuesta formal): punto marcado en el mapa del portal o con Google Maps. */
   ubicacion?: Ubicacion;
+  /** Si al publicarse aparece su nombre; si no, aparece como AUTOR_ANONIMO. */
   mostrarNombre: boolean;
   autor: AutorAporte;
   estado: EstadoParticipacion;
@@ -223,6 +224,22 @@ export type TipoCatalogo = keyof typeof TIPOS_CATALOGO;
 
 export type ItemCatalogo = { id: string; nombre: string; activo: boolean };
 
+/**
+ * Cómo se ve una fase mientras no le toca (D3, modelo híbrido): las anteriores a la actual se
+ * ven «Completado» y la actual «En curso»; las siguientes, lo que fije el Operador.
+ */
+export const ESTADOS_SIGUIENTE = ["PENDIENTE", "PROXIMAMENTE", "FUTURO"] as const;
+export type EstadoSiguiente = (typeof ESTADOS_SIGUIENTE)[number];
+
+export const NOMBRE_ESTADO_FASE = {
+  COMPLETADO: "Completado",
+  EN_CURSO: "En curso",
+  PENDIENTE: "Pendiente",
+  PROXIMAMENTE: "Próximamente",
+  FUTURO: "Futuro",
+} as const;
+export type EstadoFase = keyof typeof NOMBRE_ESTADO_FASE;
+
 export type FaseProceso = {
   id: string;
   nombre: string;
@@ -230,7 +247,13 @@ export type FaseProceso = {
   /** Fechas AAAA-MM-DD, opcionales. */
   inicio?: string;
   fin?: string;
+  /** Lo que muestra mientras no le toque; por defecto, «Pendiente». */
+  estadoSiguiente?: EstadoSiguiente;
 };
+
+/** El estado que ve el portal para la fase `i` cuando la actual es `actual`. */
+export const estadoDeFase = (f: FaseProceso, i: number, actual: number): EstadoFase =>
+  i < actual ? "COMPLETADO" : i === actual ? "EN_CURSO" : (f.estadoSiguiente ?? "PENDIENTE");
 
 /** Fases del proceso PDUL de una alcaldía y la fase en curso (el termómetro del portal). */
 export type Proceso = { fases: FaseProceso[]; actual: number };
@@ -268,6 +291,36 @@ export type Almacen = {
   banners: Map<string, Banner>;
   /** Ítems del Marco legal de Conoce el PDUL (anexo de la fase 7, 26-10-2026). */
   marcoLegal: Map<string, ItemMarcoLegal>;
+  /** Versiones publicadas de los términos de uso y la política de datos (R15). */
+  textosLegales: VersionTextoLegal[];
+};
+
+/* ---------- Textos legales del portal (R15) ---------- */
+
+export const TIPOS_TEXTO_LEGAL = ["TERMINOS", "POLITICA_DATOS"] as const;
+export type TipoTextoLegal = (typeof TIPOS_TEXTO_LEGAL)[number];
+
+export const TITULO_TEXTO_LEGAL: Record<TipoTextoLegal, string> = {
+  TERMINOS: "Términos de uso",
+  POLITICA_DATOS: "Política de tratamiento de datos personales",
+};
+
+/**
+ * Una versión publicada de un texto legal. No se editan: cada cambio es una versión nueva, y al
+ * publicarla las personas registradas en el portal deben aceptarla otra vez.
+ */
+export type VersionTextoLegal = {
+  id: string;
+  alcaldiaId: string;
+  tipo: TipoTextoLegal;
+  /** 1, 2, 3… por tipo. La vigente es la de número mayor. */
+  version: number;
+  /** HTML saneado, del editor de texto (sin imágenes). */
+  html: string;
+  /** Qué cambió: lo lee el ciudadano al aceptarla. */
+  nota: string;
+  publicadoPorId: string;
+  publicadoEl: string;
 };
 
 /* ---------- Marco legal de Conoce el PDUL (anexo de la fase 7) ---------- */
@@ -295,3 +348,10 @@ export type ItemMarcoLegal = {
 /** Contadores por día (AAAA-MM-DD) de un elemento: vistas, «me gusta» y «no me gusta». */
 export type ConteoDia = { vistas: number; likes: number; dislikes: number };
 export type Interaccion = { porDia: Record<string, ConteoDia> };
+
+/**
+ * Cómo aparece en el portal el autor de un aporte publicado que eligió no mostrar su nombre. La
+ * alcaldía puede publicar cualquier aporte; la persona solo decide si aparece su nombre
+ * (decisión del cliente, 28-10-2026).
+ */
+export const AUTOR_ANONIMO = "Ciudadano de Iribarren";

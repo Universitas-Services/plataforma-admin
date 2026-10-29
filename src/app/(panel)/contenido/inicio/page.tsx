@@ -10,6 +10,9 @@ import type { Noticia } from "@/lib/contenido/tipos";
 import { listarBanners } from "@/lib/plataforma/banners";
 import { inicioDe } from "@/lib/plataforma/inicio";
 import { almacen, exigirEnAlcaldia, idSesion, contenidoAlDia } from "@/lib/plataforma/sesion";
+import { usaApi } from "@/lib/api/cliente";
+import { listarBannersApi } from "@/lib/api/banners";
+import { inicioApi } from "@/lib/api/inicio";
 
 export const metadata: Metadata = { title: "Inicio del portal" };
 
@@ -35,10 +38,10 @@ async function Contenido() {
   await exigirEnAlcaldia("inicio.editar", "/contenido/inicio");
   await connection();
   const sesion = await idSesion();
-  await contenidoAlDia();
-  const r = inicioDe(almacen(), sesion);
+  const [r, b] = usaApi()
+    ? await Promise.all([inicioApi(), listarBannersApi()])
+    : (await contenidoAlDia(), [inicioDe(almacen(), sesion), listarBanners(almacen(), sesion)]);
   if (r.estado !== "OK") return null;
-  const b = listarBanners(almacen(), sesion);
 
   return (
     <>

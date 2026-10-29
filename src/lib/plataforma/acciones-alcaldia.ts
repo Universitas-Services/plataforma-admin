@@ -5,6 +5,7 @@ import {
   cambiarActivoMiembro,
   cambiarMembresia,
   editarRoles,
+  eliminarFase,
   fijarFaseActual,
   guardarFase,
   invitarMiembro,
@@ -14,6 +15,9 @@ import {
 } from "./alcaldia";
 import { verificarIntegridad } from "./servicio";
 import { almacen, esDemo, getContexto, idSesion } from "./sesion";
+import { ESTADOS_SIGUIENTE, type EstadoSiguiente } from "./tipos";
+import { usaApi } from "@/lib/api/cliente";
+import { eliminarFaseApi, faseActualApi, guardarFaseApi, moverFaseApi } from "@/lib/api/proceso";
 
 /*
  * Acciones del Admin de alcaldía (backlog 2.8, 2.11, 2.12 y 2.13). Devuelven el resultado a la
@@ -148,8 +152,17 @@ export async function guardarFaseAccion(datos: {
   descripcion: string;
   inicio?: string;
   fin?: string;
+  estadoSiguiente?: EstadoSiguiente;
 }): Promise<Respuesta> {
-  const r = guardarFase(almacen(), await idSesion(), datos);
+  const limpio = {
+    ...datos,
+    nombre: String(datos.nombre ?? ""),
+    descripcion: String(datos.descripcion ?? ""),
+    estadoSiguiente: ESTADOS_SIGUIENTE.find((s) => s === datos.estadoSiguiente),
+  };
+  const r = usaApi()
+    ? await guardarFaseApi(limpio)
+    : guardarFase(almacen(), await idSesion(), limpio);
   if (r.estado === "VACIO")
     return { ok: false, mensaje: "Escribe el nombre.", errores: { nombre: "Escribe el nombre." } };
   if (r.estado === "FECHAS")
@@ -165,17 +178,35 @@ export async function guardarFaseAccion(datos: {
 }
 
 export async function moverFaseAccion(id: string, direccion: -1 | 1): Promise<Respuesta> {
-  const r = moverFase(almacen(), await idSesion(), id, direccion);
+  const r = usaApi()
+    ? await moverFaseApi(String(id), direccion)
+    : moverFase(almacen(), await idSesion(), String(id), direccion);
   if (r.estado !== "OK") return COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
   purgar("/contenido/proceso");
   return { ok: true, mensaje: "Orden de las fases guardado." };
 }
 
 export async function faseActualAccion(id: string): Promise<Respuesta> {
-  const r = fijarFaseActual(almacen(), await idSesion(), id);
+  const r = usaApi()
+    ? await faseActualApi(String(id))
+    : fijarFaseActual(almacen(), await idSesion(), String(id));
   if (r.estado !== "OK") return COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
   purgar("/contenido/proceso");
   return { ok: true, mensaje: "Fase actual actualizada: el termómetro del portal la mostrará." };
+}
+
+export async function eliminarFaseAccion(id: string): Promise<Respuesta> {
+  const r = usaApi()
+    ? await eliminarFaseApi(String(id))
+    : eliminarFase(almacen(), await idSesion(), String(id));
+  if (r.estado === "FASE_ACTUAL")
+    return {
+      ok: false,
+      mensaje: "La fase actual no se puede eliminar: marca otra como actual antes.",
+    };
+  if (r.estado !== "OK") return COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
+  purgar("/contenido/proceso");
+  return { ok: true, mensaje: "Fase eliminada." };
 }
 
 /* ---------- Bitácora ---------- */

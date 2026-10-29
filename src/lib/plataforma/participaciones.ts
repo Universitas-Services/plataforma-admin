@@ -160,7 +160,6 @@ export type ResultadoRevisor =
   | "TRANSICION_INVALIDA"
   | "SIN_MOTIVO"
   | "TEXTO_CORTO"
-  | "SIN_AUTORIZACION_NOMBRE"
   | "NOTA_VACIA";
 
 type Evaluable =
@@ -205,7 +204,6 @@ export function cambiarEstado(
     motivo = datos.motivo as MotivoRechazo;
     comentario = texto;
   }
-  if (destino === "PUBLICADA" && !p.mostrarNombre) return "SIN_AUTORIZACION_NOMBRE";
 
   const antes = p.estado;
   p.estado = destino;
@@ -275,7 +273,7 @@ export function csvBandeja(lista: Participacion[]) {
     "Categoría técnica",
     "Autor",
     "Cédula o RIF",
-    "Nombre público autorizado",
+    "Mostrar nombre",
   ];
   const filas = lista.map((p) => [
     p.folio,

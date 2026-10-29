@@ -25,7 +25,12 @@ import {
 } from "@/lib/plataforma/participaciones";
 import { nombreCompleto } from "@/lib/plataforma/servicio";
 import { almacen, exigirEnAlcaldia } from "@/lib/plataforma/sesion";
-import { MOTIVOS_RECHAZO, TIPOS_PARTICIPACION, type Participacion } from "@/lib/plataforma/tipos";
+import {
+  AUTOR_ANONIMO,
+  MOTIVOS_RECHAZO,
+  TIPOS_PARTICIPACION,
+  type Participacion,
+} from "@/lib/plataforma/tipos";
 import { participacionesDemo } from "@/lib/plataforma/fixtures-participaciones";
 
 export const metadata: Metadata = { title: "Detalle del aporte" };
@@ -170,7 +175,10 @@ async function Contenido({ params }: { params: Promise<{ folio: string }> }) {
               <Dato k="Parroquia" v={p.parroquia} />
               <Dato k="Sector" v={p.sector} />
               <Dato k="Categoría técnica" v={p.categoriaTecnica} />
-              <Dato k="Nombre público" v={p.mostrarNombre ? "Autorizado" : "No autorizado"} />
+              <Dato
+                k="Nombre público"
+                v={p.mostrarNombre ? "Sí, con su nombre" : `No, como «${AUTOR_ANONIMO}»`}
+              />
             </dl>
             {p.noticia && (
               <p className="mt-4 flex items-start gap-2 rounded-control bg-superficie p-3 text-sm text-tinta">

@@ -31,11 +31,20 @@ test("opinión: se publica y se despublica, sin revisión ni rechazo", async ({ 
   await expect(page.getByRole("button", { name: "Publicar en el portal" })).toBeVisible();
 });
 
-test("opinión sin nombre autorizado: no se puede publicar", async ({ page }) => {
+test("opinión sin nombre: se publica como «Ciudadano de Iribarren» y se despublica", async ({
+  page,
+}) => {
   await ingresar(page, "revisor@iribarren.test");
   await page.goto("/participaciones/IRI-2026-0018");
-  await expect(page.getByRole("button", { name: "Publicar en el portal" })).toBeDisabled();
-  await expect(page.getByText(/no autorizó mostrar su nombre/)).toBeVisible();
+  await expect(page.getByText("No, como «Ciudadano de Iribarren»")).toBeVisible();
+  await page.getByRole("button", { name: "Publicar en el portal" }).click();
+  await expect(page.getByRole("dialog")).toContainText("como «Ciudadano de Iribarren»");
+  await confirmar(page);
+  await expect(page.getByText("Aporte publicado en el portal.")).toBeVisible();
+  // Se deja como estaba.
+  await page.getByRole("button", { name: "Despublicar" }).click();
+  await confirmar(page);
+  await expect(page.getByText("Aporte despublicado: ya no se ve en el portal.")).toBeVisible();
 });
 
 test("propuesta formal: muestra el mapa y se despublica y se vuelve a publicar", async ({

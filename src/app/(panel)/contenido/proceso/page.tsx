@@ -7,6 +7,8 @@ import { EsqueletoFormulario } from "@/components/ui/esqueletos";
 import { EncabezadoPagina } from "@/components/ui/piezas";
 import { procesoDe } from "@/lib/plataforma/alcaldia";
 import { almacen, exigirEnAlcaldia } from "@/lib/plataforma/sesion";
+import { usaApi } from "@/lib/api/cliente";
+import { procesoApi } from "@/lib/api/proceso";
 
 export const metadata: Metadata = { title: "Proceso" };
 
@@ -22,7 +24,10 @@ export default function ProcesoPage() {
 async function Contenido() {
   const c = await exigirEnAlcaldia("proceso.editar", "/contenido/proceso");
   await connection();
-  const proceso = procesoDe(almacen(), c.alcaldia.id) ?? { fases: [], actual: 0 };
+  const proceso = (usaApi() ? await procesoApi() : procesoDe(almacen(), c.alcaldia.id)) ?? {
+    fases: [],
+    actual: 0,
+  };
   return (
     <>
       <EncabezadoPagina

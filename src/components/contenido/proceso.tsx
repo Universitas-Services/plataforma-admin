@@ -1,16 +1,24 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Flag, Loader2, Pencil, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, Flag, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Aviso } from "@/components/ui/aviso";
 import { Dialogo } from "@/components/ui/dialogo";
+import { Selector } from "@/components/ui/selector";
 import { SelectorFecha } from "@/components/ui/selector-fecha";
 import {
+  eliminarFaseAccion,
   faseActualAccion,
   guardarFaseAccion,
   moverFaseAccion,
 } from "@/lib/plataforma/acciones-alcaldia";
-import type { FaseProceso } from "@/lib/plataforma/tipos";
+import {
+  ESTADOS_SIGUIENTE,
+  NOMBRE_ESTADO_FASE,
+  estadoDeFase,
+  type EstadoSiguiente,
+  type FaseProceso,
+} from "@/lib/plataforma/tipos";
 import {
   claseBoton,
   claseCampo,
@@ -46,6 +54,9 @@ function DialogoFase({
     inicio: fase?.inicio ?? "",
     fin: fase?.fin ?? "",
   });
+  const [estadoSiguiente, setEstadoSiguiente] = useState<EstadoSiguiente>(
+    fase?.estadoSiguiente ?? "PENDIENTE",
+  );
   const [pendiente, iniciar] = useTransition();
   const campo = (k: keyof typeof datos) => ({
     id: `fase-${k}`,
@@ -68,6 +79,7 @@ function DialogoFase({
               descripcion: datos.descripcion,
               inicio: datos.inicio || undefined,
               fin: datos.fin || undefined,
+              estadoSiguiente,
             });
             if (aplicar(r)) onCerrar();
           });
@@ -77,7 +89,7 @@ function DialogoFase({
           <Etiqueta htmlFor="fase-nombre">Nombre</Etiqueta>
           <input
             {...campo("nombre")}
-            maxLength={60}
+            maxLength={80}
             className={`${claseCampo(errores.nombre)} h-11`}
           />
           <ErrorCampo id="fase-nombre-error" error={errores.nombre} />
@@ -86,8 +98,16 @@ function DialogoFase({
           <Etiqueta htmlFor="fase-descripcion" opcional>
             Descripción
           </Etiqueta>
-          <textarea {...campo("descripcion")} rows={3} maxLength={300} className={claseCampo()} />
+          <textarea {...campo("descripcion")} rows={3} maxLength={240} className={claseCampo()} />
         </div>
+        <Selector
+          id="fase-estado"
+          etiqueta="Cómo se ve mientras no le toque"
+          opciones={ESTADOS_SIGUIENTE.map((e) => ({ valor: e, texto: NOMBRE_ESTADO_FASE[e] }))}
+          valor={estadoSiguiente}
+          onCambio={(v) => setEstadoSiguiente(v as EstadoSiguiente)}
+          ayuda="Las fases anteriores a la actual se ven «Completado» y la actual «En curso»."
+        />
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <Etiqueta htmlFor="fase-inicio" opcional>
@@ -150,9 +170,7 @@ function Termometro({ fases, actual }: { fases: FaseProceso[]; actual: number })
           >
             {f.nombre}
           </span>
-          <span className="sr-only">
-            {i < actual ? "cumplida" : i === actual ? "fase actual" : "por venir"}
-          </span>
+          <span className="sr-only">{NOMBRE_ESTADO_FASE[estadoDeFase(f, i, actual)]}</span>
         </li>
       ))}
     </ol>
@@ -161,6 +179,7 @@ function Termometro({ fases, actual }: { fases: FaseProceso[]; actual: number })
 
 export function EditorFases({ fases, actual }: { fases: FaseProceso[]; actual: number }) {
   const [editando, setEditando] = useState<FaseProceso | "nueva">();
+  const [borrando, setBorrando] = useState<FaseProceso>();
   const [pendiente, iniciar] = useTransition();
   const r = useRespuesta();
   const correr = (accion: () => ReturnType<typeof moverFaseAccion>) =>
@@ -204,6 +223,11 @@ export function EditorFases({ fases, actual }: { fases: FaseProceso[]; actual: n
                     </span>
                   )}
                 </p>
+                {i > actual && (
+                  <p className="mt-0.5 text-xs font-semibold tracking-wide text-gris uppercase">
+                    {NOMBRE_ESTADO_FASE[estadoDeFase(f, i, actual)]}
+                  </p>
+                )}
                 {f.descripcion && <p className="mt-0.5 text-sm text-cuerpo">{f.descripcion}</p>}
                 {(f.inicio || f.fin) && (
                   <p className="mt-1 text-sm text-gris tabular-nums">
@@ -252,6 +276,17 @@ export function EditorFases({ fases, actual }: { fases: FaseProceso[]; actual: n
                     Marcar actual<span className="sr-only"> «{f.nombre}»</span>
                   </button>
                 )}
+                {i !== actual && (
+                  <button
+                    type="button"
+                    disabled={pendiente}
+                    onClick={() => setBorrando(f)}
+                    className={claseBoton.enlace}
+                  >
+                    <Trash2 size={14} aria-hidden="true" />
+                    Eliminar<span className="sr-only"> «{f.nombre}»</span>
+                  </button>
+                )}
               </div>
             </div>
           </li>
@@ -277,6 +312,38 @@ export function EditorFases({ fases, actual }: { fases: FaseProceso[]; actual: n
           aplicar={r.aplicar}
           errores={r.errores}
         />
+      )}
+      {borrando && (
+        <Dialogo
+          abierto
+          onCerrar={() => setBorrando(undefined)}
+          titulo={`¿Eliminar «${borrando.nombre}»?`}
+          descripcion="La fase deja de verse en el termómetro y en Conoce el PDUL."
+        >
+          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              autoFocus
+              onClick={() => setBorrando(undefined)}
+              className={claseBoton.secundario}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={pendiente}
+              onClick={() =>
+                iniciar(async () => {
+                  if (r.aplicar(await eliminarFaseAccion(borrando.id))) setBorrando(undefined);
+                })
+              }
+              className={claseBoton.peligro}
+            >
+              {pendiente && <Loader2 size={16} aria-hidden="true" className="animate-spin" />}
+              Eliminar fase
+            </button>
+          </div>
+        </Dialogo>
       )}
       <Aviso aviso={r.aviso} onCerrar={() => r.setAviso(undefined)} />
     </div>

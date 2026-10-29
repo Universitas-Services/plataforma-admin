@@ -1,4 +1,6 @@
+import { ChevronRight, FileText } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { EsqueletoFormulario } from "@/components/ui/esqueletos";
@@ -32,6 +34,23 @@ async function Contenido() {
         titulo="Configuración"
         bajada="Las listas que el portal ciudadano ofrece al registrarse y al participar."
       />
+      {c.permisos.has("legal.editar") && (
+        <Link
+          href="/configuracion/textos-legales"
+          className="mb-6 flex max-w-3xl items-center justify-between gap-4 rounded-lg border border-linea bg-papel p-4 hover:border-tenue"
+        >
+          <span>
+            <span className="flex items-center gap-2 font-bold text-tinta">
+              <FileText size={18} aria-hidden="true" className="text-marca-texto" />
+              Textos legales del portal
+            </span>
+            <span className="mt-0.5 block text-sm text-gris">
+              Términos de uso y política de tratamiento de datos: publica versiones nuevas.
+            </span>
+          </span>
+          <ChevronRight size={18} aria-hidden="true" className="shrink-0 text-gris" />
+        </Link>
+      )}
       <p className="mb-4 max-w-3xl text-cuerpo">
         Las define el equipo técnico al desplegar el panel de la alcaldía; si hace falta un cambio,
         pídelo por soporte. Las fases del proceso se editan en Contenido → Proceso.

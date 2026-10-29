@@ -1,5 +1,5 @@
 import type { Adjunto, Banner, Documento, Imagen, Noticia } from "@/lib/contenido/tipos";
-import type { Almacen, Interaccion, ItemMarcoLegal } from "./tipos";
+import type { Almacen, Interaccion, ItemMarcoLegal, VersionTextoLegal } from "./tipos";
 
 /*
  * Noticias de demostración (backlog 2.9). Son contenido de EJEMPLO, no textos oficiales: llevan
@@ -511,4 +511,46 @@ export function bannersDemo(ahora: number): Banner[] {
       vigencia: { desde: dia(ahora, -20), hasta: dia(ahora, -2) },
     },
   ]);
+}
+
+/**
+ * Versión 1 de los textos legales: el contenido provisional que hoy muestra el portal. El texto
+ * definitivo lo prepara el equipo de documentación y pasa por revisión legal; no se inventa.
+ */
+export function textosLegalesDemo(alcaldiaId: string): VersionTextoLegal[] {
+  const lista = (items: string[]) =>
+    `<p>Contenido provisional: el texto definitivo está en preparación por el equipo de documentación y pasará por revisión legal antes de publicarse.</p><h2>Qué incluirá</h2><ul>${items.map((i) => `<li>${i}</li>`).join("")}</ul>`;
+  const base = {
+    alcaldiaId,
+    version: 1,
+    nota: "Versión inicial provisional.",
+    publicadoPorId: "u-admin-iri",
+    publicadoEl: "2026-10-17T12:00:00.000Z",
+  };
+  return [
+    {
+      ...base,
+      id: "texto-terminos-1",
+      tipo: "TERMINOS",
+      html: lista([
+        "Qué es el portal PDUL YA y qué trámites no gestiona (son de la DPCU).",
+        "Requisitos para crear una cuenta como persona natural u organización.",
+        "Cómo se reciben, revisan y responden las opiniones y propuestas, y qué significa el folio.",
+        "Por qué un aporte enviado no se puede editar ni eliminar.",
+        "Normas de convivencia y motivos para suspender una cuenta.",
+      ]),
+    },
+    {
+      ...base,
+      id: "texto-politica-1",
+      tipo: "POLITICA_DATOS",
+      html: lista([
+        "Qué datos se piden (identidad, contacto y documentos) y para qué se usan.",
+        "Quién puede ver tus documentos: solo el personal revisor de la alcaldía.",
+        "Cuándo se muestra tu nombre en un aporte publicado (solo si respondes que sí).",
+        "Cuánto tiempo se conservan los datos y cómo solicitar la baja de la cuenta.",
+        "Cómo se comparten tus datos entre portales de distintas alcaldías.",
+      ]),
+    },
+  ];
 }

@@ -51,7 +51,7 @@ Cada alcaldía tiene su propia API, su base de datos y su panel. El éxito es qu
 - **Estados de participación:**
   - propuesta formal: Pendiente o En revisión → Verificada (APROBADA) o Rechazada, con motivo de catálogo y texto de 20+ caracteres; Verificada → Publicada, y se puede despublicar;
   - opinión: Pendiente («Recibida» en el portal) ↔ Publicada;
-  - publicar exige que el autor haya autorizado su nombre.
+  - se puede publicar cualquier aporte; el autor solo decide (Sí/No obligatorio) si aparece su nombre o «Ciudadano de Iribarren» (28-10-2026).
 - **Contenido:** noticias en 5 formatos (texto, imagen, galería, documento PDF y video), documentos con versiones, el Inicio del portal (mensaje del alcalde y anuncios) y las fases del proceso. Conoce el PDUL y el resto del Inicio son fijos.
 - **Catálogos:** fijos por despliegue; el panel solo los muestra.
 - **Seguridad:** bloqueo tras 5 intentos durante 15 minutos, invitaciones de un uso válidas 72 h, cambiar la contraseña y cerrar todas las sesiones.

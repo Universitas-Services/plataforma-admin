@@ -20,6 +20,8 @@ export const PERMISOS = [
   "ciudadanos.ver",
   "ciudadanos.suspender",
   "bitacora.ver",
+  /** Publicar los términos de uso y la política de datos del portal (R15). */
+  "legal.editar",
 ] as const;
 
 export type Permiso = (typeof PERMISOS)[number];
@@ -75,6 +77,11 @@ export const SECCIONES: Seccion[] = [
   { href: "/bitacora", etiqueta: "Bitácora", permiso: "bitacora.ver" },
 ];
 
+/** Rutas dentro de una sección que exigen un permiso propio (no salen en el menú). */
+const SUBSECCIONES: Seccion[] = [
+  { href: "/configuracion/textos-legales", etiqueta: "Textos legales", permiso: "legal.editar" },
+];
+
 /** Las estaciones que ve un usuario según sus permisos. */
 export function seccionesDe(u: UsuarioInterno): Seccion[] {
   const permisos = permisosDe(u);
@@ -83,7 +90,7 @@ export function seccionesDe(u: UsuarioInterno): Seccion[] {
 
 /** Permiso que exige cada ruta: la sección más específica que la contiene. */
 export function permisoDeRuta(ruta: string): Seccion | undefined {
-  return [...SECCIONES]
+  return [...SECCIONES, ...SUBSECCIONES]
     .sort((a, b) => b.href.length - a.href.length)
     .find((s) => ruta === s.href || ruta.startsWith(`${s.href}/`));
 }

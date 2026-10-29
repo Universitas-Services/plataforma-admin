@@ -134,7 +134,7 @@ export function guardarBanner(
     {
       actorId: c.usuario.id,
       alcaldiaId: a,
-      accion: "BANNER_EDITADO",
+      accion: "BANNER_ACTUALIZADO",
       entidad: "banner",
       antes: { id, ...antes },
       despues: { id, titulo: r.banner.titulo, vigencia: r.banner.vigencia },
@@ -169,7 +169,7 @@ export function eliminarBanner(
 }
 
 /**
- * Nuevo orden del carrusel (PATCH /admin/banners/order): la lista completa de ids, sin faltar
+ * Nuevo orden del carrusel (PUT /admin/banners/order): la lista completa de ids, sin faltar
  * ni sobrar ninguno. El orden queda 1…n.
  */
 export function ordenarBanners(
@@ -177,7 +177,7 @@ export function ordenarBanners(
   sesion: string | undefined,
   ids: string[],
   ahora = Date.now(),
-): { estado: "OK" } | { estado: "SIN_SESION" | "SIN_PERMISO" | "LISTA_INVALIDA" } {
+): { estado: "OK" } | { estado: "SIN_SESION" | "SIN_PERMISO" | "ORDEN_INVALIDO" } {
   const c = editor(alm, sesion);
   if (c.estado !== "OK") return c;
   const activos = activosDe(alm, c.alcaldia.id);
@@ -187,7 +187,7 @@ export function ordenarBanners(
     new Set(ids).size !== ids.length ||
     !ids.every((i) => actuales.has(i))
   )
-    return { estado: "LISTA_INVALIDA" };
+    return { estado: "ORDEN_INVALIDO" };
   const antes = activos.map((b) => b.id);
   ids.forEach((id, i) => {
     alm.banners.get(id)!.orden = i + 1;
@@ -197,7 +197,7 @@ export function ordenarBanners(
     {
       actorId: c.usuario.id,
       alcaldiaId: c.alcaldia.id,
-      accion: "BANNERS_ORDENADOS",
+      accion: "BANNER_REORDENADO",
       entidad: "banner",
       antes: { orden: antes },
       despues: { orden: ids },

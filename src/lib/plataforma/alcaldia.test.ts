@@ -7,6 +7,7 @@ import {
   csvCiudadanos,
   diferencias,
   editarRoles,
+  eliminarFase,
   enmascarar,
   equipoDe,
   eventosDe,
@@ -149,6 +150,26 @@ describe("catálogos y proceso", () => {
     expect(p.fases[p.actual]!.id).toBe(actual);
     expect(fijarFaseActual(alm, s, "diagnostico")).toEqual({ estado: "OK" });
     expect(p.fases[p.actual]!.id).toBe("diagnostico");
+  });
+
+  it("guarda cómo se ve una fase siguiente y no elimina la actual", () => {
+    const { alm, s } = sesionDe(ADMIN);
+    const p = alm.procesos.get("iribarren")!;
+    expect(
+      guardarFase(alm, s, {
+        id: "formulacion",
+        nombre: "Formulación",
+        descripcion: "x",
+        estadoSiguiente: "PROXIMAMENTE",
+      }),
+    ).toEqual({ estado: "OK" });
+    expect(p.fases.find((f) => f.id === "formulacion")!.estadoSiguiente).toBe("PROXIMAMENTE");
+    const actual = p.fases[p.actual]!.id;
+    expect(eliminarFase(alm, s, actual)).toEqual({ estado: "FASE_ACTUAL" });
+    // Borrar una anterior corre la actual un lugar, pero sigue siendo la misma fase.
+    expect(eliminarFase(alm, s, p.fases[0]!.id)).toEqual({ estado: "OK" });
+    expect(p.fases[p.actual]!.id).toBe(actual);
+    expect(alm.bitacora.at(-1)?.accion).toBe("FASE_ELIMINADA");
   });
 });
 

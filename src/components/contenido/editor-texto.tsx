@@ -108,6 +108,7 @@ export function EditorTexto({
   valor,
   onCambio,
   error,
+  sinImagenes = false,
 }: {
   id: string;
   etiquetaId: string;
@@ -115,6 +116,8 @@ export function EditorTexto({
   valor: string;
   onCambio: (html: string) => void;
   error?: string;
+  /** Sin el botón de imagen (los textos legales no llevan). */
+  sinImagenes?: boolean;
 }) {
   const editor = useEditor({
     immediatelyRender: false,
@@ -257,12 +260,13 @@ export function EditorTexto({
             Icono: Unlink,
             accion: (e) => e.chain().focus().extendMarkRange("link").unsetLink().run(),
           })}
-        {boton({
-          clave: "imagen",
-          etiqueta: "Insertar imagen",
-          Icono: ImagePlus,
-          accion: () => setDialogo("imagen"),
-        })}
+        {!sinImagenes &&
+          boton({
+            clave: "imagen",
+            etiqueta: "Insertar imagen",
+            Icono: ImagePlus,
+            accion: () => setDialogo("imagen"),
+          })}
         <span aria-hidden="true" className="mx-1 h-6 w-px bg-linea" />
         {boton({
           clave: "deshacer",

@@ -12,6 +12,10 @@ const { ErrorApi } = await import("./cliente");
 const { mensajeDeError } = await import("./errores");
 const documentos = await import("./documentos");
 const marco = await import("./marco-legal");
+const inicio = await import("./inicio");
+const banners = await import("./banners");
+const proceso = await import("./proceso");
+const textos = await import("./textos-legales");
 const noticias = await import("./noticias");
 const { reflejarUsuario } = await import("./sesion-api");
 const { abrirSello, sellar } = await import("./sello");
@@ -414,5 +418,218 @@ describe("Marco legal contra la API (R9)", () => {
     ).toEqual({ estado: "INVALIDO", errores: { descripcion: "La descripción no admite HTML." } });
     simularFetch({ status: 404, cuerpo: { code: "NOT_FOUND" } });
     expect(await marco.eliminarItemMarcoApi("m9")).toEqual({ estado: "NO_EXISTE" });
+  });
+});
+
+describe("Inicio, diapositivas y proceso contra la API (R10)", () => {
+  it("el mensaje del alcalde: vista con candidatos y PUT con null para quitarlo", async () => {
+    const llamadas = simularFetch(
+      {
+        cuerpo: {
+          mensajeAlcalde: { ...NOTICIA, formato: "TEXTO" },
+          candidatosMensaje: [{ ...NOTICIA, formato: "TEXTO" }],
+          retiradas: ["Una vieja"],
+        },
+      },
+      { status: 204 },
+      { status: 422, cuerpo: { code: "NO_ES_TEXTO" } },
+    );
+    const r = await inicio.inicioApi();
+    if (r.estado !== "OK") throw new Error(r.estado);
+    expect(r.mensajeAlcalde?.id).toBe(NOTICIA.id);
+    expect(r.retiradas).toEqual(["Una vieja"]);
+    expect((await inicio.guardarInicioApi(null)).estado).toBe("OK");
+    expect(llamadas[1]!.init.method).toBe("PUT");
+    expect(JSON.parse(String(llamadas[1]!.init.body))).toEqual({ mensajeAlcalde: null });
+    expect(await inicio.guardarInicioApi("x")).toEqual({ estado: "NO_ES_TEXTO" });
+  });
+
+  const DIAPO = {
+    id: "b1",
+    titulo: "Consulta",
+    texto: "Participa",
+    enlace: { href: "/participa", etiqueta: "Ir" },
+    tono: "rojo",
+    orden: 0,
+    estadoVigencia: "VIGENTE",
+    creadoEl: "2026-10-28T12:00:00.000Z",
+    actualizadoEl: "2026-10-28T12:00:00.000Z",
+  };
+
+  it("diapositivas: enPortal llega como ids y con filtro se pide también la lista completa", async () => {
+    const llamadas = simularFetch(
+      {
+        cuerpo: {
+          data: [],
+          meta: { total: 0, conteos: { VIGENTE: 1, FUTURO: 0, VENCIDO: 0 }, enPortal: ["b1"] },
+        },
+      },
+      {
+        cuerpo: {
+          data: [DIAPO],
+          meta: { total: 1, conteos: { VIGENTE: 1, FUTURO: 0, VENCIDO: 0 }, enPortal: ["b1"] },
+        },
+      },
+    );
+    const r = await banners.listarBannersApi("VENCIDO");
+    if (r.estado !== "OK") throw new Error(r.estado);
+    expect(r.items).toEqual([]);
+    expect(r.enPortal.map((b) => b.id)).toEqual(["b1"]);
+    expect(llamadas.map((l) => l.url)).toEqual([
+      `${API}/admin/banners?vigencia=VENCIDO`,
+      `${API}/admin/banners`,
+    ]);
+  });
+
+  it("diapositivas: ordenar con PUT y traducir FECHAS, ORDEN_INVALIDO y validación", async () => {
+    const llamadas = simularFetch(
+      { status: 200, cuerpo: {} },
+      { status: 422, cuerpo: { code: "ORDEN_INVALIDO" } },
+      { status: 422, cuerpo: { code: "FECHAS" } },
+      { status: 400, cuerpo: { code: "VALIDATION_ERROR", details: ["El enlace no es válido."] } },
+    );
+    expect((await banners.ordenarBannersApi(["b2", "b1"])).estado).toBe("OK");
+    expect(llamadas[0]!.init.method).toBe("PUT");
+    expect(await banners.ordenarBannersApi(["b1"])).toEqual({ estado: "ORDEN_INVALIDO" });
+    const campos = {
+      titulo: "t",
+      texto: "x",
+      enlace: { href: "/a", etiqueta: "b" },
+      tono: "rojo" as const,
+      vigencia: { desde: "2026-11-02", hasta: "2026-11-01" },
+    };
+    expect(await banners.guardarBannerApi(undefined, campos)).toEqual({ estado: "FECHAS" });
+    expect(await banners.guardarBannerApi("b1", campos)).toEqual({
+      estado: "INVALIDO",
+      errores: { "enlace-href": "El enlace no es válido." },
+    });
+  });
+
+  const PROCESO = {
+    faseActual: 1,
+    fases: [
+      {
+        id: "f1",
+        nombre: "Decreto",
+        descripcion: "",
+        orden: 0,
+        estadoSiguiente: "PENDIENTE",
+        actual: false,
+      },
+      {
+        id: "f2",
+        nombre: "Plan",
+        descripcion: "",
+        orden: 1,
+        estadoSiguiente: "PENDIENTE",
+        actual: true,
+      },
+      {
+        id: "f3",
+        nombre: "Consulta",
+        descripcion: "",
+        orden: 2,
+        estadoSiguiente: "PROXIMAMENTE",
+        actual: false,
+      },
+    ],
+  };
+
+  it("proceso: mapea faseActual y el estado de cada fase siguiente", async () => {
+    simularFetch({ cuerpo: PROCESO });
+    const p = await proceso.procesoApi();
+    expect(p?.actual).toBe(1);
+    expect(p?.fases[2]).toMatchObject({ id: "f3", estadoSiguiente: "PROXIMAMENTE" });
+  });
+
+  it("proceso: mover arma la lista completa de ids y el estado viaja en «estado»", async () => {
+    const llamadas = simularFetch({ cuerpo: PROCESO }, { cuerpo: PROCESO }, { cuerpo: PROCESO });
+    expect((await proceso.moverFaseApi("f3", -1)).estado).toBe("OK");
+    expect(llamadas[1]!.url).toBe(`${API}/admin/process/order`);
+    expect(JSON.parse(String(llamadas[1]!.init.body))).toEqual({ ids: ["f1", "f3", "f2"] });
+    await proceso.guardarFaseApi({
+      id: "f3",
+      nombre: "Consulta",
+      descripcion: "",
+      estadoSiguiente: "FUTURO",
+    });
+    expect(JSON.parse(String(llamadas[2]!.init.body))).toMatchObject({
+      estado: "FUTURO",
+      inicio: null,
+      fin: null,
+    });
+  });
+
+  it("proceso: traduce FASE_ACTUAL, LIMITE y FECHAS", async () => {
+    simularFetch(
+      { status: 422, cuerpo: { code: "FASE_ACTUAL" } },
+      { status: 422, cuerpo: { code: "LIMITE", details: { maxFases: 12 } } },
+      { status: 422, cuerpo: { code: "FECHAS" } },
+    );
+    expect(await proceso.eliminarFaseApi("f2")).toEqual({ estado: "FASE_ACTUAL" });
+    expect(await proceso.guardarFaseApi({ nombre: "Otra", descripcion: "" })).toEqual({
+      estado: "LIMITE",
+    });
+    expect(
+      await proceso.guardarFaseApi({
+        nombre: "Otra",
+        descripcion: "",
+        inicio: "2026-12-02",
+        fin: "2026-12-01",
+      }),
+    ).toEqual({ estado: "FECHAS" });
+  });
+});
+
+describe("Textos legales contra la API (R15)", () => {
+  const VERSION = {
+    version: 3,
+    html: "<p>Texto</p>",
+    nota: "Se aclara la sección de cuentas.",
+    publicadoAt: "2026-10-29T12:00:00.000Z",
+    publicadoPor: { id: "u-api", nombre: "Ramón Escalona" },
+  };
+
+  it("lee la vigente de cada texto y el historial", async () => {
+    const llamadas = simularFetch(
+      { cuerpo: { data: [{ tipo: "TERMINOS", vigente: VERSION, versiones: 3 }] } },
+      { cuerpo: { data: [VERSION] } },
+    );
+    const r = await textos.textosLegalesApi();
+    if (r.estado !== "OK") throw new Error(r.estado);
+    expect(r.textos.TERMINOS).toMatchObject({
+      versiones: 3,
+      vigente: { version: 3, autor: "Ramón Escalona" },
+    });
+    expect(r.textos.POLITICA_DATOS).toEqual({ versiones: 0 });
+    const h = await textos.historialTextoApi("POLITICA_DATOS");
+    if (h.estado !== "OK") throw new Error(h.estado);
+    expect(llamadas.map((l) => l.url)).toEqual([
+      `${API}/admin/legal-texts`,
+      `${API}/admin/legal-texts/POLITICA_DATOS/versions`,
+    ]);
+  });
+
+  it("publica con POST y traduce SIN_CAMBIOS, la nota faltante y el permiso", async () => {
+    const llamadas = simularFetch(
+      { status: 201, cuerpo: VERSION },
+      { status: 409, cuerpo: { code: "SIN_CAMBIOS", message: "Igual" } },
+      {
+        status: 400,
+        cuerpo: { code: "VALIDATION_ERROR", message: "x", details: ["nota es obligatoria"] },
+      },
+      { status: 403, cuerpo: { code: "FORBIDDEN", message: "x" } },
+    );
+    const ok = await textos.publicarTextoApi("TERMINOS", { html: "<p>T</p>", nota: "N" });
+    expect(ok).toMatchObject({ estado: "OK", version: { version: 3 } });
+    expect(llamadas[0]).toMatchObject({
+      url: `${API}/admin/legal-texts/TERMINOS/versions`,
+      init: { method: "POST" },
+    });
+    expect(JSON.parse(String(llamadas[0]!.init.body))).toEqual({ html: "<p>T</p>", nota: "N" });
+    const d = { html: "<p>T</p>", nota: "N" };
+    expect((await textos.publicarTextoApi("TERMINOS", d)).estado).toBe("SIN_CAMBIOS");
+    expect((await textos.publicarTextoApi("TERMINOS", d)).estado).toBe("SIN_NOTA");
+    expect((await textos.publicarTextoApi("TERMINOS", d)).estado).toBe("SIN_PERMISO");
   });
 });

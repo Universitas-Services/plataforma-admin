@@ -40,6 +40,7 @@ export const crearAlmacen = (): Almacen => ({
   procesos: new Map(),
   marcoLegal: new Map(),
   banners: new Map(),
+  textosLegales: [],
 });
 
 /* ---------- Contraseñas (scrypt con sal, comparación en tiempo constante) ---------- */

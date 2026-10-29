@@ -45,10 +45,6 @@ const ERRORES: Record<Exclude<ResultadoRevisor, "OK">, RespuestaRevisor> = {
     mensaje: "Explica el rechazo al ciudadano.",
     errores: { texto: `Escribe al menos ${TEXTO_RECHAZO_MIN} caracteres.` },
   },
-  SIN_AUTORIZACION_NOMBRE: {
-    ok: false,
-    mensaje: "No se puede publicar: el autor no autorizó mostrar su nombre.",
-  },
   NOTA_VACIA: {
     ok: false,
     mensaje: "Escribe la nota.",

@@ -11,6 +11,7 @@ import {
   type RespuestaRevisor,
 } from "@/lib/plataforma/acciones-revisor";
 import {
+  AUTOR_ANONIMO,
   MOTIVOS_RECHAZO,
   type EstadoParticipacion,
   type TipoParticipacion,
@@ -50,7 +51,6 @@ type Props = {
 function motivoInactivo(
   accion: "APROBADA" | "RECHAZADA" | "PUBLICADA",
   estado: EstadoParticipacion,
-  mostrarNombre: boolean,
 ) {
   if (accion === "APROBADA")
     return estado === "RECHAZADA" ? "Ya fue rechazada." : "Ya está verificada.";
@@ -58,7 +58,6 @@ function motivoInactivo(
     return estado === "RECHAZADA" ? "Ya fue rechazada." : "Para rechazarla, primero despublícala.";
   if (estado === "PUBLICADA") return "Ya está publicada en el portal.";
   if (estado === "RECHAZADA") return "Un aporte rechazado no se publica.";
-  if (!mostrarNombre) return "El autor no autorizó mostrar su nombre: queda solo para uso técnico.";
   return "Primero márcala como verificada.";
 }
 
@@ -74,9 +73,15 @@ export function AccionesEstado(props: Props) {
   );
 }
 
+/** Cómo aparecerá el autor en el portal: lo decidió al enviar el aporte (Sí/No obligatorio). */
+const comoAparece = (mostrarNombre: boolean) =>
+  mostrarNombre
+    ? "con el nombre del autor"
+    : `como «${AUTOR_ANONIMO}»: el autor no quiso mostrar su nombre`;
+
 /**
- * Opinión (general o sobre una noticia): sin seguimiento. Solo se publica en el portal —si el
- * autor autorizó su nombre— o se despublica, y vuelve a «Recibida».
+ * Opinión (general o sobre una noticia): sin seguimiento. Solo se publica en el portal o se
+ * despublica, y vuelve a «Recibida».
  */
 function AccionesOpinion({ folio, estado, transiciones, mostrarNombre }: Props) {
   const [pendiente, iniciar] = useTransition();
@@ -84,7 +89,7 @@ function AccionesOpinion({ folio, estado, transiciones, mostrarNombre }: Props) 
   const [abierto, setAbierto] = useState(false);
   const publicada = estado === "PUBLICADA";
   const destino: EstadoParticipacion = publicada ? "PENDIENTE" : "PUBLICADA";
-  const puede = transiciones.includes(destino) && (publicada || mostrarNombre);
+  const puede = transiciones.includes(destino);
 
   return (
     <div>
@@ -100,7 +105,7 @@ function AccionesOpinion({ folio, estado, transiciones, mostrarNombre }: Props) 
       {!puede && !publicada && (
         <p className="mt-3 flex items-start gap-1.5 text-sm text-gris">
           <CircleHelp size={15} aria-hidden="true" className="mt-0.5 shrink-0" />
-          Publicar: {motivoInactivo("PUBLICADA", estado, mostrarNombre)}
+          Publicar: {motivoInactivo("PUBLICADA", estado)}
         </p>
       )}
       <Dialogo
@@ -110,7 +115,7 @@ function AccionesOpinion({ folio, estado, transiciones, mostrarNombre }: Props) 
         descripcion={
           publicada
             ? "Dejará de verse en el portal; el ciudadano la verá de nuevo como «Recibida»."
-            : "Se mostrará en «La gente opina» del portal, con el nombre del autor."
+            : `Se mostrará en «La gente opina» del portal, ${comoAparece(mostrarNombre)}.`
         }
       >
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -168,11 +173,11 @@ function AccionesPropuesta({ folio, estado, transiciones, mostrarNombre }: Props
 
   const puedeVerificar = transiciones.includes("APROBADA") && estado !== "PUBLICADA";
   const puedeRechazar = transiciones.includes("RECHAZADA");
-  const puedePublicar = transiciones.includes("PUBLICADA") && mostrarNombre;
+  const puedePublicar = transiciones.includes("PUBLICADA");
   const inactivos = [
-    !puedeVerificar && `Verificar: ${motivoInactivo("APROBADA", estado, mostrarNombre)}`,
-    !puedeRechazar && `Rechazar: ${motivoInactivo("RECHAZADA", estado, mostrarNombre)}`,
-    !puedePublicar && `Publicar: ${motivoInactivo("PUBLICADA", estado, mostrarNombre)}`,
+    !puedeVerificar && `Verificar: ${motivoInactivo("APROBADA", estado)}`,
+    !puedeRechazar && `Rechazar: ${motivoInactivo("RECHAZADA", estado)}`,
+    !puedePublicar && `Publicar: ${motivoInactivo("PUBLICADA", estado)}`,
   ].filter(Boolean) as string[];
 
   return (
@@ -249,7 +254,7 @@ function AccionesPropuesta({ folio, estado, transiciones, mostrarNombre }: Props
         }
         descripcion={
           confirmar === "PUBLICADA"
-            ? "Se mostrará en «Propuestas publicadas» del portal, con el nombre del autor."
+            ? `Se mostrará en «Propuestas publicadas» del portal, ${comoAparece(mostrarNombre)}.`
             : confirmar === "APROBADA" && estado === "PUBLICADA"
               ? "Dejará de verse en el portal; sigue verificada."
               : "El ciudadano verá el cambio de estado en «Mis participaciones»."

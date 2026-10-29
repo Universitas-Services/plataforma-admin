@@ -98,6 +98,7 @@ export function procesoDemo(): Proceso {
         id: "consulta",
         nombre: "Consulta pública",
         descripcion: "60 días para revisar el borrador y presentar observaciones.",
+        estadoSiguiente: "PROXIMAMENTE",
       },
       {
         id: "camara",
@@ -108,6 +109,7 @@ export function procesoDemo(): Proceso {
         id: "vigencia",
         nombre: "Vigencia",
         descripcion: "El plan regirá el crecimiento de la ciudad durante 20 años, hasta 2046.",
+        estadoSiguiente: "FUTURO",
       },
     ],
   };

@@ -11,6 +11,8 @@ import {
   versionSchema,
 } from "@/lib/validation/schemas";
 import { usaApi } from "@/lib/api/cliente";
+import { eliminarBannerApi, guardarBannerApi, ordenarBannersApi } from "@/lib/api/banners";
+import { guardarInicioApi } from "@/lib/api/inicio";
 import {
   crearDocumentoApi,
   eliminarDocumentoApi,
@@ -279,11 +281,15 @@ const ERROR_INICIO: Record<string, string> = {
 export async function guardarInicioAccion(datos: {
   mensajeAlcalde: string | null;
 }): Promise<Respuesta> {
-  await contenidoAlDia();
-  const r = guardarInicio(almacen(), await idSesion(), { mensajeAlcalde: datos.mensajeAlcalde });
+  const mensaje = datos.mensajeAlcalde ? String(datos.mensajeAlcalde) : null;
+  const r = usaApi()
+    ? await guardarInicioApi(mensaje)
+    : (await contenidoAlDia(),
+      guardarInicio(almacen(), await idSesion(), { mensajeAlcalde: mensaje }));
   if (r.estado === "SIN_SESION" || r.estado === "SIN_PERMISO") return COMUNES[r.estado];
   if (r.estado !== "OK") return { ok: false, mensaje: ERROR_INICIO[r.estado]! };
   invalidar();
+  refresh();
   return { ok: true, mensaje: "Inicio actualizado: el portal ya muestra tu selección." };
 }
 
@@ -375,7 +381,12 @@ export async function eliminarItemMarcoAccion(id: string): Promise<Respuesta> {
 export async function guardarBannerAccion(id: string | null, datos: unknown): Promise<Respuesta> {
   const p = bannerSchema.safeParse(datos);
   if (!p.success) return erroresDe(p.error.issues);
-  const r = guardarBanner(almacen(), await idSesion(), id ?? undefined, p.data);
+  const r = usaApi()
+    ? await guardarBannerApi(id ?? undefined, p.data)
+    : guardarBanner(almacen(), await idSesion(), id ?? undefined, p.data);
+  if (r.estado === "INVALIDO")
+    return { ok: false, errores: r.errores, mensaje: "Revisa los campos marcados." };
+  if (r.estado === "ORDEN_INVALIDO") return { ok: false, mensaje: "No se pudo guardar." };
   if (r.estado === "FECHAS")
     return {
       ok: false,
@@ -392,8 +403,13 @@ export async function guardarBannerAccion(id: string | null, datos: unknown): Pr
 }
 
 export async function eliminarBannerAccion(id: string): Promise<Respuesta> {
-  const r = eliminarBanner(almacen(), await idSesion(), id);
-  if (r.estado !== "OK") return COMUNES[r.estado];
+  const r = usaApi()
+    ? await eliminarBannerApi(String(id))
+    : eliminarBanner(almacen(), await idSesion(), String(id));
+  if (r.estado !== "OK")
+    return r.estado in COMUNES
+      ? COMUNES[r.estado as keyof typeof COMUNES]
+      : { ok: false, mensaje: "No se pudo eliminar." };
   await guardarAviso("Diapositiva eliminada.");
   invalidar();
   refresh();
@@ -401,13 +417,19 @@ export async function eliminarBannerAccion(id: string): Promise<Respuesta> {
 }
 
 export async function ordenarBannersAccion(ids: string[]): Promise<Respuesta> {
-  const r = ordenarBanners(almacen(), await idSesion(), ids);
-  if (r.estado === "LISTA_INVALIDA")
+  const lista = Array.isArray(ids) ? ids.map(String) : [];
+  const r = usaApi()
+    ? await ordenarBannersApi(lista)
+    : ordenarBanners(almacen(), await idSesion(), lista);
+  if (r.estado === "ORDEN_INVALIDO")
     return {
       ok: false,
       mensaje: "Alguien del equipo cambió las diapositivas mientras ordenabas. Recarga la página.",
     };
-  if (r.estado !== "OK") return COMUNES[r.estado];
+  if (r.estado !== "OK")
+    return r.estado in COMUNES
+      ? COMUNES[r.estado as keyof typeof COMUNES]
+      : { ok: false, mensaje: "No se pudo guardar el orden." };
   // Sin refresh: la lista ya muestra el orden nuevo y recargarla borraría el aviso.
   return { ok: true, mensaje: "Orden guardado: así se verán en el carrusel." };
 }

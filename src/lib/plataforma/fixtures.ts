@@ -5,6 +5,7 @@ import {
   inicioDemo,
   interaccionesDemo,
   marcoLegalDemo,
+  textosLegalesDemo,
   noticiasDemo,
 } from "./fixtures-contenido";
 import { catalogosDemo, ciudadanosDemo, procesoDemo } from "./fixtures-alcaldia";
@@ -135,6 +136,7 @@ export function almacenDemo(ahora = Date.now()): Almacen {
   for (const d of documentosDemo(ahora)) alm.documentos.set(d.id, d);
   alm.inicio = inicioDemo();
   for (const m of marcoLegalDemo(ahora)) alm.marcoLegal.set(m.id, m);
+  alm.textosLegales = textosLegalesDemo(ALCALDIA.id);
   for (const b of bannersDemo(ahora)) alm.banners.set(b.id, b);
   interaccionesDemo(alm, ahora);
 

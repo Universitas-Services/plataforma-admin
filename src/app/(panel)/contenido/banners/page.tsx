@@ -13,6 +13,8 @@ import { VIGENCIAS, type Vigencia } from "@/lib/contenido/tipos";
 import { MAX_EN_PORTAL, listarBanners } from "@/lib/plataforma/banners";
 import { VistaPreviaTarjeta } from "@/components/contenido/vista-previa-tarjeta";
 import { almacen, exigirEnAlcaldia, idSesion, leerAviso } from "@/lib/plataforma/sesion";
+import { usaApi } from "@/lib/api/cliente";
+import { listarBannersApi } from "@/lib/api/banners";
 
 export const metadata: Metadata = { title: "Tarjeta de transiciones" };
 
@@ -38,7 +40,9 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
   const filtro = VIGENCIAS.find((v) => v === sp.vigencia);
   // La vigencia depende del día de hoy.
   await connection();
-  const r = listarBanners(almacen(), await idSesion(), filtro);
+  const r = usaApi()
+    ? await listarBannersApi(filtro)
+    : listarBanners(almacen(), await idSesion(), filtro);
   if (r.estado !== "OK") return null;
   const aviso = await leerAviso();
 

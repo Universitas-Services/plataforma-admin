@@ -137,7 +137,7 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
           <Bloque titulo="Datos del perfil" id="perfil">
             {!x.perfilCompleto && (
               <p className="mb-3 text-sm text-ambar-texto">
-                Perfil incompleto: aún no puede enviar aportes.
+                Perfil incompleto: puede opinar, pero aún no puede enviar propuestas formales.
               </p>
             )}
             <dl className="grid gap-3 sm:grid-cols-2">

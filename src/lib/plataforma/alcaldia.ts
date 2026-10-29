@@ -8,6 +8,7 @@ import {
   registrar,
 } from "./servicio";
 import {
+  ESTADOS_SIGUIENTE,
   type Almacen,
   type Ciudadano,
   type EventoBitacora,
@@ -348,7 +349,7 @@ export const catalogosDe = (alm: Almacen, alcaldiaId: string) => alm.catalogos.g
 export const procesoDe = (alm: Almacen, alcaldiaId: string) => alm.procesos.get(alcaldiaId);
 
 export type ResultadoProceso = {
-  estado: "OK" | Error | "NO_EXISTE" | "VACIO" | "FECHAS" | "LIMITE";
+  estado: "OK" | Error | "NO_EXISTE" | "VACIO" | "FECHAS" | "LIMITE" | "FASE_ACTUAL";
 };
 
 const fechaValida = (v?: string) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v);
@@ -378,7 +379,13 @@ export function guardarFase(
   const fin = datos.fin || undefined;
   if (!fechaValida(inicio) || !fechaValida(fin) || (inicio && fin && fin < inicio))
     return { estado: "FECHAS" };
-  const limpio = { nombre, descripcion: datos.descripcion.trim().slice(0, 240), inicio, fin };
+  const limpio = {
+    nombre,
+    descripcion: datos.descripcion.trim().slice(0, 240),
+    inicio,
+    fin,
+    estadoSiguiente: ESTADOS_SIGUIENTE.find((s) => s === datos.estadoSiguiente) ?? "PENDIENTE",
+  };
   if (datos.id) {
     const f = e.p.fases.find((x) => x.id === datos.id);
     if (!f) return { estado: "NO_EXISTE" };
@@ -428,6 +435,35 @@ export function moverFase(
       accion: "FASES_ORDENADAS",
       entidad: "proceso",
       despues: { orden: e.p.fases.map((f) => f.nombre) },
+    },
+    ahora,
+  );
+  return { estado: "OK" };
+}
+
+/** Elimina una fase. La actual no se borra (como la API: FASE_ACTUAL). */
+export function eliminarFase(
+  alm: Almacen,
+  sesion: string | undefined,
+  id: string,
+  ahora = Date.now(),
+): ResultadoProceso {
+  const e = procesoEditable(alm, sesion);
+  if ("error" in e) return { estado: e.error! };
+  const i = e.p.fases.findIndex((f) => f.id === id);
+  if (i < 0) return { estado: "NO_EXISTE" };
+  if (i === e.p.actual) return { estado: "FASE_ACTUAL" };
+  const [f] = e.p.fases.splice(i, 1);
+  // La fase en curso sigue siendo la misma aunque se corra de lugar.
+  if (i < e.p.actual) e.p.actual -= 1;
+  registrar(
+    alm,
+    {
+      actorId: e.c.usuario.id,
+      alcaldiaId: e.c.alcaldia.id,
+      accion: "FASE_ELIMINADA",
+      entidad: "proceso",
+      antes: { fase: f!.nombre },
     },
     ahora,
   );
@@ -514,6 +550,7 @@ const NOMBRE_ACCION: Record<string, string> = {
   CERRAR_TODAS_SESIONES: "Cierre de todas las sesiones",
   DOCUMENTO_NUEVA_VERSION: "Nueva versión de documento",
   FASE_ACTUAL: "Fase actual cambiada",
+  FASE_ELIMINADA: "Fase eliminada",
   INICIO_SESION: "Inicio de sesión",
   INVITACION_ACEPTADA: "Invitación aceptada",
   INVITACION_REENVIADA: "Invitación reenviada",
@@ -527,6 +564,7 @@ const NOMBRE_ACCION: Record<string, string> = {
   PARTICIPACION_RECHAZADA: "Aporte rechazado",
   PARTICIPACION_PUBLICADA: "Aporte publicado",
   RESTABLECER_CONTRASENA: "Contraseña restablecida",
+  TEXTO_LEGAL_PUBLICADO: "Nueva versión de texto legal publicada",
 };
 
 /** «MIEMBRO_INVITADO» → «Miembro invitado». */

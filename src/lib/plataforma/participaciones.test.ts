@@ -119,9 +119,10 @@ describe("opiniones: sin seguimiento", () => {
     ]);
   });
 
-  it("no publica si el autor no autorizó mostrar su nombre", () => {
+  it("publica aunque el autor no quiera mostrar su nombre", () => {
     const { alm, s } = sesionDe("revisor@iribarren.test");
-    expect(cambiarEstado(alm, s, "IRI-2026-0018", "PUBLICADA")).toBe("SIN_AUTORIZACION_NOMBRE");
+    expect(alm.participaciones.get("IRI-2026-0018")!.mostrarNombre).toBe(false);
+    expect(cambiarEstado(alm, s, "IRI-2026-0018", "PUBLICADA")).toBe("OK");
   });
 });
 

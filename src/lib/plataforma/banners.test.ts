@@ -64,11 +64,11 @@ describe("banners", () => {
     const r = listarBanners(alm, s, undefined, AHORA);
     if (r.estado !== "OK") throw new Error();
     const ids = r.items.map((b) => b.id);
-    expect(ordenarBanners(alm, s, ids.slice(1), AHORA).estado).toBe("LISTA_INVALIDA");
+    expect(ordenarBanners(alm, s, ids.slice(1), AHORA).estado).toBe("ORDEN_INVALIDO");
     expect(ordenarBanners(alm, s, [...ids].reverse(), AHORA).estado).toBe("OK");
     const despues = listarBanners(alm, s, undefined, AHORA);
     expect(despues.estado === "OK" && despues.items.map((b) => b.id)).toEqual([...ids].reverse());
-    expect(alm.bitacora.at(-1)?.accion).toBe("BANNERS_ORDENADOS");
+    expect(alm.bitacora.at(-1)?.accion).toBe("BANNER_REORDENADO");
   });
 
   it("filtra por vigencia y elimina (borrado lógico)", () => {

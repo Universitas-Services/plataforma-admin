@@ -6,6 +6,7 @@ import { Suspense, type ReactNode } from "react";
 import { CambiarMembresia } from "@/components/alcaldia/membresia";
 import { EsqueletoEditor } from "@/components/ui/esqueletos";
 import { EstadoVacio, InsigniaEstado } from "@/components/ui/piezas";
+import { usaApi } from "@/lib/api/cliente";
 import { aportesDe, ciudadanoDe } from "@/lib/plataforma/alcaldia";
 import { almacen, exigirEnAlcaldia } from "@/lib/plataforma/sesion";
 import { TIPOS_PARTICIPACION } from "@/lib/plataforma/tipos";
@@ -156,37 +157,41 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
             </dl>
           </Bloque>
 
-          <Bloque titulo={`Aportes (${aportes.length})`} id="aportes">
-            {aportes.length ? (
-              <ul className="divide-y divide-fila">
-                {aportes.map((p) => (
-                  <li
-                    key={p.folio}
-                    className="flex flex-wrap items-center justify-between gap-2 py-2.5"
-                  >
-                    <span className="min-w-0">
-                      {puedeEvaluar ? (
-                        <Link
-                          href={`/participaciones/${p.folio}`}
-                          className="font-semibold text-marca-texto tabular-nums hover:underline"
-                        >
-                          {p.folio}
-                        </Link>
-                      ) : (
-                        <span className="font-semibold tabular-nums">{p.folio}</span>
-                      )}
-                      <span className="block text-sm text-gris">
-                        {TIPOS_PARTICIPACION[p.tipo]} · {fecha(p.recibidaEl)}
+          {/* Con plataforma-api los aportes son reales pero los ciudadanos de esta ficha aún son
+              simulados (llegan con su guía): no se mezclan. */}
+          {!usaApi() && (
+            <Bloque titulo={`Aportes (${aportes.length})`} id="aportes">
+              {aportes.length ? (
+                <ul className="divide-y divide-fila">
+                  {aportes.map((p) => (
+                    <li
+                      key={p.folio}
+                      className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+                    >
+                      <span className="min-w-0">
+                        {puedeEvaluar ? (
+                          <Link
+                            href={`/participaciones/${p.folio}`}
+                            className="font-semibold text-marca-texto tabular-nums hover:underline"
+                          >
+                            {p.folio}
+                          </Link>
+                        ) : (
+                          <span className="font-semibold tabular-nums">{p.folio}</span>
+                        )}
+                        <span className="block text-sm text-gris">
+                          {TIPOS_PARTICIPACION[p.tipo]} · {fecha(p.recibidaEl)}
+                        </span>
                       </span>
-                    </span>
-                    <InsigniaEstado estado={p.estado} tipo={p.tipo} />
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-gris">Todavía no ha enviado aportes.</p>
-            )}
-          </Bloque>
+                      <InsigniaEstado estado={p.estado} tipo={p.tipo} />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-gris">Todavía no ha enviado aportes.</p>
+              )}
+            </Bloque>
+          )}
         </div>
 
         <Bloque titulo="Documentos" id="documentos">

@@ -32,13 +32,15 @@ type Opciones = {
   cuerpo?: unknown;
   /** Access token de la sesión. */
   token?: string;
+  /** Devuelve el cuerpo tal cual, como texto (el CSV de la bandeja). */
+  crudo?: boolean;
 };
 
 export async function pedirApi<T>(ruta: string, o: Opciones = {}): Promise<T> {
   const base = urlApi();
   if (!base) throw new ErrorApi(503, "API_NO_CONFIGURADA", "Falta API_URL.");
 
-  const headers = new Headers({ Accept: "application/json" });
+  const headers = new Headers({ Accept: o.crudo ? "*/*" : "application/json" });
   if (o.token) headers.set("Authorization", `Bearer ${o.token}`);
   let body: BodyInit | undefined;
   if (o.cuerpo instanceof FormData) body = o.cuerpo;
@@ -61,28 +63,35 @@ export async function pedirApi<T>(ruta: string, o: Opciones = {}): Promise<T> {
   }
 
   const texto = await r.text();
+  if (o.crudo) {
+    if (!r.ok) throw errorDe(r.status, texto);
+    return texto as T;
+  }
   let datos: unknown;
   try {
     datos = texto ? JSON.parse(texto) : undefined;
   } catch {
     datos = undefined;
   }
-  if (!r.ok) {
-    const e = (datos ?? {}) as Partial<{
-      code: string;
-      message: string;
-      details: unknown;
-      requestId: string;
-    }>;
-    throw new ErrorApi(
-      r.status,
-      e.code ?? `HTTP_${r.status}`,
-      e.message ?? "Error del servidor.",
-      e.details,
-      e.requestId,
-    );
-  }
+  if (!r.ok) throw errorDe(r.status, texto);
   return datos as T;
+}
+
+/** El error de una respuesta no exitosa, con el formato único de la API si viene. */
+function errorDe(status: number, texto: string) {
+  let e: Partial<{ code: string; message: string; details: unknown; requestId: string }> = {};
+  try {
+    e = (texto ? JSON.parse(texto) : {}) ?? {};
+  } catch {
+    // Sin cuerpo JSON: el código HTTP.
+  }
+  return new ErrorApi(
+    status,
+    e.code ?? `HTTP_${status}`,
+    e.message ?? "Error del servidor.",
+    e.details,
+    e.requestId,
+  );
 }
 
 /* ---------- Respuestas de acceso (guía R2 §1.2) ---------- */

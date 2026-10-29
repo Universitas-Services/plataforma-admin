@@ -4,12 +4,15 @@ import {
   agregarNota,
   bandeja,
   cambiarEstado,
+  conteosBandeja,
   conteosParticipaciones,
   csvBandeja,
+  enmascararDocumento,
   resumenParticipaciones,
   tieneSeguimiento,
   transicionesValidas,
 } from "./participaciones";
+import { filtrosDeBandeja } from "./filtros-bandeja";
 import { iniciarSesion } from "./servicio";
 import { dentroDelMunicipio } from "@/lib/ubicacion";
 
@@ -39,6 +42,55 @@ describe("bandeja del Revisor", () => {
     expect(bandeja(alm, "iribarren", { q: "14.567.890" })).toHaveLength(1);
     expect(bandeja(alm, "iribarren", { estado: "PUBLICADA" })).toHaveLength(2);
     expect(bandeja(alm, "iribarren", { tipo: "PROPUESTA_FORMAL" })).toHaveLength(5);
+  });
+});
+
+describe("bandeja como la API (R11)", () => {
+  it("cada conteo aplica los demás filtros, pero no el suyo", () => {
+    const { alm } = sesionDe("revisor@iribarren.test");
+    const c = conteosBandeja(alm, "iribarren", { estado: "PUBLICADA", tipo: "PROPUESTA_FORMAL" });
+    // Los chips de estado cuentan solo propuestas formales; los tipos, solo publicadas.
+    expect(Object.values(c.estado).reduce((a, b) => a + b, 0)).toBe(
+      bandeja(alm, "iribarren", { tipo: "PROPUESTA_FORMAL" }).length,
+    );
+    expect(Object.values(c.tipo).reduce((a, b) => a + b, 0)).toBe(
+      bandeja(alm, "iribarren", { estado: "PUBLICADA" }).length,
+    );
+  });
+
+  it("ordena por recientes o antiguas y filtra por fecha de recepción", () => {
+    const { alm } = sesionDe("revisor@iribarren.test");
+    const recientes = bandeja(alm, "iribarren", { orden: "recientes" });
+    const antiguas = bandeja(alm, "iribarren", { orden: "antiguas" });
+    expect(recientes.map((p) => p.folio)).toEqual(antiguas.map((p) => p.folio).reverse());
+    const dia = recientes[0]!.recibidaEl.slice(0, 10);
+    const futuro = "2999-01-01";
+    expect(bandeja(alm, "iribarren", { desde: futuro })).toHaveLength(0);
+    expect(bandeja(alm, "iribarren", { hasta: futuro }).length).toBe(recientes.length);
+    expect(bandeja(alm, "iribarren", { desde: dia }).length).toBeGreaterThan(0);
+  });
+
+  it("lee los filtros de la URL sin aceptar valores inventados", () => {
+    const r = filtrosDeBandeja({
+      tipo: "constructor",
+      orden: "toString",
+      estado: "BORRADA",
+      desde: "2026-10-30",
+      hasta: "2026-10-01",
+      pagina: "3",
+    });
+    expect(r.filtros).toMatchObject({ tipo: undefined, orden: undefined, estado: undefined });
+    expect(r.filtros).toMatchObject({ desde: "2026-10-01", hasta: "2026-10-30" });
+    expect(r.pagina).toBe(3);
+    expect(r.qs).toBe("desde=2026-10-01&hasta=2026-10-30");
+    expect(filtrosDeBandeja({ orden: "atender", desde: "31-10-2026" }).qs).toBe("");
+  });
+
+  it("enmascara la cédula o el RIF como la API", () => {
+    expect(enmascararDocumento("V-14567890")).toBe("V-14.***.890");
+    expect(enmascararDocumento("J-30123456-7")).toBe("J-30.***.456-7");
+    expect(enmascararDocumento("raro")).toBe("***");
+    expect(enmascararDocumento(undefined)).toBe("");
   });
 });
 
@@ -148,5 +200,18 @@ describe("permisos y notas", () => {
     const csv = csvBandeja(bandeja(alm, "iribarren", { q: "0031" }));
     expect(csv.startsWith("﻿")).toBe(true);
     expect(csv).toContain('"IRI-2026-0031";"Propuesta formal"');
+    // La cédula sale enmascarada: el archivo puede circular.
+    const cedula = alm.participaciones.get("IRI-2026-0031")!.autor.cedula!;
+    expect(csv).not.toContain(cedula);
+    expect(csv).toContain(enmascararDocumento(cedula));
+  });
+
+  it("guarda quién decidió o anotó con su nombre", () => {
+    const { alm, s } = sesionDe("revisor@iribarren.test");
+    expect(cambiarEstado(alm, s, "IRI-2026-0040", "EN_REVISION")).toBe("OK");
+    expect(agregarNota(alm, s, "IRI-2026-0040", "Ver con catastro")).toBe("OK");
+    const p = alm.participaciones.get("IRI-2026-0040")!;
+    expect(p.historial.at(-1)!.por).toEqual({ id: "u-revisor-iri", nombre: "María Fernández" });
+    expect(p.notas.at(-1)!.por.nombre).toBe("María Fernández");
   });
 });

@@ -127,12 +127,12 @@ export function Indicadores({
             <Cifra
               etiqueta="Días de respuesta"
               valor={p.diasRespuesta === undefined ? "—" : cifra(p.diasRespuesta)}
-              detalle="Mediana, propuestas formales"
+              detalle={p.sinHistorial ? "Llega con R13" : "Mediana, propuestas formales"}
             />
             <Cifra
               etiqueta="Propuestas verificadas"
               valor={pct(p.decisiones.tasaAprobacion)}
-              detalle={`${cifra(p.decisiones.aprobadas)} verificadas · ${cifra(p.decisiones.rechazadas)} rechazadas`}
+              detalle={`${cifra(p.decisiones.aprobadas)} verificadas · ${cifra(p.decisiones.rechazadas)} rechazadas${p.sinHistorial ? ", por su estado actual" : ""}`}
             />
           </dl>
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">

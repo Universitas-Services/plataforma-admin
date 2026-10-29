@@ -1,22 +1,21 @@
-import { ClipboardList, Download, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardList, Download, Search } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { EsqueletoBandeja } from "@/components/ui/esqueletos";
-import { ChipsEstado, ESTADOS_CHIP, type EstadoChip } from "@/components/panel/chips-estado";
+import { ChipsEstado } from "@/components/panel/chips-estado";
 import { FiltrosPlegables } from "@/components/panel/filtros-plegables";
 import { LeyendaRecorrido } from "@/components/panel/recorrido";
 import { TablaCola } from "@/components/panel/tabla-cola";
 import { EncabezadoPagina, EstadoVacio } from "@/components/ui/piezas";
 import { Selector } from "@/components/ui/selector";
-import {
-  bandeja,
-  conteosParticipaciones,
-  deAlcaldia,
-  fila,
-} from "@/lib/plataforma/participaciones";
-import { almacen, exigirEnAlcaldia } from "@/lib/plataforma/sesion";
+import { SelectorFecha } from "@/components/ui/selector-fecha";
+import { conActual, valoresActivos } from "@/lib/plataforma/catalogos-activos";
+import { filtrosDeBandeja } from "@/lib/plataforma/filtros-bandeja";
+import { ORDENES_BANDEJA } from "@/lib/plataforma/participaciones";
+import { leerBandeja } from "@/lib/plataforma/participaciones-datos";
+import { exigirEnAlcaldia } from "@/lib/plataforma/sesion";
 import { TIPOS_PARTICIPACION, type TipoParticipacion } from "@/lib/plataforma/tipos";
 
 export const metadata: Metadata = { title: "Participaciones" };
@@ -35,40 +34,42 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
   const c = await exigirEnAlcaldia("participaciones.evaluar", "/participaciones");
   // La antigüedad de cada aporte depende de la hora: se calcula al pedir la página.
   await connection();
-  const sp = await searchParams;
-  const estado = ESTADOS_CHIP.find(([e]) => e === sp.estado)?.[0] as EstadoChip | undefined;
-  const q = typeof sp.q === "string" ? sp.q.trim().slice(0, 80) : "";
-  const filtro = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : "");
-  const [tipo, parroquia, categoria] = [filtro("tipo"), filtro("parroquia"), filtro("categoria")];
-
-  const alm = almacen();
-  const todas = deAlcaldia(alm, c.alcaldia.id);
-  const conteos = conteosParticipaciones(alm, c.alcaldia.id);
-  const opciones = (k: "parroquia" | "categoriaTecnica") =>
-    [...new Set(todas.map((p) => p[k]))].sort((x, y) => x.localeCompare(y, "es"));
-  const tipoValido = tipo in TIPOS_PARTICIPACION ? (tipo as TipoParticipacion) : undefined;
-  const filtros = {
+  const { filtros, pagina, qs } = filtrosDeBandeja(await searchParams);
+  const {
     estado,
-    tipo: tipoValido,
-    parroquia: parroquia || undefined,
-    categoria: categoria || undefined,
-    q: q || undefined,
+    q = "",
+    tipo = "",
+    parroquia = "",
+    categoria = "",
+    desde = "",
+    hasta = "",
+  } = filtros;
+  const [datos, parroquias, categorias] = await Promise.all([
+    leerBandeja(c.alcaldia.id, filtros, pagina),
+    valoresActivos("parroquias", c.alcaldia.id),
+    valoresActivos("categoriasTecnicas", c.alcaldia.id),
+  ]);
+  const cola = datos.filas;
+  const filtrando = !!(estado || q || tipo || parroquia || categoria || desde || hasta);
+  /** Enlace a otra página con los mismos filtros. */
+  const aPagina = (n: number) => {
+    const p = new URLSearchParams(qs);
+    if (n > 1) p.set("pagina", String(n));
+    const t = p.toString();
+    return `/participaciones${t ? `?${t}` : ""}`;
   };
-  const lista = bandeja(alm, c.alcaldia.id, filtros);
-  const cola = lista.map((p) => fila(p));
-  const filtrando = !!(estado || q || tipo || parroquia || categoria);
-  const qs = new URLSearchParams(
-    Object.entries({ estado, q, tipo, parroquia, categoria }).filter(([, v]) => v) as [
-      string,
-      string,
-    ][],
-  ).toString();
 
   return (
     <>
       <EncabezadoPagina
         titulo="Participaciones"
-        bajada="Primero lo que espera evaluación, del aporte más antiguo al más reciente."
+        bajada={
+          filtros.orden === "recientes"
+            ? "Del aporte más reciente al más antiguo."
+            : filtros.orden === "antiguas"
+              ? "Del aporte más antiguo al más reciente."
+              : "Primero lo que espera evaluación, del aporte más antiguo al más reciente."
+        }
         acciones={
           <a
             href={`/participaciones/exportar${qs ? `?${qs}` : ""}`}
@@ -82,15 +83,15 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
 
       <div className="mb-5 space-y-4">
         <ChipsEstado
-          conteos={conteos}
+          conteos={datos.conteos.estado}
           activo={estado}
           q={q || undefined}
-          conservar={{ tipo, parroquia, categoria }}
+          conservar={{ tipo, parroquia, categoria, desde, hasta, orden: filtros.orden }}
         />
         <form
           role="search"
           action="/participaciones"
-          className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))_auto] xl:items-end"
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]"
         >
           {estado && <input type="hidden" name="estado" value={estado} />}
           <div className="relative min-w-0 sm:col-span-2 xl:col-span-1">
@@ -117,13 +118,17 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
               className="h-11 w-full rounded-control border border-linea bg-papel pr-3 pl-9 text-tinta outline-none placeholder:text-tenue hover:border-tenue focus-visible:border-marca-texto"
             />
           </div>
-          <FiltrosPlegables activos={[tipo, parroquia, categoria].filter(Boolean).length}>
+          <FiltrosPlegables
+            activos={
+              [tipo, parroquia, categoria, desde, hasta, filtros.orden].filter(Boolean).length
+            }
+          >
             <Selector
               id="tipo"
               etiqueta="Tipo"
               opciones={Object.entries(TIPOS_PARTICIPACION).map(([valor, texto]) => ({
                 valor,
-                texto,
+                texto: `${texto} (${datos.conteos.tipo[valor as TipoParticipacion] ?? 0})`,
               }))}
               valorInicial={tipo}
               permitirVacio
@@ -132,7 +137,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
             <Selector
               id="parroquia"
               etiqueta="Parroquia"
-              opciones={opciones("parroquia")}
+              opciones={conActual(parroquias, parroquia)}
               valorInicial={parroquia}
               permitirVacio
               vacio="Todas"
@@ -140,14 +145,34 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
             <Selector
               id="categoria"
               etiqueta="Categoría técnica"
-              opciones={opciones("categoriaTecnica")}
+              opciones={conActual(categorias, categoria)}
               valorInicial={categoria}
               permitirVacio
               vacio="Todas"
             />
+            <Selector
+              id="orden"
+              etiqueta="Orden"
+              opciones={Object.entries(ORDENES_BANDEJA).map(([valor, texto]) => ({ valor, texto }))}
+              valorInicial={filtros.orden ?? "atender"}
+            />
+            <SelectorFecha
+              id="desde"
+              name="desde"
+              etiqueta="Recibidas desde"
+              valorInicial={desde}
+              vacio="Elegir"
+            />
+            <SelectorFecha
+              id="hasta"
+              name="hasta"
+              etiqueta="Hasta"
+              valorInicial={hasta}
+              vacio="Elegir"
+            />
             <button
               type="submit"
-              className="h-11 rounded-control border border-linea bg-papel px-5 text-sm font-semibold text-tinta hover:border-tenue"
+              className="h-11 rounded-control border border-linea bg-papel px-5 text-sm font-semibold text-tinta hover:border-tenue xl:justify-self-start"
             >
               Filtrar
             </button>
@@ -158,10 +183,40 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
       {cola.length ? (
         <>
           <TablaCola cola={cola} titulo="Participaciones" ordenada={false} />
+          {datos.paginas > 1 && (
+            <nav
+              aria-label="Páginas de la bandeja"
+              className="mt-4 flex flex-wrap items-center justify-between gap-3"
+            >
+              <p className="text-sm text-gris">
+                Página {datos.pagina} de {datos.paginas}
+              </p>
+              <div className="flex gap-2">
+                {datos.pagina > 1 && (
+                  <Link
+                    href={aPagina(datos.pagina - 1)}
+                    className="inline-flex min-h-10 items-center gap-1 rounded-control border border-linea px-4 text-sm font-semibold text-tinta hover:border-tenue"
+                  >
+                    <ChevronLeft size={16} aria-hidden="true" />
+                    Anterior
+                  </Link>
+                )}
+                {datos.pagina < datos.paginas && (
+                  <Link
+                    href={aPagina(datos.pagina + 1)}
+                    className="inline-flex min-h-10 items-center gap-1 rounded-control border border-linea px-4 text-sm font-semibold text-tinta hover:border-tenue"
+                  >
+                    Siguiente
+                    <ChevronRight size={16} aria-hidden="true" />
+                  </Link>
+                )}
+              </div>
+            </nav>
+          )}
           <div className="mt-3 space-y-3">
             <LeyendaRecorrido />
             <p className="text-sm text-gris">
-              {cola.length} {cola.length === 1 ? "participación" : "participaciones"} en esta vista.
+              {datos.total} {datos.total === 1 ? "participación" : "participaciones"} en esta vista.
               Abre el folio para revisarla, aprobarla, rechazarla o publicarla.
             </p>
           </div>
@@ -182,7 +237,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
           }
         >
           {filtrando
-            ? "Prueba con otro estado, otro filtro o con parte del folio o del nombre."
+            ? "Prueba con otro estado, otro filtro, otras fechas o con parte del folio o del nombre."
             : "Cuando la ciudadanía envíe opiniones o propuestas desde el portal, aparecerán aquí con su folio y su recorrido."}
         </EstadoVacio>
       )}

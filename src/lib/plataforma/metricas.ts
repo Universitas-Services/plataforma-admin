@@ -6,6 +6,7 @@ import {
   type Almacen,
   type ConteoDia,
   type Interaccion,
+  type Participacion,
   type TipoParticipacion,
 } from "./tipos";
 
@@ -117,6 +118,12 @@ export type MetricasParticipacion = {
   decisiones: { aprobadas: number; rechazadas: number; tasaAprobacion?: number };
   /** Mediana de días entre la llegada y la decisión de las propuestas decididas en el rango. */
   diasRespuesta?: number;
+  /**
+   * Con plataforma-api, las cifras salen de la bandeja, que no trae el historial: las decisiones
+   * se cuentan por el estado actual de lo recibido en el rango y no hay tiempo de respuesta.
+   * Los indicadores completos llegan con R13.
+   */
+  sinHistorial?: boolean;
   opiniones: { recibidas: number; publicadas: number };
   /** Vistas y reacciones de los aportes publicados (en el portal), en el rango. */
   alcance: ConteoDia;
@@ -128,8 +135,11 @@ export function metricasParticipacion(
   alcaldiaId: string,
   r: Rango,
   ahora = Date.now(),
+  /** Con plataforma-api: las filas de la bandeja (sin historial). */
+  lista?: Participacion[],
 ): MetricasParticipacion {
-  const todas = [...alm.participaciones.values()].filter((p) => p.alcaldiaId === alcaldiaId);
+  const todas =
+    lista ?? [...alm.participaciones.values()].filter((p) => p.alcaldiaId === alcaldiaId);
   const dentro = (iso: string) => {
     const d = diaDe(Date.parse(iso));
     return d >= r.desde && d <= r.hasta;
@@ -164,6 +174,13 @@ export function metricasParticipacion(
   let rechazadas = 0;
   const tiempos: number[] = [];
   for (const p of todas.filter((x) => tieneSeguimiento(x.tipo))) {
+    if (lista) {
+      // Sin historial: lo recibido en el rango, por su estado actual.
+      if (!dentro(p.recibidaEl)) continue;
+      if (p.estado === "APROBADA" || p.estado === "PUBLICADA") aprobadas++;
+      else if (p.estado === "RECHAZADA") rechazadas++;
+      continue;
+    }
     const decision = p.historial.find((h) => h.estado === "APROBADA" || h.estado === "RECHAZADA");
     if (!decision || !dentro(decision.fecha)) continue;
     if (decision.estado === "APROBADA") aprobadas++;
@@ -200,6 +217,7 @@ export function metricasParticipacion(
       tasaAprobacion: decididas ? aprobadas / decididas : undefined,
     },
     diasRespuesta: dr === undefined ? undefined : Math.round(dr * 10) / 10,
+    sinHistorial: lista ? true : undefined,
     opiniones: {
       recibidas: opiniones.length,
       publicadas: opiniones.filter((p) => p.estado === "PUBLICADA").length,
@@ -319,8 +337,8 @@ export function decisionesPorRevisor(alm: Almacen, alcaldiaId: string, r: Rango)
     for (const h of p.historial) {
       const d = diaDe(Date.parse(h.fecha));
       if (!h.por || d < r.desde || d > r.hasta) continue;
-      const u = alm.usuarios.get(h.por);
-      sumar(m, u ? nombreCompleto(u) : "Persona retirada");
+      const u = alm.usuarios.get(h.por.id);
+      sumar(m, u ? nombreCompleto(u) : h.por.nombre);
     }
   }
   return ordenar(m);
@@ -419,10 +437,12 @@ export function indicadoresDe(
   permisos: ReadonlySet<string>,
   r: Rango,
   ahora = Date.now(),
+  /** Con plataforma-api: las participaciones de la bandeja (ver `sinHistorial`). */
+  lista?: Participacion[],
 ) {
   return {
     participacion: permisos.has("metricas.participacion")
-      ? metricasParticipacion(alm, alcaldiaId, r, ahora)
+      ? metricasParticipacion(alm, alcaldiaId, r, ahora, lista)
       : undefined,
     contenido: permisos.has("metricas.contenido")
       ? metricasContenido(alm, alcaldiaId, r)
@@ -430,6 +450,10 @@ export function indicadoresDe(
     ciudadania: permisos.has("metricas.ciudadania")
       ? metricasCiudadania(alm, alcaldiaId, r)
       : undefined,
-    equipo: permisos.has("metricas.equipo") ? decisionesPorRevisor(alm, alcaldiaId, r) : undefined,
+    // Las decisiones por revisor salen del historial: con la API llegan con R13.
+    equipo:
+      permisos.has("metricas.equipo") && !lista
+        ? decisionesPorRevisor(alm, alcaldiaId, r)
+        : undefined,
   };
 }

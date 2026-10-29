@@ -3,9 +3,9 @@ import type { ReactNode } from "react";
 import { ShieldCheck } from "lucide-react";
 import { ALCALDIA } from "@/config/alcaldia";
 import { ErrorApi } from "@/lib/api/cliente";
-import { conteosParticipaciones } from "@/lib/plataforma/participaciones";
+import { porAtender as contarPorAtender } from "@/lib/plataforma/participaciones-datos";
 import { nombreCompleto } from "@/lib/plataforma/servicio";
-import { almacen, getContexto } from "@/lib/plataforma/sesion";
+import { getContexto } from "@/lib/plataforma/sesion";
 import { NOMBRE_ROL } from "@/lib/plataforma/tipos";
 import { Linea } from "./linea";
 import { MenuUsuario } from "./menu-usuario";
@@ -31,8 +31,7 @@ export async function MarcoPanel({ children }: { children: ReactNode }) {
   const { usuario: u, alcaldia: a } = c;
 
   // La estación de Participaciones muestra cuántas esperan (pendientes y en revisión).
-  const conteos = conteosParticipaciones(almacen(), a.id);
-  const porAtender = conteos.PENDIENTE + conteos.EN_REVISION;
+  const porAtender = c.permisos.has("participaciones.evaluar") ? await contarPorAtender(a.id) : 0;
   const estaciones = c.secciones.map((s) => ({
     href: s.href,
     etiqueta: s.etiqueta,

@@ -18,6 +18,7 @@ const proceso = await import("./proceso");
 const textos = await import("./textos-legales");
 const catalogos = await import("./catalogos");
 const noticias = await import("./noticias");
+const participaciones = await import("./participaciones");
 const { reflejarUsuario } = await import("./sesion-api");
 const { abrirSello, sellar } = await import("./sello");
 const { esMedioApi } = await import("@/lib/contenido/medio-api");
@@ -686,5 +687,143 @@ describe("Catálogos contra la API (R16)", () => {
       init: { method: "PUT" },
     });
     expect(JSON.parse(String(llamadas[4]!.init.body))).toEqual({ ids: ["b", "a"] });
+  });
+});
+
+describe("Participaciones contra la API (R11)", () => {
+  const FILA = {
+    folio: "IRI-2026-0045",
+    tipo: "PROPUESTA_FORMAL",
+    estado: "PENDIENTE",
+    recibidaEl: "2026-10-29T20:09:44.740Z",
+    parroquia: "Catedral",
+    sector: "Centro",
+    categoriaTecnica: "Vialidad y Transporte",
+    mostrarNombre: false,
+    autor: { tipo: "NATURAL", nombre: "Ana Pérez", documento: "V-14.***.890" },
+  };
+  const CONTEOS = {
+    estado: { PENDIENTE: 1, EN_REVISION: 0, APROBADA: 0, RECHAZADA: 0, PUBLICADA: 0 },
+    tipo: { OPINION_GENERAL: 0, OPINION_NOTICIA: 0, PROPUESTA_FORMAL: 1 },
+  };
+
+  it("lista con los filtros de la API y los conteos de los chips", async () => {
+    const llamadas = simularFetch({
+      cuerpo: {
+        data: [FILA],
+        meta: { page: 2, limit: 50, total: 51, totalPages: 2, conteos: CONTEOS },
+      },
+    });
+    const r = await participaciones.listarParticipacionesApi(
+      {
+        estado: "PENDIENTE",
+        categoria: "Vialidad y Transporte",
+        desde: "2026-10-01",
+        orden: "antiguas",
+      },
+      2,
+    );
+    const url = new URL(llamadas[0]!.url);
+    expect(url.pathname).toBe("/api/v1/admin/participations");
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      estado: "PENDIENTE",
+      categoria: "Vialidad y Transporte",
+      desde: "2026-10-01",
+      sort: "antiguas",
+      page: "2",
+      limit: "50",
+    });
+    expect(r.estado === "OK" && r.meta.conteos.tipo.PROPUESTA_FORMAL).toBe(1);
+    const fila = participaciones.filaDeApi(FILA as never, Date.parse("2026-11-01T12:00:00Z"));
+    expect(fila).toMatchObject({
+      tipoClave: "PROPUESTA_FORMAL",
+      tipo: "Propuesta formal",
+      dias: 2,
+    });
+  });
+
+  it("el detalle trae quién y con su nombre; los 404 son NO_EXISTE", async () => {
+    simularFetch(
+      {
+        cuerpo: {
+          ...FILA,
+          descripcion: "Texto",
+          imagenes: [{ id: "f1", nombre: "a.jpg", mime: "image/jpeg", tamano: 10, sha256: "x" }],
+          autor: { tipo: "NATURAL", nombre: "Ana", correo: "a@b.test", documentos: [] },
+          historial: [
+            { estado: "PENDIENTE", fecha: FILA.recibidaEl },
+            { estado: "EN_REVISION", fecha: FILA.recibidaEl, por: { id: "u1", nombre: "María" } },
+          ],
+          notas: [],
+          transiciones: ["APROBADA", "RECHAZADA"],
+          hashContenido: "abc",
+          codigoVerificacion: "YYDK-FJK9",
+        },
+      },
+      { status: 404, cuerpo: { code: "NOT_FOUND", message: "No existe" } },
+    );
+    const r = await participaciones.obtenerParticipacionApi("iri-2026-0045");
+    expect(r.estado).toBe("OK");
+    if (r.estado !== "OK") return;
+    expect(r.participacion.historial[1]!.por?.nombre).toBe("María");
+    expect(r.participacion.transiciones).toEqual(["APROBADA", "RECHAZADA"]);
+    expect(r.participacion.imagenes[0]!.id).toBe("f1");
+    expect((await participaciones.obtenerParticipacionApi("IRI-2026-9999")).estado).toBe(
+      "NO_EXISTE",
+    );
+  });
+
+  it("el rechazo manda motivoCodigo y comentario, y traduce los errores", async () => {
+    const llamadas = simularFetch(
+      { cuerpo: {} },
+      { status: 422, cuerpo: { code: "INVALID_TRANSITION", message: "x" } },
+      { status: 422, cuerpo: { code: "MOTIVO_REQUERIDO", message: "x" } },
+      { status: 422, cuerpo: { code: "TEXTO_CORTO", message: "x" } },
+      { status: 403, cuerpo: { code: "FORBIDDEN", message: "x" } },
+    );
+    const texto = "No corresponde a la fase actual del plan de desarrollo.";
+    expect(
+      await participaciones.cambiarEstadoApi("IRI-2026-0045", "RECHAZADA", {
+        motivo: "FUERA_DE_ALCANCE",
+        texto,
+        comentario: "se ignora",
+      }),
+    ).toBe("OK");
+    expect(llamadas[0]!.url).toBe(`${API}/admin/participations/IRI-2026-0045/transitions`);
+    expect(JSON.parse(String(llamadas[0]!.init.body))).toEqual({
+      estado: "RECHAZADA",
+      motivoCodigo: "FUERA_DE_ALCANCE",
+      comentario: texto,
+    });
+    const otro = () => participaciones.cambiarEstadoApi("IRI-2026-0045", "PUBLICADA");
+    expect(await otro()).toBe("TRANSICION_INVALIDA");
+    expect(await otro()).toBe("SIN_MOTIVO");
+    expect(await otro()).toBe("TEXTO_CORTO");
+    expect(await otro()).toBe("SIN_PERMISO");
+  });
+
+  it("notas, URL firmada y CSV crudo", async () => {
+    const llamadas = simularFetch(
+      { status: 201, cuerpo: { id: "n1" } },
+      { status: 422, cuerpo: { code: "NOTA_VACIA", message: "x" } },
+      { cuerpo: { url: "https://storage.ejemplo.test/a.jpg?firma", expiraEl: "x" } },
+      { cuerpo: { url: "https://storage.ejemplo.test/cedula.pdf?firma", expiraEl: "x" } },
+    );
+    expect(await participaciones.agregarNotaApi("IRI-2026-0045", "  Llamar al autor  ")).toBe("OK");
+    expect(JSON.parse(String(llamadas[0]!.init.body))).toEqual({ texto: "Llamar al autor" });
+    expect(await participaciones.agregarNotaApi("IRI-2026-0045", "x")).toBe("NOTA_VACIA");
+    expect(await participaciones.agregarNotaApi("IRI-2026-0045", "   ")).toBe("NOTA_VACIA");
+    const foto = await participaciones.urlArchivoApi("IRI-2026-0045", "f1", "adjunto");
+    expect(foto).toEqual({ estado: "OK", url: "https://storage.ejemplo.test/a.jpg?firma" });
+    await participaciones.urlArchivoApi("IRI-2026-0045", "d1", "documento");
+    expect(llamadas[2]!.url).toBe(`${API}/admin/participations/IRI-2026-0045/files/f1/url`);
+    expect(llamadas[3]!.url).toBe(`${API}/admin/participations/IRI-2026-0045/documents/d1/url`);
+
+    const csv = '\uFEFF"Folio";"Tipo"\r\n';
+    vi.stubGlobal("fetch", async () => new Response(csv, { status: 200 }));
+    expect(await participaciones.exportarCsvApi({ tipo: "OPINION_GENERAL" })).toEqual({
+      estado: "OK",
+      csv,
+    });
   });
 });

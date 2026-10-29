@@ -549,7 +549,6 @@ export function textosLegalesDemo(alcaldiaId: string): VersionTextoLegal[] {
         "Quién puede ver tus documentos: solo el personal revisor de la alcaldía.",
         "Cuándo se muestra tu nombre en un aporte publicado (solo si respondes que sí).",
         "Cuánto tiempo se conservan los datos y cómo solicitar la baja de la cuenta.",
-        "Cómo se comparten tus datos entre portales de distintas alcaldías.",
       ]),
     },
   ];

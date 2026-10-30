@@ -158,6 +158,8 @@ export function ciudadanosDemo(participaciones: Participacion[], ahora: number):
       documentos: [],
       membresia: { estado: "ACTIVA", desde: new Date(ahora - 2 * DIA).toISOString() },
       registradoEl: new Date(ahora - 2 * DIA).toISOString(),
+      // Pidió la baja: el ejemplo de la cola «Bajas pedidas».
+      bajaSolicitadaEl: new Date(ahora - DIA).toISOString(),
       ejemplo: true,
     },
     {

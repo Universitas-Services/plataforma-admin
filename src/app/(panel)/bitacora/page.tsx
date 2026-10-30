@@ -1,4 +1,4 @@
-import { Download, History, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, History, X } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
@@ -9,10 +9,43 @@ import { EsqueletoTabla } from "@/components/ui/esqueletos";
 import { EncabezadoPagina, EstadoVacio } from "@/components/ui/piezas";
 import { Selector } from "@/components/ui/selector";
 import { SelectorFecha } from "@/components/ui/selector-fecha";
+import { usaApi } from "@/lib/api/cliente";
+import { listarBitacoraApi, obtenerEventoApi, type EventoApi } from "@/lib/api/bitacora";
 import { diferencias, eventosDe, filtrosBitacora, nombreAccion } from "@/lib/plataforma/alcaldia";
 import { nombreCompleto } from "@/lib/plataforma/servicio";
 import { almacen, exigirEnAlcaldia } from "@/lib/plataforma/sesion";
-import type { EventoBitacora } from "@/lib/plataforma/tipos";
+
+/** Un evento como lo muestra la página, venga de la API o del almacén simulado. */
+type Evento = {
+  id: string;
+  /** Número de orden en la cadena (con la API). */
+  seq?: number;
+  fecha: string;
+  actor: string;
+  accionNombre: string;
+  entidad: string;
+  antes?: unknown;
+  despues?: unknown;
+  ip?: string;
+  requestId?: string;
+  hash: string;
+};
+
+const deApi = (e: EventoApi): Evento => ({
+  id: e.id,
+  seq: e.seq,
+  fecha: e.fecha,
+  // Sin actor, lo hizo el sistema (p. ej., una publicación programada).
+  actor: e.actor?.nombre ?? "Sistema",
+  accionNombre: e.accionNombre,
+  // La API guarda la tabla y el id por separado.
+  entidad: e.entidadId ? `${e.entidad} · ${e.entidadId}` : e.entidad,
+  antes: e.antes,
+  despues: e.despues,
+  ip: e.ip,
+  requestId: e.requestId,
+  hash: e.hash,
+});
 
 export const metadata: Metadata = { title: "Bitácora" };
 
@@ -52,30 +85,76 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
   const leer = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
   const f = filtrosBitacora(leer);
-  const alm = almacen();
-  const todos = eventosDe(alm, c.alcaldia.id);
-  const eventos = eventosDe(alm, c.alcaldia.id, f);
   const filtrando = Object.values(f).some(Boolean);
   const consulta = new URLSearchParams(
     Object.entries(f).filter((e): e is [string, string] => !!e[1]),
   );
-  const elegido = eventos.find((e) => String(e.id) === leer("evento"));
+  const pedido = leer("evento");
+  const pagina = Math.max(1, Math.min(10_000, Number.parseInt(leer("pagina") ?? "", 10) || 1));
 
-  const actor = (id: string) => {
-    const u = alm.usuarios.get(id);
-    return u ? nombreCompleto(u) || u.correo : "Sistema";
-  };
-  const actores = [...new Set(todos.map((e) => e.actorId))].map((id) => ({
-    valor: id,
-    texto: actor(id),
-  }));
-  const acciones = [...new Set(todos.map((e) => e.accion))]
-    .sort()
-    .map((a) => ({ valor: a, texto: nombreAccion(a) }));
-  const conEvento = (id: number) => {
+  let eventos: Evento[];
+  let actores: { valor: string; texto: string }[];
+  let acciones: { valor: string; texto: string }[];
+  let paginas = 1;
+  let filtroInvalido = false;
+  if (usaApi()) {
+    const r = await listarBitacoraApi(f, pagina);
+    if (r.estado === "FILTRO_INVALIDO") {
+      filtroInvalido = true;
+      eventos = [];
+      actores = [];
+      acciones = [];
+    } else if (r.estado !== "OK")
+      return null; // exigirEnAlcaldia ya cubrió sesión y permiso.
+    else {
+      eventos = r.eventos.map(deApi);
+      paginas = r.paginas;
+      actores = r.actores.map((a) => ({ valor: a.id, texto: a.nombre }));
+      acciones = r.acciones.map((a) => ({ valor: a.codigo, texto: a.nombre }));
+    }
+  } else {
+    const alm = almacen();
+    const actor = (id: string) => {
+      const u = alm.usuarios.get(id);
+      return u ? nombreCompleto(u) || u.correo : "Sistema";
+    };
+    const todos = eventosDe(alm, c.alcaldia.id);
+    eventos = eventosDe(alm, c.alcaldia.id, f).map((e) => ({
+      id: String(e.id),
+      fecha: e.fecha,
+      actor: actor(e.actorId),
+      accionNombre: nombreAccion(e.accion),
+      entidad: e.entidad,
+      antes: e.antes,
+      despues: e.despues,
+      hash: e.hash,
+    }));
+    actores = [...new Set(todos.map((e) => e.actorId))].map((id) => ({
+      valor: id,
+      texto: actor(id),
+    }));
+    acciones = [...new Set(todos.map((e) => e.accion))]
+      .sort()
+      .map((a) => ({ valor: a, texto: nombreAccion(a) }));
+  }
+  // El evento elegido: de esta página o, con la API, pedido aparte (p. ej., desde «Verificar»).
+  let elegido = pedido ? eventos.find((e) => e.id === pedido) : undefined;
+  if (pedido && !elegido && usaApi()) {
+    const r = await obtenerEventoApi(pedido);
+    if (r.estado === "OK") elegido = deApi(r.evento);
+  }
+
+  const conEvento = (id: string) => {
     const q = new URLSearchParams(consulta);
-    q.set("evento", String(id));
+    if (pagina > 1) q.set("pagina", String(pagina));
+    q.set("evento", id);
     return `/bitacora?${q}`;
+  };
+  const aPagina = (n: number) => {
+    const q = new URLSearchParams(consulta);
+    if (n > 1) q.set("pagina", String(n));
+    const t = q.toString();
+    return `/bitacora${t ? `?${t}` : ""}`;
   };
 
   return (
@@ -115,7 +194,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
             type="search"
             defaultValue={f.entidad}
             maxLength={80}
-            placeholder="Folio, ciudadano, catálogo…"
+            placeholder={usaApi() ? "Tabla (posts, users…) o id" : "Folio, ciudadano, catálogo…"}
             aria-label="Buscar por entidad"
             className="h-11 w-full rounded-control border border-linea bg-papel px-3 text-tinta outline-none placeholder:text-tenue hover:border-tenue focus-visible:border-marca-texto"
           />
@@ -196,14 +275,12 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
                         aria-current={elegido?.id === e.id ? "true" : undefined}
                         className="font-semibold text-marca-texto hover:underline"
                       >
-                        {nombreAccion(e.accion)}
+                        {e.accionNombre}
                       </Link>
                       <span className="block truncate text-sm text-gris">{e.entidad}</span>
-                      <span className="block truncate text-sm text-gris md:hidden">
-                        {actor(e.actorId)}
-                      </span>
+                      <span className="block truncate text-sm text-gris md:hidden">{e.actor}</span>
                     </td>
-                    <td className="hidden px-3 py-2.5 md:table-cell">{actor(e.actorId)}</td>
+                    <td className="hidden px-3 py-2.5 md:table-cell">{e.actor}</td>
                     <td className="px-3 py-2.5 text-right text-sm whitespace-nowrap text-gris tabular-nums">
                       {fecha(e.fecha)}
                     </td>
@@ -212,8 +289,38 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
               </tbody>
             </table>
           </div>
+          {paginas > 1 && (
+            <nav
+              aria-label="Páginas de la bitácora"
+              className="flex flex-wrap items-center justify-between gap-3 xl:col-start-1"
+            >
+              <p className="text-sm text-gris">
+                Página {pagina} de {paginas}
+              </p>
+              <div className="flex gap-2">
+                {pagina > 1 && (
+                  <Link
+                    href={aPagina(pagina - 1)}
+                    className="inline-flex min-h-10 items-center gap-1 rounded-control border border-linea px-4 text-sm font-semibold text-tinta hover:border-tenue"
+                  >
+                    <ChevronLeft size={16} aria-hidden="true" />
+                    Anterior
+                  </Link>
+                )}
+                {pagina < paginas && (
+                  <Link
+                    href={aPagina(pagina + 1)}
+                    className="inline-flex min-h-10 items-center gap-1 rounded-control border border-linea px-4 text-sm font-semibold text-tinta hover:border-tenue"
+                  >
+                    Siguiente
+                    <ChevronRight size={16} aria-hidden="true" />
+                  </Link>
+                )}
+              </div>
+            </nav>
+          )}
           {elegido ? (
-            <Detalle e={elegido} actor={actor(elegido.actorId)} cerrar={`/bitacora?${consulta}`} />
+            <Detalle e={elegido} cerrar={aPagina(pagina)} />
           ) : (
             <p className="hidden rounded-lg border border-dashed border-linea p-5 text-sm text-gris xl:block">
               Elige un evento para ver qué cambió.
@@ -235,17 +342,19 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
             ) : undefined
           }
         >
-          {filtrando
-            ? "Prueba con otras fechas, actor o acción."
-            : "Aparecerán cuando el equipo haga cambios en el panel."}
+          {filtroInvalido
+            ? "Revisa la entidad: con la API se busca por el nombre de la tabla o por el id exacto del registro."
+            : filtrando
+              ? "Prueba con otras fechas, actor o acción."
+              : "Aparecerán cuando el equipo haga cambios en el panel."}
         </EstadoVacio>
       )}
     </>
   );
 }
 
-function Detalle({ e, actor, cerrar }: { e: EventoBitacora; actor: string; cerrar: string }) {
-  const cambios = diferencias(e);
+function Detalle({ e, cerrar }: { e: Evento; cerrar: string }) {
+  const cambios = diferencias(e as Parameters<typeof diferencias>[0]);
   return (
     <section
       aria-labelledby="detalle-evento"
@@ -253,7 +362,7 @@ function Detalle({ e, actor, cerrar }: { e: EventoBitacora; actor: string; cerra
     >
       <div className="mb-3 flex items-start justify-between gap-3">
         <h2 id="detalle-evento" className="text-base font-bold text-tinta">
-          {nombreAccion(e.accion)}
+          {e.accionNombre}
         </h2>
         <Link
           href={cerrar}
@@ -267,7 +376,7 @@ function Detalle({ e, actor, cerrar }: { e: EventoBitacora; actor: string; cerra
       <dl className="grid gap-3 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-xs font-semibold tracking-wide text-gris uppercase">Actor</dt>
-          <dd className="mt-0.5 text-tinta">{actor}</dd>
+          <dd className="mt-0.5 text-tinta">{e.actor}</dd>
         </div>
         <div>
           <dt className="text-xs font-semibold tracking-wide text-gris uppercase">Fecha</dt>
@@ -277,6 +386,28 @@ function Detalle({ e, actor, cerrar }: { e: EventoBitacora; actor: string; cerra
           <dt className="text-xs font-semibold tracking-wide text-gris uppercase">Entidad</dt>
           <dd className="mt-0.5 break-all text-tinta">{e.entidad}</dd>
         </div>
+        {e.seq !== undefined && (
+          <div>
+            <dt className="text-xs font-semibold tracking-wide text-gris uppercase">
+              N.º de orden
+            </dt>
+            <dd className="mt-0.5 text-tinta tabular-nums">{e.seq}</dd>
+          </div>
+        )}
+        {e.ip && (
+          <div>
+            <dt className="text-xs font-semibold tracking-wide text-gris uppercase">IP</dt>
+            <dd className="mt-0.5 break-all text-tinta tabular-nums">{e.ip}</dd>
+          </div>
+        )}
+        {e.requestId && (
+          <div className="sm:col-span-2">
+            <dt className="text-xs font-semibold tracking-wide text-gris uppercase">
+              Id de la petición
+            </dt>
+            <dd className="mt-0.5 font-mono text-xs break-all text-tinta">{e.requestId}</dd>
+          </div>
+        )}
       </dl>
 
       <h3 className="mt-5 mb-2 text-sm font-bold text-tinta">Qué cambió</h3>

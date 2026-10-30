@@ -3,6 +3,7 @@ import { almacenDemo } from "./fixtures";
 import {
   csvMetricas,
   decisionesPorRevisor,
+  indicadoresDe,
   metricasCiudadania,
   metricasContenido,
   metricasParticipacion,
@@ -92,5 +93,55 @@ describe("contenido, ciudadanía y equipo", () => {
     expect(csv.startsWith("﻿")).toBe(true);
     expect(csv).toContain('"Contenido";"Vistas de noticias"');
     expect(csv).not.toContain("Participación");
+  });
+});
+
+describe("con plataforma-api (R12 y R13)", () => {
+  it("usa los totales acumulados de las noticias y no mezcla cifras de ejemplo", () => {
+    const r = rangoDe("30d", AHORA);
+    const permisos = new Set([
+      "metricas.contenido",
+      "metricas.ciudadania",
+      "metricas.participacion",
+      "metricas.equipo",
+    ]);
+    const d = indicadoresDe(alm(), "iribarren", permisos, r, AHORA, {
+      participaciones: [],
+      ciudadanos: [],
+      noticias: [
+        {
+          id: "n1",
+          titulo: "Una",
+          estado: "PUBLICADO",
+          formato: "IMAGEN",
+          publicadoEl: "2026-10-20T12:00:00.000Z",
+          totales: { vistas: 10, likes: 3, dislikes: 1 },
+        },
+        {
+          id: "n2",
+          titulo: "Otra",
+          estado: "BORRADOR",
+          formato: "IMAGEN",
+          totales: { vistas: 0, likes: 0, dislikes: 0 },
+        },
+      ],
+    });
+    expect(d.conApi).toBe(true);
+    expect(d.equipo).toBeUndefined();
+    expect(d.contenido).toMatchObject({
+      sinRango: true,
+      alcance: { vistas: 10, likes: 3, dislikes: 1 },
+      publicadasEnRango: 1,
+      descargas: 0,
+    });
+    expect(d.contenido!.masVistas[0]).toMatchObject({
+      nombre: "Una",
+      href: "/contenido/noticias/n1",
+    });
+    expect(d.ciudadania).toMatchObject({ total: 0, nuevos: 0 });
+    expect(d.participacion).toMatchObject({ recibidas: 0, sinHistorial: true });
+    const csv = csvMetricas(r, d);
+    expect(csv).toContain("Vistas de noticias (acumuladas)");
+    expect(csv).not.toContain("Descargas de documentos");
   });
 });

@@ -94,13 +94,15 @@ export function Indicadores({
   rango: Rango;
   datos: ReturnType<typeof indicadoresDe>;
 }) {
-  const { participacion: p, contenido: c, ciudadania: ci, equipo } = datos;
+  const { participacion: p, contenido: c, ciudadania: ci, equipo, conApi } = datos;
   const fechas = `del ${rango.desde.split("-").reverse().join("/")} al ${rango.hasta.split("-").reverse().join("/")}`;
   return (
     <div className="space-y-10">
       <p className="text-sm text-gris">
-        {rango.etiqueta}, {fechas}. Las cifras de vistas, reacciones y descargas son de demostración
-        hasta conectar la API.
+        {rango.etiqueta}, {fechas}.{" "}
+        {conApi
+          ? "Las vistas y reacciones son totales acumulados: por rango de fechas, y las descargas, llegan con R14."
+          : "Las cifras de vistas, reacciones y descargas son de demostración hasta conectar la API."}
       </p>
 
       {p && (
@@ -127,7 +129,7 @@ export function Indicadores({
             <Cifra
               etiqueta="Días de respuesta"
               valor={p.diasRespuesta === undefined ? "—" : cifra(p.diasRespuesta)}
-              detalle={p.sinHistorial ? "Llega con R13" : "Mediana, propuestas formales"}
+              detalle={p.sinHistorial ? "Llega con R14" : "Mediana, propuestas formales"}
             />
             <Cifra
               etiqueta="Propuestas verificadas"
@@ -155,11 +157,17 @@ export function Indicadores({
               <Barras filas={p.porCategoria} vacio="Sin aportes en este rango." />
             </Tarjeta>
             <Tarjeta titulo="Aportes con más reacciones">
-              <Barras filas={p.masReacciones} vacio="Sin reacciones en este rango." />
-              <p className="mt-4 text-sm text-gris">
-                {cifra(p.alcance.vistas)} vistas · {cifra(p.alcance.likes)} me gusta ·{" "}
-                {cifra(p.alcance.dislikes)} no me gusta
-              </p>
+              {p.sinHistorial ? (
+                <p className="text-sm text-gris">Llega con R14.</p>
+              ) : (
+                <>
+                  <Barras filas={p.masReacciones} vacio="Sin reacciones en este rango." />
+                  <p className="mt-4 text-sm text-gris">
+                    {cifra(p.alcance.vistas)} vistas · {cifra(p.alcance.likes)} me gusta ·{" "}
+                    {cifra(p.alcance.dislikes)} no me gusta
+                  </p>
+                </>
+              )}
             </Tarjeta>
           </div>
         </Seccion>
@@ -175,11 +183,19 @@ export function Indicadores({
               valor={cifra(c.alcance.likes + c.alcance.dislikes)}
               detalle={`${cifra(c.alcance.likes)} me gusta · ${cifra(c.alcance.dislikes)} no me gusta`}
             />
-            <Cifra etiqueta="Descargas de documentos" valor={cifra(c.descargas)} />
+            <Cifra
+              etiqueta="Descargas de documentos"
+              valor={c.sinRango ? "—" : cifra(c.descargas)}
+              detalle={c.sinRango ? "Llega con R14" : undefined}
+            />
           </dl>
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
             <Tarjeta titulo="Vistas de noticias">
-              <Columnas titulo="Vistas de noticias" puntos={c.serieVistas} unidad="vistas" />
+              {c.sinRango ? (
+                <p className="text-sm text-gris">Las vistas por día llegan con R14.</p>
+              ) : (
+                <Columnas titulo="Vistas de noticias" puntos={c.serieVistas} unidad="vistas" />
+              )}
             </Tarjeta>
             <Tarjeta titulo="Más vistas">
               <Barras filas={c.masVistas} vacio="Sin vistas en este rango." />
@@ -193,7 +209,11 @@ export function Indicadores({
               <Barras filas={c.porFormato} vacio="No hay noticias publicadas." />
             </Tarjeta>
             <Tarjeta titulo="Documentos más descargados">
-              <Barras filas={c.masDescargados} vacio="Sin descargas en este rango." />
+              {c.sinRango ? (
+                <p className="text-sm text-gris">Llega con R14.</p>
+              ) : (
+                <Barras filas={c.masDescargados} vacio="Sin descargas en este rango." />
+              )}
             </Tarjeta>
           </div>
         </Seccion>

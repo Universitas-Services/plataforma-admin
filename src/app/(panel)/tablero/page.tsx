@@ -22,10 +22,8 @@ import { EncabezadoPagina } from "@/components/ui/piezas";
 import { connection } from "next/server";
 import { crearNoticiaAccion } from "@/lib/plataforma/acciones-contenido";
 import { esRango, indicadoresDe, rangoDe } from "@/lib/plataforma/metricas";
-import {
-  participacionesParaMetricas,
-  resumenBandeja,
-} from "@/lib/plataforma/participaciones-datos";
+import { resumenBandeja } from "@/lib/plataforma/participaciones-datos";
+import { datosApiTablero } from "@/lib/plataforma/tablero-datos";
 import { almacen, exigirEnAlcaldia, leerAviso, contenidoAlDia } from "@/lib/plataforma/sesion";
 
 export const metadata: Metadata = { title: "Tablero" };
@@ -46,12 +44,12 @@ async function Contenido({ searchParams }: Pick<PageProps<"/tablero">, "searchPa
   const alm = almacen();
   const evalua = c.permisos.has("participaciones.evaluar");
   const rango = rangoDe(esRango(pedido) ? pedido : "30d");
-  const [datos, lista] = await Promise.all([
+  const [datos, api] = await Promise.all([
     evalua ? resumenBandeja(c.alcaldia.id) : undefined,
-    evalua && c.permisos.has("metricas.participacion") ? participacionesParaMetricas() : undefined,
+    datosApiTablero(c.permisos),
     contenidoAlDia(),
   ]);
-  const indicadores = indicadoresDe(alm, c.alcaldia.id, c.permisos, rango, undefined, lista);
+  const indicadores = indicadoresDe(alm, c.alcaldia.id, c.permisos, rango, undefined, api);
   const aviso = await leerAviso();
   const accesos = [
     evalua && {

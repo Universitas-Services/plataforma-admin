@@ -1,19 +1,31 @@
+import { usaApi } from "@/lib/api/cliente";
+import { exportarCiudadanosApi } from "@/lib/api/ciudadanos";
+import { mensajeDeError } from "@/lib/api/errores";
 import { ciudadanosDe, csvCiudadanos, filtrosCiudadanos } from "@/lib/plataforma/alcaldia";
 import { almacen, getContexto } from "@/lib/plataforma/sesion";
 
-/** CSV de ciudadanos con los filtros de la URL (backlog 2.11). La cédula sale enmascarada. */
+/**
+ * CSV de ciudadanos con los filtros de la URL (backlog 2.11). La cédula sale enmascarada. Con
+ * plataforma-api se reenvía export.csv tal cual (queda en la bitácora).
+ */
 export async function GET(request: Request) {
   const c = await getContexto();
   if (!c?.alcaldia || !c.permisos.has("ciudadanos.ver"))
     return new Response("Sin permiso", { status: 403 });
   const sp = new URL(request.url).searchParams;
-  const lista = ciudadanosDe(
-    almacen(),
-    c.alcaldia.id,
-    filtrosCiudadanos((k) => sp.get(k) ?? undefined),
-  );
+  const f = filtrosCiudadanos((k) => sp.get(k) ?? undefined);
+  let csv: string;
+  if (usaApi()) {
+    try {
+      const r = await exportarCiudadanosApi(f);
+      if (r.estado !== "OK") return new Response("Sin permiso", { status: 403 });
+      csv = r.csv;
+    } catch (e) {
+      return new Response(mensajeDeError(e), { status: 502 });
+    }
+  } else csv = csvCiudadanos(ciudadanosDe(almacen(), c.alcaldia.id, f));
   const fecha = new Date().toISOString().slice(0, 10);
-  return new Response(csvCiudadanos(lista), {
+  return new Response(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="ciudadanos-${c.alcaldia.sigla.toLowerCase()}-${fecha}.csv"`,

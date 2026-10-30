@@ -174,7 +174,7 @@ async function Contenido({ params }: { params: Promise<{ folio: string }> }) {
           transiciones={transiciones}
           mostrarNombre={p.mostrarNombre}
         />
-        {p.estado === "PUBLICADA" && totales && (
+        {totales && (p.estado === "PUBLICADA" || totales.vistas > 0) && (
           <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-linea pt-4 text-sm text-gris">
             En el portal:
             <Alcance totales={totales} />

@@ -43,6 +43,8 @@ import {
   MensajeError,
   claseEntrada,
 } from "./campos-medios";
+import type { ConteoDia } from "@/lib/plataforma/tipos";
+import { Alcance } from "./alcance";
 import { EditorTexto } from "./editor-texto";
 import { EstadoNoticiaEtiqueta, ICONO_FORMATO, formatearFecha } from "./estado-noticia";
 import { VistaPreviaNoticia } from "./vista-previa-noticia";
@@ -123,7 +125,13 @@ function opcionesHora(actual: string) {
 type Guardado = { estado: "guardado" | "pendiente" | "guardando" | "error"; en?: string };
 
 /** `categorias`: los valores activos del catálogo (más el actual, si ya no lo está). */
-export function EditorNoticia({ noticia, categorias }: { noticia: Noticia; categorias: string[] }) {
+export function EditorNoticia({
+  noticia,
+  categorias,
+}: {
+  noticia: NoticiaConTotales;
+  categorias: string[];
+}) {
   const [campos, setCampos] = useState<CamposNoticia>(() => camposDe(noticia));
   const [estado, setEstado] = useState<EstadoNoticia>(noticia.estado);
   const [publicarEl, setPublicarEl] = useState(noticia.publicarEl);
@@ -936,7 +944,7 @@ function PanelPublicacion({
 }: {
   estado: EstadoNoticia;
   publicarEl?: string;
-  noticia: Noticia;
+  noticia: NoticiaConTotales;
   ocupado: boolean;
   sucio: boolean;
   guardando: boolean;
@@ -1043,10 +1051,21 @@ function PanelPublicacion({
         <dd className="text-tinta">{formatearFecha(noticia.creadoEl, true)}</dd>
         <dt className="text-gris">Dirección</dt>
         <dd className="min-w-0 truncate text-tinta">/noticias/{noticia.slug}</dd>
+        {noticia.totales && (
+          <>
+            <dt className="text-gris">En el portal</dt>
+            <dd className="min-w-0">
+              <Alcance totales={noticia.totales} />
+            </dd>
+          </>
+        )}
       </dl>
     </div>
   );
 }
+
+/** La noticia con sus vistas y reacciones en el portal (con la API vienen en la respuesta). */
+type NoticiaConTotales = Noticia & { totales?: ConteoDia };
 
 const CONFIRMACION: Record<
   Exclude<CambioEstado, "programar">,

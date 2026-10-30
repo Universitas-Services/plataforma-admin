@@ -4,6 +4,7 @@ import { refresh, revalidatePath } from "next/cache";
 import {
   cambiarActivoItem,
   cambiarActivoMiembro,
+  anonimizarCiudadano,
   cambiarMembresia,
   editarRoles,
   eliminarFase,
@@ -25,6 +26,9 @@ import {
   type TipoCatalogo,
 } from "./tipos";
 import { usaApi } from "@/lib/api/cliente";
+import { activarApi, invitarApi, reenviarInvitacionApi, rolesApi } from "@/lib/api/equipo";
+import { anonimizarApi, cuentaApi } from "@/lib/api/ciudadanos";
+import { verificarBitacoraApi } from "@/lib/api/bitacora";
 import { activarItemApi, guardarItemApi, moverItemApi } from "@/lib/api/catalogos";
 import { eliminarFaseApi, faseActualApi, guardarFaseApi, moverFaseApi } from "@/lib/api/proceso";
 
@@ -66,16 +70,20 @@ export async function invitarMiembroAccion(correo: string, roles: string[]): Pro
       mensaje: "Revisa el correo.",
       errores: { correo: "Escribe un correo válido." },
     };
-  const r = invitarMiembro(almacen(), await idSesion(), limpio, roles);
+  const r = usaApi()
+    ? await invitarApi(limpio.toLowerCase(), roles)
+    : invitarMiembro(almacen(), await idSesion(), limpio, roles);
   switch (r.estado) {
     case "OK":
       purgar("/equipo");
       return {
         ok: true,
-        mensaje: r.token
-          ? `Invitación enviada a ${limpio.toLowerCase()}. Vence en 72 horas.`
-          : `${limpio.toLowerCase()} ya tenía cuenta: lo agregamos al equipo.`,
-        enlace: enlaceInvitacion(r.token),
+        // Con la API siempre sale una invitación por correo.
+        mensaje:
+          usaApi() || ("token" in r && !!r.token)
+            ? `Invitación enviada a ${limpio.toLowerCase()}. Vence en 72 horas.`
+            : `${limpio.toLowerCase()} ya tenía cuenta: lo agregamos al equipo.`,
+        enlace: "token" in r ? enlaceInvitacion(r.token as string | undefined) : undefined,
       };
     case "SIN_ROLES":
       return {
@@ -89,6 +97,12 @@ export async function invitarMiembroAccion(correo: string, roles: string[]): Pro
         mensaje: "Esa persona ya es parte del equipo.",
         errores: { correo: "Ya es parte del equipo de esta alcaldía." },
       };
+    case "ES_CIUDADANO":
+      return {
+        ok: false,
+        mensaje: "Ese correo ya tiene una cuenta de ciudadano.",
+        errores: { correo: "Usa otro correo: este es de una cuenta del portal." },
+      };
     default:
       return COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
   }
@@ -101,14 +115,18 @@ const NO_EDITABLE: Record<string, Respuesta> = {
 };
 
 export async function editarRolesAccion(usuarioId: string, roles: string[]): Promise<Respuesta> {
-  const r = editarRoles(almacen(), await idSesion(), usuarioId, roles);
+  const r = usaApi()
+    ? await rolesApi(usuarioId, roles)
+    : editarRoles(almacen(), await idSesion(), usuarioId, roles);
   if (r.estado !== "OK") return NO_EDITABLE[r.estado] ?? COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
   purgar("/equipo");
   return { ok: true, mensaje: "Roles actualizados." };
 }
 
 export async function activarMiembroAccion(usuarioId: string, activo: boolean): Promise<Respuesta> {
-  const r = cambiarActivoMiembro(almacen(), await idSesion(), usuarioId, activo);
+  const r = usaApi()
+    ? await activarApi(usuarioId, activo)
+    : cambiarActivoMiembro(almacen(), await idSesion(), usuarioId, activo);
   if (r.estado !== "OK") return NO_EDITABLE[r.estado] ?? COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
   purgar("/equipo");
   return {
@@ -117,14 +135,22 @@ export async function activarMiembroAccion(usuarioId: string, activo: boolean): 
   };
 }
 
-export async function reenviarInvitacionAccion(usuarioId: string): Promise<Respuesta> {
-  const r = reenviarInvitacionMiembro(almacen(), await idSesion(), usuarioId);
+/** Con la API se reenvía con el id de la invitación pendiente (`invitacionId`). */
+export async function reenviarInvitacionAccion(
+  usuarioId: string,
+  invitacionId?: string,
+): Promise<Respuesta> {
+  if (usaApi() && !invitacionId) return COMUNES.NO_EXISTE!;
+  const r =
+    usaApi() && invitacionId
+      ? await reenviarInvitacionApi(invitacionId)
+      : reenviarInvitacionMiembro(almacen(), await idSesion(), usuarioId);
   if (r.estado !== "OK") return NO_EDITABLE[r.estado] ?? COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
   purgar("/equipo");
   return {
     ok: true,
     mensaje: "Invitación reenviada. El enlace anterior dejó de valer.",
-    enlace: enlaceInvitacion(r.token),
+    enlace: "token" in r ? enlaceInvitacion(r.token as string | undefined) : undefined,
   };
 }
 
@@ -135,13 +161,17 @@ export async function membresiaAccion(
   estado: "ACTIVA" | "SUSPENDIDA",
   motivo: string,
 ): Promise<Respuesta> {
-  const r = cambiarMembresia(almacen(), await idSesion(), id, estado, motivo);
+  const r = usaApi()
+    ? await cuentaApi(id, estado, motivo)
+    : cambiarMembresia(almacen(), await idSesion(), id, estado, motivo);
   if (r.estado === "SIN_MOTIVO")
     return {
       ok: false,
       mensaje: "Explica el motivo.",
-      errores: { motivo: `Escribe al menos ${MOTIVO_MIN} caracteres.` },
+      errores: { motivo: `Escribe de ${MOTIVO_MIN} a 500 caracteres.` },
     };
+  if (r.estado === "ANONIMIZADA")
+    return { ok: false, mensaje: "La cuenta está anonimizada: ya no se puede suspender." };
   if (r.estado !== "OK") return COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
   purgar("/ciudadanos");
   return {
@@ -150,6 +180,25 @@ export async function membresiaAccion(
       estado === "SUSPENDIDA"
         ? "Cuenta suspendida: no podrá iniciar sesión ni participar."
         : "Cuenta reactivada.",
+  };
+}
+
+/**
+ * Atiende la baja que pidió el ciudadano: anonimiza la cuenta (no se puede deshacer). Sus
+ * aportes se conservan con su folio.
+ */
+export async function anonimizarAccion(id: string): Promise<Respuesta> {
+  const r = usaApi()
+    ? await anonimizarApi(id)
+    : anonimizarCiudadano(almacen(), await idSesion(), id);
+  if (r.estado === "SIN_BAJA")
+    return { ok: false, mensaje: "Solo se anonimiza una cuenta que pidió la baja." };
+  if (r.estado === "ANONIMIZADA") return { ok: false, mensaje: "La cuenta ya estaba anonimizada." };
+  if (r.estado !== "OK") return COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
+  purgar("/ciudadanos");
+  return {
+    ok: true,
+    mensaje: "Cuenta anonimizada: se borraron sus datos personales; sus aportes se conservan.",
   };
 }
 
@@ -288,6 +337,19 @@ export async function eliminarFaseAccion(id: string): Promise<Respuesta> {
 /* ---------- Bitácora ---------- */
 
 export async function verificarIntegridadAccion(): Promise<Respuesta> {
+  if (usaApi()) {
+    const r = await verificarBitacoraApi();
+    if (r.estado !== "OK") return COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
+    return r.ok
+      ? {
+          ok: true,
+          mensaje: `Cadena íntegra: revisamos ${r.revisados.toLocaleString("es-VE")} eventos y ninguno fue alterado.`,
+        }
+      : {
+          ok: false,
+          mensaje: `La cadena se rompe en el evento n.º ${r.primerAlteradoSeq ?? "?"}: revisa la bitácora.`,
+        };
+  }
   const c = await getContexto();
   if (!c?.alcaldia || !c.permisos.has("bitacora.ver")) return COMUNES.SIN_PERMISO!;
   const r = verificarIntegridad(almacen());

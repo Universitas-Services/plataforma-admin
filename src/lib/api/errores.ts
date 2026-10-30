@@ -37,6 +37,16 @@ export function mensajeDeError(e: unknown): string {
     case "TOKEN_EXPIRED":
     case "INVALID_TOKEN":
       return "El permiso de subida venció. Vuelve a elegir el archivo.";
+    case "YA_ES_MIEMBRO":
+      return "Esa persona ya es parte del equipo.";
+    case "IDENTITY_CONFLICT":
+      return (e.details as { field?: string } | undefined)?.field === "cedula"
+        ? "Esta cédula ya pertenece a otra cuenta."
+        : "Ese correo ya tiene una cuenta de ciudadano.";
+    case "A_TI_MISMO":
+      return "No puedes cambiar tus propios roles ni desactivarte.";
+    case "ES_ADMIN":
+      return "Los administradores se gestionan desde la plataforma.";
     case "MEDIO_AJENO":
       return "Uno de los archivos no pertenece a esta alcaldía.";
     case "API_SIN_RESPUESTA":

@@ -1,3 +1,4 @@
+import { enmascararDocumento } from "./participaciones";
 import { type Permiso } from "./permisos";
 import {
   contextoDe,
@@ -56,6 +57,11 @@ export type Miembro = {
   roles: RolAlcaldia[];
   estado: EstadoMiembro;
   esYo: boolean;
+  /* Con plataforma-api (guía R13). */
+  /** Id de la invitación pendiente: con él se reenvía. */
+  invitacionId?: string;
+  invitacionVencida?: boolean;
+  ultimoAcceso?: string;
 };
 
 function estadoMiembro(u: UsuarioInterno): EstadoMiembro {
@@ -234,28 +240,41 @@ export function reenviarInvitacionMiembro(
 
 /* ---------- Ciudadanos (2.11) ---------- */
 
-/** «V-12345678» → «V-•••••678»: la cédula completa solo se ve en el detalle. */
-export function enmascarar(documento?: string) {
-  if (!documento) return "";
-  const [letra, ...resto] = documento.split("-");
-  const numero = resto.join("-").replace(/\D/g, "");
-  return `${letra}-${"•".repeat(Math.max(0, numero.length - 3))}${numero.slice(-3)}`;
-}
+/**
+ * «V-12345678» → «V-12.***.678», como la API: la cédula completa solo se ve en el detalle.
+ */
+export const enmascarar = (documento?: string) => enmascararDocumento(documento);
+
+export const ORDENES_CIUDADANOS = {
+  recientes: "Más recientes",
+  antiguos: "Más antiguos",
+  nombre: "Por nombre",
+} as const;
 
 export type FiltrosCiudadanos = {
   tipo?: "NATURAL" | "ORGANIZACION";
   perfil?: "COMPLETO" | "INCOMPLETO";
   membresia?: "ACTIVA" | "SUSPENDIDA";
+  /** Bajas pedidas (por atender) o ya anonimizadas. */
+  baja?: "solicitada" | "anonimizada";
   q?: string;
+  orden?: keyof typeof ORDENES_CIUDADANOS;
 };
 
 /** Lee los filtros de la URL; los usa también la exportación a CSV. */
 export function filtrosCiudadanos(leer: (k: string) => string | undefined): FiltrosCiudadanos {
+  const orden = leer("orden");
   return {
     tipo: (["NATURAL", "ORGANIZACION"] as const).find((t) => t === leer("tipo")),
     perfil: (["COMPLETO", "INCOMPLETO"] as const).find((p) => p === leer("perfil")),
     membresia: (["ACTIVA", "SUSPENDIDA"] as const).find((m) => m === leer("membresia")),
+    baja: (["solicitada", "anonimizada"] as const).find((b) => b === leer("baja")),
     q: leer("q")?.trim().slice(0, 80) || undefined,
+    // «Más recientes» es el orden de siempre: no hace falta en la URL.
+    orden:
+      orden && orden !== "recientes" && Object.hasOwn(ORDENES_CIUDADANOS, orden)
+        ? (orden as keyof typeof ORDENES_CIUDADANOS)
+        : undefined,
   };
 }
 
@@ -269,11 +288,21 @@ export function ciudadanosDe(alm: Almacen, alcaldiaId: string, f: FiltrosCiudada
         (!f.tipo || c.tipo === f.tipo) &&
         (!f.perfil || c.perfilCompleto === (f.perfil === "COMPLETO")) &&
         (!f.membresia || c.membresia.estado === f.membresia) &&
+        (!f.baja ||
+          (f.baja === "solicitada"
+            ? !!c.bajaSolicitadaEl && !c.anonimizadoEl
+            : !!c.anonimizadoEl)) &&
         (!q ||
           plano(`${c.nombre} ${c.correo}`).includes(q) ||
           (digitos.length >= 4 && (c.cedula ?? c.rif ?? "").replace(/\D/g, "").includes(digitos))),
     )
-    .sort((a, b) => b.registradoEl.localeCompare(a.registradoEl));
+    .sort((a, b) =>
+      f.orden === "nombre"
+        ? a.nombre.localeCompare(b.nombre, "es")
+        : f.orden === "antiguos"
+          ? a.registradoEl.localeCompare(b.registradoEl)
+          : b.registradoEl.localeCompare(a.registradoEl),
+    );
 }
 
 export function ciudadanoDe(alm: Almacen, alcaldiaId: string, id: string) {
@@ -296,18 +325,21 @@ export function cambiarMembresia(
   estado: "ACTIVA" | "SUSPENDIDA",
   motivo?: string,
   ahora = Date.now(),
-): { estado: "OK" | Error | "NO_EXISTE" | "SIN_MOTIVO" } {
+): { estado: "OK" | Error | "NO_EXISTE" | "SIN_MOTIVO" | "ANONIMIZADA" } {
   const r = autorizado(alm, sesion, "ciudadanos.suspender");
   if ("error" in r) return { estado: r.error! };
   const c = ciudadanoDe(alm, r.c.alcaldia.id, id);
   if (!c) return { estado: "NO_EXISTE" };
+  if (c.anonimizadoEl) return { estado: "ANONIMIZADA" };
   const texto = motivo?.trim() ?? "";
-  if (texto.length < MOTIVO_MIN) return { estado: "SIN_MOTIVO" };
+  // Como la API: el motivo es obligatorio al suspender; al reactivar, opcional.
+  if (estado === "SUSPENDIDA" ? texto.length < MOTIVO_MIN : texto && texto.length < MOTIVO_MIN)
+    return { estado: "SIN_MOTIVO" };
   const antes = { ...c.membresia };
   c.membresia = {
     estado,
     desde: new Date(ahora).toISOString(),
-    motivo: texto,
+    ...(texto ? { motivo: texto.slice(0, 500) } : {}),
   };
   registrar(
     alm,
@@ -324,9 +356,49 @@ export function cambiarMembresia(
   return { estado: "OK" };
 }
 
+/**
+ * Atiende la baja que pidió el ciudadano: borra sus datos personales y sus documentos. Sus
+ * aportes se conservan con su folio. Solo si la pidió, como en la API.
+ */
+export function anonimizarCiudadano(
+  alm: Almacen,
+  sesion: string | undefined,
+  id: string,
+  ahora = Date.now(),
+): { estado: "OK" | Error | "NO_EXISTE" | "SIN_BAJA" | "ANONIMIZADA" } {
+  const r = autorizado(alm, sesion, "ciudadanos.suspender");
+  if ("error" in r) return { estado: r.error! };
+  const c = ciudadanoDe(alm, r.c.alcaldia.id, id);
+  if (!c) return { estado: "NO_EXISTE" };
+  if (c.anonimizadoEl) return { estado: "ANONIMIZADA" };
+  if (!c.bajaSolicitadaEl) return { estado: "SIN_BAJA" };
+  Object.assign(c, {
+    nombre: "Cuenta anonimizada",
+    correo: "",
+    cedula: undefined,
+    rif: undefined,
+    telefono: undefined,
+    ocupacion: undefined,
+    representante: undefined,
+    documentos: [],
+    anonimizadoEl: new Date(ahora).toISOString(),
+  });
+  registrar(
+    alm,
+    {
+      actorId: r.c.usuario.id,
+      alcaldiaId: c.alcaldiaId,
+      accion: "CUENTA_ANONIMIZADA",
+      entidad: `ciudadano:${c.id}`,
+    },
+    ahora,
+  );
+  return { estado: "OK" };
+}
+
 export function csvCiudadanos(lista: Ciudadano[]) {
   return csv([
-    ["Nombre", "Tipo", "Documento", "Correo", "Teléfono", "Perfil", "Membresía", "Registrado"],
+    ["Nombre", "Tipo", "Documento", "Correo", "Teléfono", "Perfil", "Cuenta", "Registrado"],
     ...lista.map((c) => [
       c.nombre,
       c.tipo === "NATURAL" ? "Persona natural" : "Organización",
@@ -681,6 +753,7 @@ const NOMBRE_ACCION: Record<string, string> = {
   INICIO_SESION: "Inicio de sesión",
   INVITACION_ACEPTADA: "Invitación aceptada",
   INVITACION_REENVIADA: "Invitación reenviada",
+  CUENTA_ANONIMIZADA: "Cuenta anonimizada",
   MEMBRESIA_REACTIVADA: "Membresía reactivada",
   MEMBRESIA_SUSPENDIDA: "Membresía suspendida",
   MIEMBRO_ROLES: "Roles del miembro cambiados",

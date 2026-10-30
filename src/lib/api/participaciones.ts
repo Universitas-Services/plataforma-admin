@@ -1,5 +1,5 @@
 import "server-only";
-import { ErrorApi, pedirApi } from "./cliente";
+import { conBom, ErrorApi, pedirApi } from "./cliente";
 import { tokensDeCookie } from "./sesion-api";
 import { ALCALDIA } from "@/config/alcaldia";
 import {
@@ -31,6 +31,8 @@ export type FilaApi = {
   tipo: TipoParticipacion;
   estado: EstadoParticipacion;
   recibidaEl: string;
+  /** Desde cuándo está en su estado actual (o `recibidaEl` si nunca cambió). */
+  estadoDesde?: string;
   publicadaEl?: string;
   noticia?: { slug: string; titulo: string };
   parroquia: string;
@@ -52,10 +54,7 @@ type DetalleApi = Omit<Participacion, "alcaldiaId" | "ejemplo" | "historial"> & 
 
 const DIA = 86_400_000;
 
-/**
- * La fila de la bandeja. Los días se cuentan desde la recepción: la fila de la API aún no dice
- * desde cuándo está en su estado (pedido a la API: `estadoDesde`).
- */
+/** La fila de la bandeja: los días son los que lleva en su estado actual (`estadoDesde`). */
 export const filaDeApi = (f: FilaApi, ahora = Date.now()): ParticipacionDemo => ({
   folio: f.folio,
   tipo: TIPOS_PARTICIPACION[f.tipo],
@@ -63,7 +62,7 @@ export const filaDeApi = (f: FilaApi, ahora = Date.now()): ParticipacionDemo => 
   autor: f.autor.nombre,
   parroquia: f.parroquia,
   categoriaTecnica: f.categoriaTecnica,
-  dias: Math.max(0, Math.floor((ahora - Date.parse(f.recibidaEl)) / DIA)),
+  dias: Math.max(0, Math.floor((ahora - Date.parse(f.estadoDesde ?? f.recibidaEl)) / DIA)),
   recibida: cuandoRecibida(f.recibidaEl, ahora),
   estado: f.estado,
 });
@@ -259,8 +258,7 @@ export async function exportarCsvApi(f: FiltrosBandeja) {
       token: t,
       crudo: true,
     });
-    // Leer el cuerpo como texto quita el BOM, y sin él Excel no lee bien las tildes.
-    return { estado: "OK" as const, csv: csv.startsWith("﻿") ? csv : `﻿${csv}` };
+    return { estado: "OK" as const, csv: conBom(csv) };
   } catch (e) {
     return { estado: comun(e) };
   }

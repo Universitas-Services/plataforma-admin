@@ -230,6 +230,20 @@ export type Ciudadano = {
   membresia: { estado: "ACTIVA" | "SUSPENDIDA"; desde: string; motivo?: string };
   registradoEl: string;
   ejemplo?: boolean;
+  /** Pidió la baja desde el portal: el panel la atiende anonimizando la cuenta. */
+  bajaSolicitadaEl?: string;
+  /** Cuenta anonimizada: sin datos personales; sus aportes se conservan con su folio. */
+  anonimizadoEl?: string;
+  /* Con plataforma-api (guía R13). */
+  /** Cédula o RIF ya enmascarados («V-12.***.678»), como los da la lista de la API. */
+  documento?: string;
+  /** Aportes del ciudadano (detalle de la API). */
+  participaciones?: {
+    folio: string;
+    tipo: TipoParticipacion;
+    estado: EstadoParticipacion;
+    recibidaEl: string;
+  }[];
 };
 
 export const TIPOS_CATALOGO = {

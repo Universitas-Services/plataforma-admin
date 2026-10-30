@@ -77,6 +77,11 @@ export async function pedirApi<T>(ruta: string, o: Opciones = {}): Promise<T> {
   return datos as T;
 }
 
+/**
+ * Un CSV leído como texto pierde el BOM, y sin él Excel no lee bien las tildes: se repone.
+ */
+export const conBom = (csv: string) => (csv.startsWith("﻿") ? csv : `﻿${csv}`);
+
 /** El error de una respuesta no exitosa, con el formato único de la API si viene. */
 function errorDe(status: number, texto: string) {
   let e: Partial<{ code: string; message: string; details: unknown; requestId: string }> = {};

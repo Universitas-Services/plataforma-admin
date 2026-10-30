@@ -8,6 +8,8 @@ import { EsqueletoEditor } from "@/components/ui/esqueletos";
 import { usaApi } from "@/lib/api/cliente";
 import { obtenerNoticiaApi } from "@/lib/api/noticias";
 import { obtenerNoticia } from "@/lib/plataforma/contenido";
+import { totalesDe } from "@/lib/plataforma/inicio";
+import type { ConteoDia } from "@/lib/plataforma/tipos";
 import { idsPrerender } from "@/lib/plataforma/servicio";
 import { almacen, exigirEnAlcaldia, idSesion } from "@/lib/plataforma/sesion";
 import { noticiasDemo } from "@/lib/plataforma/fixtures-contenido";
@@ -41,7 +43,14 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
     : obtenerNoticia(almacen(), await idSesion(), id);
   if (r.estado !== "OK") notFound();
   const categorias = await valoresActivos("categoriasNoticias", ctx.alcaldia.id);
+  // Vistas y reacciones: con la API vienen en la noticia; en la simulación, del almacén.
+  const totales: ConteoDia | undefined = usaApi()
+    ? (r.noticia as { totales?: ConteoDia }).totales
+    : totalesDe(almacen(), `noticia:${r.noticia.id}`);
   return (
-    <EditorNoticia noticia={r.noticia} categorias={conActual(categorias, r.noticia.categoria)} />
+    <EditorNoticia
+      noticia={{ ...r.noticia, totales }}
+      categorias={conActual(categorias, r.noticia.categoria)}
+    />
   );
 }

@@ -19,6 +19,10 @@ const textos = await import("./textos-legales");
 const catalogos = await import("./catalogos");
 const noticias = await import("./noticias");
 const participaciones = await import("./participaciones");
+const acceso = await import("./acceso");
+const equipo = await import("./equipo");
+const ciudadanos = await import("./ciudadanos");
+const bitacora = await import("./bitacora");
 const { reflejarUsuario } = await import("./sesion-api");
 const { abrirSello, sellar } = await import("./sello");
 const { esMedioApi } = await import("@/lib/contenido/medio-api");
@@ -740,6 +744,12 @@ describe("Participaciones contra la API (R11)", () => {
       tipo: "Propuesta formal",
       dias: 2,
     });
+    // Con `estadoDesde`, los días son los del estado actual, no desde la recepción.
+    const enRevision = participaciones.filaDeApi(
+      { ...FILA, estadoDesde: "2026-10-31T13:00:00.000Z" } as never,
+      Date.parse("2026-11-01T12:00:00Z"),
+    );
+    expect(enRevision.dias).toBe(0);
   });
 
   it("el detalle trae quién y con su nombre; los 404 son NO_EXISTE", async () => {
@@ -825,5 +835,254 @@ describe("Participaciones contra la API (R11)", () => {
       estado: "OK",
       csv,
     });
+  });
+});
+
+describe("Acceso del personal contra la API (R13)", () => {
+  it("traduce los estados de la invitación y acepta con la sesión", async () => {
+    const llamadas = simularFetch(
+      {
+        cuerpo: {
+          estado: "VALIDA",
+          email: "nuevo@iribarren.test",
+          roles: ["REVISOR"],
+          alcaldia: { codigo: "iribarren", nombre: "Alcaldía de Iribarren" },
+        },
+      },
+      { cuerpo: { estado: "REEMPLAZADA", alcaldia: { codigo: "x", nombre: "y" } } },
+      { cuerpo: { accessToken: "a", refreshToken: "r", expiresIn: 900, user: { id: "u" } } },
+      {
+        status: 409,
+        cuerpo: { code: "IDENTITY_CONFLICT", message: "x", details: { field: "cedula" } },
+      },
+      { status: 400, cuerpo: { code: "INVALID_TOKEN", message: "x" } },
+    );
+    expect(await acceso.verInvitacionApi("t1")).toMatchObject({
+      estado: "OK",
+      correo: "nuevo@iribarren.test",
+      roles: ["REVISOR"],
+      alcaldia: "Alcaldía de Iribarren",
+    });
+    expect((await acceso.verInvitacionApi("t2")).estado).toBe("REEMPLAZADA");
+    expect((await acceso.verInvitacionApi("")).estado).toBe("INVALIDO");
+    const datos = {
+      cedula: "V-12345678",
+      nombres: "Ana",
+      apellidos: "Pérez",
+      contrasena: "Una-clave-larga1",
+    };
+    expect((await acceso.aceptarInvitacionApi("t1", datos)).estado).toBe("OK");
+    expect(JSON.parse(String(llamadas[2]!.init.body))).toEqual({
+      token: "t1",
+      cedula: "V-12345678",
+      nombres: "Ana",
+      apellidos: "Pérez",
+      password: "Una-clave-larga1",
+    });
+    expect(new Headers(llamadas[2]!.init.headers).has("x-client-id")).toBe(false);
+    expect((await acceso.aceptarInvitacionApi("t1", datos)).estado).toBe("CEDULA_EN_USO");
+    expect((await acceso.aceptarInvitacionApi("t1", datos)).estado).toBe("INVALIDA");
+  });
+
+  it("restablecer dice por qué el enlace no sirve", async () => {
+    simularFetch(
+      { cuerpo: { estado: "VENCIDO" } },
+      { status: 204 },
+      {
+        status: 400,
+        cuerpo: { code: "INVALID_TOKEN", message: "x", details: { estado: "USADO" } },
+      },
+    );
+    expect(await acceso.estadoRestablecerApi("t")).toBe("VENCIDO");
+    expect(await acceso.restablecerApi("t", "Una-clave-larga1")).toBe("OK");
+    expect(await acceso.restablecerApi("t", "Una-clave-larga1")).toBe("USADO");
+  });
+});
+
+describe("Equipo contra la API (R13)", () => {
+  it("lista con INACTIVO como DESACTIVADO y la invitación pendiente", async () => {
+    const llamadas = simularFetch({
+      cuerpo: {
+        data: [
+          {
+            id: "m1",
+            nombre: "Luis Pérez",
+            correo: "luis@iribarren.test",
+            roles: ["OPERADOR"],
+            estado: "INACTIVO",
+            ultimoAcceso: "2026-10-28T12:00:00.000Z",
+            esYo: false,
+          },
+          {
+            id: "m2",
+            nombre: null,
+            correo: "nueva@iribarren.test",
+            roles: ["REVISOR"],
+            estado: "INVITADO",
+            ultimoAcceso: null,
+            esYo: false,
+            invitacion: { id: "inv-9", expiraEl: "x", vencida: true },
+          },
+        ],
+        meta: { page: 1, totalPages: 1, conteos: { INVITADO: 1, ACTIVO: 3, INACTIVO: 1 } },
+      },
+    });
+    const r = await equipo.listarEquipoApi({ estado: "DESACTIVADO", q: "luis" });
+    expect(new URL(llamadas[0]!.url).searchParams.get("estado")).toBe("INACTIVO");
+    if (r.estado !== "OK") throw new Error(r.estado);
+    expect(r.miembros[0]).toMatchObject({
+      estado: "DESACTIVADO",
+      ultimoAcceso: "2026-10-28T12:00:00.000Z",
+    });
+    expect(r.miembros[1]).toMatchObject({
+      nombre: "nueva@iribarren.test",
+      invitacionId: "inv-9",
+      invitacionVencida: true,
+    });
+    expect(r.conteos).toEqual({ ACTIVO: 3, INVITADO: 1, DESACTIVADO: 1 });
+  });
+
+  it("reenvía con el id de la invitación y traduce los errores", async () => {
+    const llamadas = simularFetch(
+      { status: 204 },
+      { status: 409, cuerpo: { code: "YA_ES_MIEMBRO", message: "x" } },
+      {
+        status: 409,
+        cuerpo: { code: "IDENTITY_CONFLICT", message: "x", details: { field: "email" } },
+      },
+      { status: 403, cuerpo: { code: "A_TI_MISMO", message: "x" } },
+      { status: 403, cuerpo: { code: "ES_ADMIN", message: "x" } },
+      { status: 400, cuerpo: { code: "VALIDATION_ERROR", message: "x" } },
+    );
+    expect((await equipo.reenviarInvitacionApi("inv-9")).estado).toBe("OK");
+    expect(llamadas[0]!.url).toBe(`${API}/admin/staff/invitations/inv-9/resend`);
+    expect((await equipo.invitarApi("a@b.test", ["REVISOR"])).estado).toBe("YA_ES_MIEMBRO");
+    expect((await equipo.invitarApi("a@b.test", ["REVISOR"])).estado).toBe("ES_CIUDADANO");
+    expect((await equipo.activarApi("m1", false)).estado).toBe("A_TI_MISMO");
+    expect((await equipo.rolesApi("m1", ["REVISOR"])).estado).toBe("ES_ADMIN");
+    expect((await equipo.rolesApi("m1", [])).estado).toBe("SIN_ROLES");
+    expect(JSON.parse(String(llamadas[3]!.init.body))).toEqual({ activo: false });
+    expect(llamadas[3]!.init.method).toBe("PATCH");
+  });
+});
+
+describe("Ciudadanos contra la API (R13)", () => {
+  const FILA = {
+    id: "c1",
+    tipo: "NATURAL",
+    nombre: "Ana Pérez",
+    correo: "ana@ejemplo.com",
+    documento: "V-14.***.890",
+    perfilEstado: "INCOMPLETO",
+    cuenta: { estado: "ACTIVA", desde: "2026-10-01T00:00:00.000Z" },
+    bajaSolicitadaEl: "2026-10-28T00:00:00.000Z",
+    registradoEl: "2026-10-01T00:00:00.000Z",
+  };
+
+  it("lista con cuenta en vez de membresía y cuenta las bajas pedidas", async () => {
+    const llamadas = simularFetch(
+      {
+        cuerpo: {
+          data: [FILA],
+          meta: { page: 1, total: 1, totalPages: 1, conteos: { ACTIVA: 1, SUSPENDIDA: 0 } },
+        },
+      },
+      { cuerpo: { data: [FILA], meta: { page: 1, total: 4, totalPages: 4, conteos: {} } } },
+    );
+    const r = await ciudadanos.listarCiudadanosApi({ membresia: "ACTIVA", orden: "nombre" });
+    const q = new URL(llamadas[0]!.url).searchParams;
+    expect(q.get("cuenta")).toBe("ACTIVA");
+    expect(q.get("sort")).toBe("nombre");
+    expect(q.has("membresia")).toBe(false);
+    if (r.estado !== "OK") throw new Error(r.estado);
+    expect(r.bajas).toBe(4);
+    expect(r.items[0]).toMatchObject({
+      perfilCompleto: false,
+      membresia: { estado: "ACTIVA" },
+      documento: "V-14.***.890",
+      bajaSolicitadaEl: FILA.bajaSolicitadaEl,
+    });
+  });
+
+  it("suspende con motivo, reactiva sin él y anonimiza solo con la baja pedida", async () => {
+    const llamadas = simularFetch(
+      { cuerpo: {} },
+      { cuerpo: {} },
+      { status: 400, cuerpo: { code: "VALIDATION_ERROR", message: "x" } },
+      { status: 422, cuerpo: { code: "INVALID_TRANSITION", message: "x" } },
+      { cuerpo: {} },
+      { cuerpo: { url: "https://storage.ejemplo.test/cedula.pdf?firma", expiraEl: "x" } },
+    );
+    expect(
+      (await ciudadanos.cuentaApi("c1", "SUSPENDIDA", " Uso indebido del portal ")).estado,
+    ).toBe("OK");
+    expect(JSON.parse(String(llamadas[0]!.init.body))).toEqual({
+      estado: "SUSPENDIDA",
+      motivo: "Uso indebido del portal",
+    });
+    await ciudadanos.cuentaApi("c1", "ACTIVA", "");
+    expect(JSON.parse(String(llamadas[1]!.init.body))).toEqual({ estado: "ACTIVA" });
+    expect((await ciudadanos.cuentaApi("c1", "SUSPENDIDA", "x")).estado).toBe("SIN_MOTIVO");
+    expect((await ciudadanos.anonimizarApi("c1")).estado).toBe("SIN_BAJA");
+    expect((await ciudadanos.anonimizarApi("c1")).estado).toBe("OK");
+    expect(llamadas[4]!.url).toBe(`${API}/admin/citizens/c1/deletion`);
+    expect(JSON.parse(String(llamadas[4]!.init.body))).toEqual({ accion: "ANONIMIZAR" });
+    expect(await ciudadanos.urlDocumentoCiudadanoApi("c1", "d1")).toEqual({
+      estado: "OK",
+      url: "https://storage.ejemplo.test/cedula.pdf?firma",
+    });
+    expect(llamadas[5]!.url).toBe(`${API}/admin/citizens/c1/documents/d1/url`);
+  });
+
+  it("el CSV conserva el BOM", async () => {
+    vi.stubGlobal("fetch", async () => new Response("Nombre;Tipo\r\n", { status: 200 }));
+    const r = await ciudadanos.exportarCiudadanosApi({});
+    expect(r.estado === "OK" && r.csv.startsWith("\uFEFF")).toBe(true);
+  });
+});
+
+describe("Bitácora contra la API (R13)", () => {
+  it("lista con las opciones de los filtros y verifica la cadena", async () => {
+    const llamadas = simularFetch(
+      {
+        cuerpo: {
+          data: [
+            {
+              id: "e1",
+              seq: 41,
+              fecha: "2026-10-29T12:00:00.000Z",
+              actor: null,
+              accion: "LOGIN_SUCCESS",
+              accionNombre: "Inicio de sesión",
+              entidad: "users",
+              entidadId: "u1",
+              hashPrevio: "a",
+              hash: "b",
+            },
+          ],
+          meta: { page: 1, total: 1, totalPages: 1 },
+        },
+      },
+      { cuerpo: { data: [{ codigo: "LOGIN_SUCCESS", nombre: "Inicio de sesión", eventos: 3 }] } },
+      { cuerpo: { data: [{ id: "u1", nombre: "María", roles: ["REVISOR"] }] } },
+      { cuerpo: { ok: false, revisados: 41, primerAlterado: "e1", primerAlteradoSeq: 41 } },
+      { status: 400, cuerpo: { code: "VALIDATION_ERROR", message: "x" } },
+    );
+    const r = await bitacora.listarBitacoraApi({ entidad: "users", desde: "2026-10-01" });
+    expect(new URL(llamadas[0]!.url).searchParams.get("entidad")).toBe("users");
+    if (r.estado !== "OK") throw new Error(r.estado);
+    expect(r.eventos[0]!.accionNombre).toBe("Inicio de sesión");
+    expect(r.acciones[0]!.codigo).toBe("LOGIN_SUCCESS");
+    expect(r.actores[0]!.nombre).toBe("María");
+    expect(await bitacora.verificarBitacoraApi()).toMatchObject({
+      estado: "OK",
+      ok: false,
+      primerAlteradoSeq: 41,
+    });
+    expect(llamadas[3]!.init.method).toBe("POST");
+    simularFetch({ status: 400, cuerpo: { code: "VALIDATION_ERROR", message: "x" } });
+    expect((await bitacora.listarBitacoraApi({ actor: "no-es-uuid" })).estado).toBe(
+      "FILTRO_INVALIDO",
+    );
   });
 });

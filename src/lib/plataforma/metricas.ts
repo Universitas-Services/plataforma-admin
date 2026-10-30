@@ -1,9 +1,10 @@
-import { NOMBRE_FORMATO, FORMATOS, type Formato } from "@/lib/contenido/tipos";
+import { NOMBRE_FORMATO, FORMATOS, type Formato, type Noticia } from "@/lib/contenido/tipos";
 import { nombreCompleto } from "./servicio";
 import { tieneSeguimiento } from "./participaciones";
 import {
   TIPOS_PARTICIPACION,
   type Almacen,
+  type Ciudadano,
   type ConteoDia,
   type Interaccion,
   type Participacion,
@@ -242,9 +243,63 @@ export type MetricasContenido = {
   publicadasEnRango: number;
   descargas: number;
   masDescargados: Fila[];
+  /**
+   * Con plataforma-api: las vistas y reacciones son totales acumulados (sin rango), y la serie
+   * diaria y las descargas llegan con R14.
+   */
+  sinRango?: boolean;
 };
 
-export function metricasContenido(alm: Almacen, alcaldiaId: string, r: Rango): MetricasContenido {
+/** Una noticia de la API con sus totales, para las métricas (guía R12). */
+export type NoticiaMetrica = Pick<
+  Noticia,
+  "id" | "titulo" | "estado" | "formato" | "publicadoEl"
+> & { totales?: ConteoDia };
+
+/** Con plataforma-api: totales acumulados de cada noticia, sin rango de fechas (R14). */
+function contenidoDeApi(noticias: NoticiaMetrica[], r: Rango): MetricasContenido {
+  const alcance = { vistas: 0, likes: 0, dislikes: 0 };
+  const vistas = new Map<string, number>();
+  const likes = new Map<string, number>();
+  const href = new Map<string, string>();
+  const porFormato = new Map<Formato, number>();
+  for (const n of noticias) {
+    const t = n.totales ?? { vistas: 0, likes: 0, dislikes: 0 };
+    alcance.vistas += t.vistas;
+    alcance.likes += t.likes;
+    alcance.dislikes += t.dislikes;
+    const titulo = n.titulo || "Sin título";
+    href.set(titulo, `/contenido/noticias/${n.id}`);
+    if (t.vistas) vistas.set(titulo, t.vistas);
+    if (t.likes) likes.set(titulo, t.likes);
+    if (n.estado === "PUBLICADO") porFormato.set(n.formato, (porFormato.get(n.formato) ?? 0) + 1);
+  }
+  const conHref = (f: Fila) => ({ ...f, href: href.get(f.nombre) });
+  return {
+    alcance,
+    serieVistas: [],
+    masVistas: ordenar(vistas, 5).map(conHref),
+    masValoradas: ordenar(likes, 5).map(conHref),
+    porFormato: FORMATOS.map((f) => ({ nombre: NOMBRE_FORMATO[f], valor: porFormato.get(f) ?? 0 })),
+    publicadasEnRango: noticias.filter((n) => {
+      if (!n.publicadoEl) return false;
+      const d = diaDe(Date.parse(n.publicadoEl));
+      return d >= r.desde && d <= r.hasta;
+    }).length,
+    descargas: 0,
+    masDescargados: [],
+    sinRango: true,
+  };
+}
+
+export function metricasContenido(
+  alm: Almacen,
+  alcaldiaId: string,
+  r: Rango,
+  /** Con plataforma-api: las noticias con sus totales. */
+  lista?: NoticiaMetrica[],
+): MetricasContenido {
+  if (lista) return contenidoDeApi(lista, r);
   const noticias = [...alm.noticias.values()].filter(
     (n) => n.alcaldiaId === alcaldiaId && !n.eliminadaEl,
   );
@@ -306,8 +361,14 @@ export type MetricasCiudadania = {
   suspendidos: number;
 };
 
-export function metricasCiudadania(alm: Almacen, alcaldiaId: string, r: Rango): MetricasCiudadania {
-  const todos = [...alm.ciudadanos.values()].filter((c) => c.alcaldiaId === alcaldiaId);
+export function metricasCiudadania(
+  alm: Almacen,
+  alcaldiaId: string,
+  r: Rango,
+  /** Con plataforma-api: los ciudadanos de la API. */
+  lista?: Ciudadano[],
+): MetricasCiudadania {
+  const todos = lista ?? [...alm.ciudadanos.values()].filter((c) => c.alcaldiaId === alcaldiaId);
   const porDiaRegistro = new Map<string, number>();
   for (const c of todos) sumar(porDiaRegistro, diaDe(Date.parse(c.registradoEl)));
   const nuevos = todos.filter((c) => {
@@ -385,10 +446,14 @@ export function csvMetricas(
       [s, "Días de respuesta (mediana)", p.diasRespuesta ?? ""],
       [s, "Opiniones recibidas", p.opiniones.recibidas],
       [s, "Opiniones publicadas", p.opiniones.publicadas],
-      [s, "Vistas de aportes publicados", p.alcance.vistas],
-      [s, "Me gusta en aportes", p.alcance.likes],
-      [s, "No me gusta en aportes", p.alcance.dislikes],
     );
+    // Con la API, la bandeja no trae los totales de cada aporte: llegan con R14.
+    if (!p.sinHistorial)
+      filas.push(
+        [s, "Vistas de aportes publicados", p.alcance.vistas],
+        [s, "Me gusta en aportes", p.alcance.likes],
+        [s, "No me gusta en aportes", p.alcance.dislikes],
+      );
     lista(s, "Tipo", p.porTipo);
     lista(s, "Parroquia", p.porParroquia);
     lista(s, "Categoría técnica", p.porCategoria);
@@ -399,11 +464,20 @@ export function csvMetricas(
     const s = "Contenido";
     filas.push(
       [s, "Noticias publicadas en el rango", c.publicadasEnRango],
-      [s, "Vistas de noticias", c.alcance.vistas],
-      [s, "Me gusta en noticias", c.alcance.likes],
-      [s, "No me gusta en noticias", c.alcance.dislikes],
-      [s, "Descargas de documentos", c.descargas],
+      // Con la API, totales acumulados (sin rango) hasta R14.
+      [s, c.sinRango ? "Vistas de noticias (acumuladas)" : "Vistas de noticias", c.alcance.vistas],
+      [
+        s,
+        c.sinRango ? "Me gusta en noticias (acumulados)" : "Me gusta en noticias",
+        c.alcance.likes,
+      ],
+      [
+        s,
+        c.sinRango ? "No me gusta en noticias (acumulados)" : "No me gusta en noticias",
+        c.alcance.dislikes,
+      ],
     );
+    if (!c.sinRango) filas.push([s, "Descargas de documentos", c.descargas]);
     lista(s, "Más vista", c.masVistas);
     lista(s, "Más valorada", c.masValoradas);
     lista(s, "Publicadas por formato", c.porFormato);
@@ -437,23 +511,31 @@ export function indicadoresDe(
   permisos: ReadonlySet<string>,
   r: Rango,
   ahora = Date.now(),
-  /** Con plataforma-api: las participaciones de la bandeja (ver `sinHistorial`). */
-  lista?: Participacion[],
+  /** Con plataforma-api: lo que se leyó de la API (ver `DatosApiTablero`). */
+  api?: DatosApiTablero,
 ) {
   return {
     participacion: permisos.has("metricas.participacion")
-      ? metricasParticipacion(alm, alcaldiaId, r, ahora, lista)
+      ? metricasParticipacion(alm, alcaldiaId, r, ahora, api?.participaciones)
       : undefined,
     contenido: permisos.has("metricas.contenido")
-      ? metricasContenido(alm, alcaldiaId, r)
+      ? metricasContenido(alm, alcaldiaId, r, api?.noticias)
       : undefined,
     ciudadania: permisos.has("metricas.ciudadania")
-      ? metricasCiudadania(alm, alcaldiaId, r)
+      ? metricasCiudadania(alm, alcaldiaId, r, api?.ciudadanos)
       : undefined,
-    // Las decisiones por revisor salen del historial: con la API llegan con R13.
+    // Las decisiones por revisor salen del historial completo: con la API llegan con R14.
     equipo:
-      permisos.has("metricas.equipo") && !lista
+      permisos.has("metricas.equipo") && !api
         ? decisionesPorRevisor(alm, alcaldiaId, r)
         : undefined,
+    conApi: !!api,
   };
 }
+
+/** Con plataforma-api, los datos de la API con que se calculan los indicadores. */
+export type DatosApiTablero = {
+  participaciones?: Participacion[];
+  noticias?: NoticiaMetrica[];
+  ciudadanos?: Ciudadano[];
+};

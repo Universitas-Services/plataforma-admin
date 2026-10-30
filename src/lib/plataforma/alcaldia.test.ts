@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  anonimizarCiudadano,
   cambiarActivoItem,
   catalogosDe,
   cambiarActivoMiembro,
@@ -12,6 +13,7 @@ import {
   enmascarar,
   equipoDe,
   eventosDe,
+  filtrosCiudadanos,
   fijarFaseActual,
   guardarFase,
   guardarItem,
@@ -94,8 +96,9 @@ describe("equipo", () => {
 
 describe("ciudadanos", () => {
   it("enmascara la cédula y el RIF", () => {
-    expect(enmascarar("V-12345678")).toBe("V-•••••678");
-    expect(enmascarar("C-29876543-7")).toBe("C-••••••437");
+    // El mismo formato que la API (guía R13).
+    expect(enmascarar("V-12345678")).toBe("V-12.***.678");
+    expect(enmascarar("C-29876543-7")).toBe("C-29.***.543-7");
   });
 
   it("filtra por tipo, perfil, membresía y busca por nombre o cédula", () => {
@@ -121,12 +124,56 @@ describe("ciudadanos", () => {
     expect(alm.bitacora.at(-1)!.accion).toBe("MEMBRESIA_SUSPENDIDA");
   });
 
+  it("reactivar no exige motivo, como en la API", () => {
+    const { alm, s } = sesionDe(ADMIN);
+    const id = ciudadanosDe(alm, "iribarren", { membresia: "SUSPENDIDA" })[0]!.id;
+    expect(cambiarMembresia(alm, s, id, "ACTIVA", "")).toEqual({ estado: "OK" });
+    expect(cambiarMembresia(alm, s, id, "SUSPENDIDA", "")).toEqual({ estado: "SIN_MOTIVO" });
+    expect(alm.ciudadanos.get(id)!.membresia.estado).toBe("ACTIVA");
+  });
+
+  it("filtra las bajas pedidas, ordena y lee el orden de la URL", () => {
+    const { alm } = sesionDe(ADMIN);
+    const bajas = ciudadanosDe(alm, "iribarren", { baja: "solicitada" });
+    expect(bajas.map((c) => c.nombre)).toEqual(["Gabriel Torrealba"]);
+    const porNombre = ciudadanosDe(alm, "iribarren", { orden: "nombre" }).map((c) => c.nombre);
+    expect(porNombre).toEqual([...porNombre].sort((a, b) => a.localeCompare(b, "es")));
+    const leer = (q: Record<string, string>) => filtrosCiudadanos((k) => q[k]);
+    expect(leer({ orden: "nombre", baja: "solicitada" })).toMatchObject({
+      orden: "nombre",
+      baja: "solicitada",
+    });
+    expect(leer({ orden: "toString", baja: "x" })).toMatchObject({
+      orden: undefined,
+      baja: undefined,
+    });
+  });
+
+  it("anonimiza solo si pidió la baja, y después no se puede suspender", () => {
+    const { alm, s } = sesionDe(ADMIN);
+    const sinBaja = ciudadanosDe(alm, "iribarren", { q: "jose rodriguez" })[0]!.id;
+    expect(anonimizarCiudadano(alm, s, sinBaja)).toEqual({ estado: "SIN_BAJA" });
+    const id = ciudadanosDe(alm, "iribarren", { baja: "solicitada" })[0]!.id;
+    expect(anonimizarCiudadano(alm, s, id)).toEqual({ estado: "OK" });
+    const c = alm.ciudadanos.get(id)!;
+    expect(c).toMatchObject({ nombre: "Cuenta anonimizada", correo: "", documentos: [] });
+    expect(c.cedula).toBeUndefined();
+    expect(alm.bitacora.at(-1)!.accion).toBe("CUENTA_ANONIMIZADA");
+    expect(ciudadanosDe(alm, "iribarren", { baja: "solicitada" })).toHaveLength(0);
+    expect(ciudadanosDe(alm, "iribarren", { baja: "anonimizada" })).toHaveLength(1);
+    expect(cambiarMembresia(alm, s, id, "SUSPENDIDA", "Motivo suficiente")).toEqual({
+      estado: "ANONIMIZADA",
+    });
+    expect(csvCiudadanos([c]).split("\r\n")[0]).toContain('"Cuenta"');
+  });
+
   it("el Revisor ve ciudadanos pero no suspende", () => {
     const { alm, s } = sesionDe("revisor@iribarren.test");
     const id = ciudadanosDe(alm, "iribarren")[0]!.id;
     expect(cambiarMembresia(alm, s, id, "SUSPENDIDA", "Motivo suficiente")).toEqual({
       estado: "SIN_PERMISO",
     });
+    expect(anonimizarCiudadano(alm, s, id)).toEqual({ estado: "SIN_PERMISO" });
   });
 });
 

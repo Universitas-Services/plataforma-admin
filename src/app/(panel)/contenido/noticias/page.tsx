@@ -105,11 +105,14 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
     : listarNoticias(alm, await idSesion(), filtros);
   if (r.estado !== "OK") return null; // exigirEnAlcaldia ya cubrió sesión y permiso.
   // Con la API, cada fila trae sus totales; en la simulación salen del almacén.
-  const totales = new Map<string, ConteoDia>(
+  const totales = new Map<string, ConteoDia | undefined>(
     r.items.map((n) => [
       n.id,
-      ("totales" in n ? (n.totales as ConteoDia | undefined) : undefined) ??
-        totalesDe(alm, `noticia:${n.id}`),
+      usaApi()
+        ? "totales" in n
+          ? (n.totales as ConteoDia | undefined)
+          : undefined
+        : totalesDe(alm, `noticia:${n.id}`),
     ]),
   );
   const aviso = await leerAviso();
@@ -282,7 +285,7 @@ function ListaNoticias({
 }: {
   items: FilaNoticia[];
   /** Vistas y reacciones en el portal (desde la publicación). */
-  totales: Map<string, ConteoDia>;
+  totales: Map<string, ConteoDia | undefined>;
   orden: Orden;
   /** Enlace que invierte el orden por fecha. */
   hrefOrden: string;

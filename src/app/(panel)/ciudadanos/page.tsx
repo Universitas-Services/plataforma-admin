@@ -1,4 +1,12 @@
-import { Building2, Download, Search, UserRound, Users } from "lucide-react";
+import {
+  Building2,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Search,
+  UserRound,
+  Users,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -6,8 +14,10 @@ import { FiltrosPlegables } from "@/components/panel/filtros-plegables";
 import { EsqueletoTabla } from "@/components/ui/esqueletos";
 import { EncabezadoPagina, EstadoVacio, InsigniaEstado } from "@/components/ui/piezas";
 import { Selector } from "@/components/ui/selector";
-import { ciudadanosDe, enmascarar, filtrosCiudadanos } from "@/lib/plataforma/alcaldia";
-import { almacen, exigirEnAlcaldia } from "@/lib/plataforma/sesion";
+import { usaApi } from "@/lib/api/cliente";
+import { enmascarar, filtrosCiudadanos, ORDENES_CIUDADANOS } from "@/lib/plataforma/alcaldia";
+import { leerCiudadanos } from "@/lib/plataforma/ciudadanos-datos";
+import { exigirEnAlcaldia } from "@/lib/plataforma/sesion";
 
 export const metadata: Metadata = { title: "Ciudadanos" };
 
@@ -25,12 +35,27 @@ export default function CiudadanosPage({ searchParams }: { searchParams: SearchP
 async function Contenido({ searchParams }: { searchParams: SearchParams }) {
   const c = await exigirEnAlcaldia("ciudadanos.ver", "/ciudadanos");
   const sp = await searchParams;
-  const f = filtrosCiudadanos((k) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined));
-  const lista = ciudadanosDe(almacen(), c.alcaldia.id, f);
-  const filtrando = !!(f.q || f.tipo || f.perfil || f.membresia);
+  const leer = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
+  const f = filtrosCiudadanos(leer);
+  const pagina = Math.max(1, Math.min(10_000, Number.parseInt(leer("pagina") ?? "", 10) || 1));
+  const datos = await leerCiudadanos(c.alcaldia.id, f, pagina);
+  const lista = datos.items;
+  const filtrando = !!(f.q || f.tipo || f.perfil || f.membresia || f.baja);
   const consulta = new URLSearchParams(
     Object.entries(f).filter((e): e is [string, string] => !!e[1]),
   ).toString();
+  /** La misma vista con otros parámetros (página, chip de bajas). */
+  const con = (cambios: Record<string, string | undefined>) => {
+    const p = new URLSearchParams(consulta);
+    for (const [k, v] of Object.entries(cambios)) {
+      if (v) p.set(k, v);
+      else p.delete(k);
+    }
+    const t = p.toString();
+    return `/ciudadanos${t ? `?${t}` : ""}`;
+  };
+  const enlaceChip =
+    "inline-flex min-h-10 items-center gap-2 rounded-full border px-4 text-[0.9375rem] font-medium whitespace-nowrap transition-colors duration-150";
 
   return (
     <>
@@ -51,11 +76,57 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
         }
       />
 
+      <ul aria-label="Filtrar por cuenta" className="mb-4 flex flex-wrap gap-2">
+        {(
+          [
+            ["ACTIVA", "Activas"],
+            ["SUSPENDIDA", "Suspendidas"],
+          ] as const
+        ).map(([clave, texto]) => (
+          <li key={clave}>
+            <Link
+              href={con({
+                membresia: f.membresia === clave ? undefined : clave,
+                pagina: undefined,
+              })}
+              aria-current={f.membresia === clave ? "true" : undefined}
+              className={`${enlaceChip} ${
+                f.membresia === clave
+                  ? "border-tinta bg-tinta text-papel hover:bg-cuerpo"
+                  : "border-linea text-tinta hover:border-tenue"
+              }`}
+            >
+              {texto} <strong className="font-bold">{datos.conteos[clave]}</strong>
+            </Link>
+          </li>
+        ))}
+        <li>
+          <Link
+            href={con({
+              baja: f.baja === "solicitada" ? undefined : "solicitada",
+              pagina: undefined,
+            })}
+            aria-current={f.baja === "solicitada" ? "true" : undefined}
+            className={`${enlaceChip} ${
+              f.baja === "solicitada"
+                ? "border-tinta bg-tinta text-papel hover:bg-cuerpo"
+                : "border-linea text-tinta hover:border-tenue"
+            }`}
+          >
+            {datos.bajas > 0 && (
+              <span aria-hidden="true" className="size-2 rounded-full bg-peligro" />
+            )}
+            Bajas pedidas <strong className="font-bold">{datos.bajas}</strong>
+          </Link>
+        </li>
+      </ul>
+
       <form
         role="search"
         action="/ciudadanos"
-        className="mb-5 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))_auto]"
+        className="mb-5 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))_auto]"
       >
+        {f.baja && <input type="hidden" name="baja" value={f.baja} />}
         <div className="relative min-w-0 sm:col-span-2 xl:col-span-1">
           <span aria-hidden="true" className="mb-1.5 hidden text-sm font-bold text-tinta sm:block">
             Buscar
@@ -75,7 +146,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
             className="h-11 w-full rounded-control border border-linea bg-papel pr-3 pl-9 text-tinta outline-none placeholder:text-tenue hover:border-tenue focus-visible:border-marca-texto"
           />
         </div>
-        <FiltrosPlegables activos={[f.tipo, f.perfil, f.membresia].filter(Boolean).length}>
+        <FiltrosPlegables activos={[f.tipo, f.perfil, f.membresia, f.orden].filter(Boolean).length}>
           <Selector
             id="tipo"
             etiqueta="Tipo"
@@ -109,6 +180,15 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
             permitirVacio
             vacio="Todas"
           />
+          <Selector
+            id="orden"
+            etiqueta="Orden"
+            opciones={Object.entries(ORDENES_CIUDADANOS).map(([valor, texto]) => ({
+              valor,
+              texto,
+            }))}
+            valorInicial={f.orden ?? "recientes"}
+          />
           <button
             type="submit"
             className="h-11 rounded-control border border-linea bg-papel px-5 text-sm font-semibold text-tinta hover:border-tenue"
@@ -121,7 +201,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
       {lista.length ? (
         <>
           <p className="mb-2 text-sm text-gris" aria-live="polite">
-            {lista.length === 1 ? "1 registro" : `${lista.length} registros`}
+            {datos.total === 1 ? "1 registro" : `${datos.total} registros`}
           </p>
           <div
             role="region"
@@ -162,11 +242,18 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
                         </Link>
                         <span className="block truncate pl-6 text-sm text-gris">{x.correo}</span>
                         <span className="block pl-6 text-sm text-gris tabular-nums sm:hidden">
-                          {enmascarar(x.cedula ?? x.rif)}
+                          {x.documento ?? enmascarar(x.cedula ?? x.rif)}
                         </span>
+                        {(x.anonimizadoEl || x.bajaSolicitadaEl) && (
+                          <span
+                            className={`mt-1 ml-6 inline-block text-sm font-semibold ${x.anonimizadoEl ? "text-gris" : "text-peligro"}`}
+                          >
+                            {x.anonimizadoEl ? "Cuenta anonimizada" : "Pidió la baja"}
+                          </span>
+                        )}
                       </td>
                       <td className="hidden px-3 py-3 whitespace-nowrap tabular-nums sm:table-cell">
-                        {enmascarar(x.cedula ?? x.rif)}
+                        {x.documento ?? enmascarar(x.cedula ?? x.rif)}
                       </td>
                       <td className="hidden px-3 py-3 lg:table-cell">
                         {x.perfilCompleto ? (
@@ -184,8 +271,40 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
               </tbody>
             </table>
           </div>
+          {datos.paginas > 1 && (
+            <nav
+              aria-label="Páginas de ciudadanos"
+              className="mt-4 flex flex-wrap items-center justify-between gap-3"
+            >
+              <p className="text-sm text-gris">
+                Página {datos.pagina} de {datos.paginas}
+              </p>
+              <div className="flex gap-2">
+                {datos.pagina > 1 && (
+                  <Link
+                    href={con({
+                      pagina: datos.pagina - 1 > 1 ? String(datos.pagina - 1) : undefined,
+                    })}
+                    className="inline-flex min-h-10 items-center gap-1 rounded-control border border-linea px-4 text-sm font-semibold text-tinta hover:border-tenue"
+                  >
+                    <ChevronLeft size={16} aria-hidden="true" />
+                    Anterior
+                  </Link>
+                )}
+                {datos.pagina < datos.paginas && (
+                  <Link
+                    href={con({ pagina: String(datos.pagina + 1) })}
+                    className="inline-flex min-h-10 items-center gap-1 rounded-control border border-linea px-4 text-sm font-semibold text-tinta hover:border-tenue"
+                  >
+                    Siguiente
+                    <ChevronRight size={16} aria-hidden="true" />
+                  </Link>
+                )}
+              </div>
+            </nav>
+          )}
           <p className="mt-2 text-xs text-gris">
-            Registros de ejemplo. La cédula completa solo se ve en el detalle.
+            {usaApi() ? "" : "Registros de ejemplo. "}La cédula completa solo se ve en el detalle.
           </p>
         </>
       ) : (

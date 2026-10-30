@@ -1,13 +1,14 @@
-import { ArrowLeft, Building2, FileText, UserRound } from "lucide-react";
+import { ArrowLeft, Building2, ExternalLink, FileText, UserRound } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
+import { AnonimizarCuenta } from "@/components/alcaldia/anonimizar";
 import { CambiarMembresia } from "@/components/alcaldia/membresia";
 import { EsqueletoEditor } from "@/components/ui/esqueletos";
 import { EstadoVacio, InsigniaEstado } from "@/components/ui/piezas";
-import { aportesDe, ciudadanoDe } from "@/lib/plataforma/alcaldia";
-import { almacen, exigirEnAlcaldia } from "@/lib/plataforma/sesion";
+import { leerCiudadano } from "@/lib/plataforma/ciudadanos-datos";
+import { exigirEnAlcaldia } from "@/lib/plataforma/sesion";
 import { TIPOS_PARTICIPACION } from "@/lib/plataforma/tipos";
 import { ciudadanosDemo } from "@/lib/plataforma/fixtures-alcaldia";
 import { participacionesDemo } from "@/lib/plataforma/fixtures-participaciones";
@@ -16,7 +17,9 @@ export const metadata: Metadata = { title: "Ficha del ciudadano" };
 
 /*
  * Todos los ids de ejemplo: en Netlify, un id que no se generó al compilar devuelve 500 (el
- * adaptador aún no sirve el App Shell de los parámetros no listados de Next 16.3+).
+ * adaptador aún no sirve el App Shell de los parámetros no listados de Next 16.3+). Con
+ * plataforma-api los ids son UUID, como en las noticias: revisar en el deploy que abrir una ficha
+ * real no dé 500.
  */
 export function generateStaticParams() {
   return ciudadanosDemo(participacionesDemo(0), 0).map(({ id }) => ({ id }));
@@ -69,8 +72,7 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const c = await exigirEnAlcaldia("ciudadanos.ver", `/ciudadanos/${id}`);
   await connection();
-  const alm = almacen();
-  const x = ciudadanoDe(alm, c.alcaldia.id, decodeURIComponent(id));
+  const x = await leerCiudadano(c.alcaldia.id, decodeURIComponent(id));
 
   if (!x) {
     return (
@@ -91,7 +93,8 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
     );
   }
 
-  const aportes = aportesDe(alm, x);
+  const aportes = x.participaciones ?? [];
+  const anonimizada = !!x.anonimizadoEl;
   const puedeSuspender = c.permisos.has("ciudadanos.suspender");
   const puedeEvaluar = c.permisos.has("participaciones.evaluar");
   const suspendida = x.membresia.estado === "SUSPENDIDA";
@@ -118,12 +121,35 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
           <h1 className="mt-1 text-[1.75rem] leading-tight font-bold break-words">{x.nombre}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <InsigniaEstado estado={x.membresia.estado} />
-          {puedeSuspender && (
+          {anonimizada ? (
+            <span className="inline-flex items-center rounded-full border border-tenue px-2.5 py-0.5 text-[0.8125rem] font-semibold text-gris">
+              Cuenta anonimizada
+            </span>
+          ) : (
+            <InsigniaEstado estado={x.membresia.estado} />
+          )}
+          {puedeSuspender && !anonimizada && (
             <CambiarMembresia id={x.id} nombre={x.nombre} suspendida={suspendida} />
           )}
         </div>
       </div>
+
+      {anonimizada && x.anonimizadoEl && (
+        <p className="mb-6 rounded-control border border-linea bg-superficie p-3 text-sm text-tinta">
+          <strong>Cuenta anonimizada el {fecha(x.anonimizadoEl)}</strong>, a pedido de la persona.
+          Sus datos personales se borraron; sus aportes se conservan con su folio.
+        </p>
+      )}
+
+      {!anonimizada && x.bajaSolicitadaEl && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-control border border-peligro/30 bg-peligro-suave p-4 text-sm text-tinta">
+          <p>
+            <strong>Pidió la baja el {fecha(x.bajaSolicitadaEl)}.</strong> Mientras no la atiendas,
+            puede seguir entrando al portal.
+          </p>
+          {puedeSuspender && <AnonimizarCuenta id={x.id} nombre={x.nombre} />}
+        </div>
+      )}
 
       {suspendida && x.membresia.motivo && (
         <p className="mb-6 rounded-control border border-peligro/30 bg-peligro-suave p-3 text-sm text-tinta">
@@ -135,7 +161,7 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
       <div className="grid gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="space-y-5">
           <Bloque titulo="Datos del perfil" id="perfil">
-            {!x.perfilCompleto && (
+            {!x.perfilCompleto && !anonimizada && (
               <p className="mb-3 text-sm text-ambar-texto">
                 Perfil incompleto: puede opinar, pero aún no puede enviar propuestas formales.
               </p>
@@ -194,7 +220,7 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
             <ul className="space-y-2">
               {x.documentos.map((d) => (
                 <li
-                  key={d.tipo}
+                  key={d.id ?? d.tipo}
                   className="flex items-center gap-3 rounded-control border border-linea px-3 py-2 text-sm"
                 >
                   <FileText size={16} aria-hidden="true" className="shrink-0 text-gris" />
@@ -204,15 +230,35 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
                       {d.nombre} · versión {d.version}
                     </span>
                   </span>
+                  {d.id && (
+                    <a
+                      href={`/ciudadanos/${encodeURIComponent(x.id)}/documento/${encodeURIComponent(d.id)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-h-10 shrink-0 items-center gap-1 font-semibold text-marca-texto hover:underline"
+                    >
+                      Ver
+                      <ExternalLink size={14} aria-hidden="true" />
+                      <span className="sr-only">
+                        {" "}
+                        {DOCUMENTO[d.tipo].toLowerCase()} (se abre en otra pestaña; queda en la
+                        bitácora)
+                      </span>
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>
           ) : (
             <p className="text-sm text-gris">No ha cargado documentos.</p>
           )}
-          <p className="mt-3 text-xs text-gris">
-            Archivos de ejemplo: la vista previa llega con la API (URL firmada).
-          </p>
+          {x.documentos.some((d) => d.id) ? (
+            <p className="mt-3 text-xs text-gris">Cada documento que abres queda en la bitácora.</p>
+          ) : (
+            x.ejemplo && (
+              <p className="mt-3 text-xs text-gris">Archivos de ejemplo: sin vista previa.</p>
+            )
+          )}
         </Bloque>
       </div>
     </>

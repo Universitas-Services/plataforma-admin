@@ -1,3 +1,4 @@
+import { enmascararDocumento } from "./participaciones";
 import { type Permiso } from "./permisos";
 import {
   contextoDe,
@@ -14,12 +15,13 @@ import {
   type EventoBitacora,
   type FaseProceso,
   type RolAlcaldia,
+  type TipoCatalogo,
   type UsuarioInterno,
 } from "./tipos";
 
 /*
  * Capa del Admin de alcaldía sobre la API simulada (backlog 2.8, 2.11, 2.12 y 2.13): equipo,
- * ciudadanos, catálogos (solo lectura), proceso y bitácora. Lógica pura: se prueba con Vitest. Cada
+ * ciudadanos, catálogos, proceso y bitácora. Lógica pura: se prueba con Vitest. Cada
  * cambio queda en la bitácora encadenada.
  */
 
@@ -55,6 +57,11 @@ export type Miembro = {
   roles: RolAlcaldia[];
   estado: EstadoMiembro;
   esYo: boolean;
+  /* Con plataforma-api (guía R13). */
+  /** Id de la invitación pendiente: con él se reenvía. */
+  invitacionId?: string;
+  invitacionVencida?: boolean;
+  ultimoAcceso?: string;
 };
 
 function estadoMiembro(u: UsuarioInterno): EstadoMiembro {
@@ -233,28 +240,41 @@ export function reenviarInvitacionMiembro(
 
 /* ---------- Ciudadanos (2.11) ---------- */
 
-/** «V-12345678» → «V-•••••678»: la cédula completa solo se ve en el detalle. */
-export function enmascarar(documento?: string) {
-  if (!documento) return "";
-  const [letra, ...resto] = documento.split("-");
-  const numero = resto.join("-").replace(/\D/g, "");
-  return `${letra}-${"•".repeat(Math.max(0, numero.length - 3))}${numero.slice(-3)}`;
-}
+/**
+ * «V-12345678» → «V-12.***.678», como la API: la cédula completa solo se ve en el detalle.
+ */
+export const enmascarar = (documento?: string) => enmascararDocumento(documento);
+
+export const ORDENES_CIUDADANOS = {
+  recientes: "Más recientes",
+  antiguos: "Más antiguos",
+  nombre: "Por nombre",
+} as const;
 
 export type FiltrosCiudadanos = {
   tipo?: "NATURAL" | "ORGANIZACION";
   perfil?: "COMPLETO" | "INCOMPLETO";
   membresia?: "ACTIVA" | "SUSPENDIDA";
+  /** Bajas pedidas (por atender) o ya anonimizadas. */
+  baja?: "solicitada" | "anonimizada";
   q?: string;
+  orden?: keyof typeof ORDENES_CIUDADANOS;
 };
 
 /** Lee los filtros de la URL; los usa también la exportación a CSV. */
 export function filtrosCiudadanos(leer: (k: string) => string | undefined): FiltrosCiudadanos {
+  const orden = leer("orden");
   return {
     tipo: (["NATURAL", "ORGANIZACION"] as const).find((t) => t === leer("tipo")),
     perfil: (["COMPLETO", "INCOMPLETO"] as const).find((p) => p === leer("perfil")),
     membresia: (["ACTIVA", "SUSPENDIDA"] as const).find((m) => m === leer("membresia")),
+    baja: (["solicitada", "anonimizada"] as const).find((b) => b === leer("baja")),
     q: leer("q")?.trim().slice(0, 80) || undefined,
+    // «Más recientes» es el orden de siempre: no hace falta en la URL.
+    orden:
+      orden && orden !== "recientes" && Object.hasOwn(ORDENES_CIUDADANOS, orden)
+        ? (orden as keyof typeof ORDENES_CIUDADANOS)
+        : undefined,
   };
 }
 
@@ -268,11 +288,21 @@ export function ciudadanosDe(alm: Almacen, alcaldiaId: string, f: FiltrosCiudada
         (!f.tipo || c.tipo === f.tipo) &&
         (!f.perfil || c.perfilCompleto === (f.perfil === "COMPLETO")) &&
         (!f.membresia || c.membresia.estado === f.membresia) &&
+        (!f.baja ||
+          (f.baja === "solicitada"
+            ? !!c.bajaSolicitadaEl && !c.anonimizadoEl
+            : !!c.anonimizadoEl)) &&
         (!q ||
           plano(`${c.nombre} ${c.correo}`).includes(q) ||
           (digitos.length >= 4 && (c.cedula ?? c.rif ?? "").replace(/\D/g, "").includes(digitos))),
     )
-    .sort((a, b) => b.registradoEl.localeCompare(a.registradoEl));
+    .sort((a, b) =>
+      f.orden === "nombre"
+        ? a.nombre.localeCompare(b.nombre, "es")
+        : f.orden === "antiguos"
+          ? a.registradoEl.localeCompare(b.registradoEl)
+          : b.registradoEl.localeCompare(a.registradoEl),
+    );
 }
 
 export function ciudadanoDe(alm: Almacen, alcaldiaId: string, id: string) {
@@ -295,18 +325,21 @@ export function cambiarMembresia(
   estado: "ACTIVA" | "SUSPENDIDA",
   motivo?: string,
   ahora = Date.now(),
-): { estado: "OK" | Error | "NO_EXISTE" | "SIN_MOTIVO" } {
+): { estado: "OK" | Error | "NO_EXISTE" | "SIN_MOTIVO" | "ANONIMIZADA" } {
   const r = autorizado(alm, sesion, "ciudadanos.suspender");
   if ("error" in r) return { estado: r.error! };
   const c = ciudadanoDe(alm, r.c.alcaldia.id, id);
   if (!c) return { estado: "NO_EXISTE" };
+  if (c.anonimizadoEl) return { estado: "ANONIMIZADA" };
   const texto = motivo?.trim() ?? "";
-  if (texto.length < MOTIVO_MIN) return { estado: "SIN_MOTIVO" };
+  // Como la API: el motivo es obligatorio al suspender; al reactivar, opcional.
+  if (estado === "SUSPENDIDA" ? texto.length < MOTIVO_MIN : texto && texto.length < MOTIVO_MIN)
+    return { estado: "SIN_MOTIVO" };
   const antes = { ...c.membresia };
   c.membresia = {
     estado,
     desde: new Date(ahora).toISOString(),
-    motivo: texto,
+    ...(texto ? { motivo: texto.slice(0, 500) } : {}),
   };
   registrar(
     alm,
@@ -323,9 +356,49 @@ export function cambiarMembresia(
   return { estado: "OK" };
 }
 
+/**
+ * Atiende la baja que pidió el ciudadano: borra sus datos personales y sus documentos. Sus
+ * aportes se conservan con su folio. Solo si la pidió, como en la API.
+ */
+export function anonimizarCiudadano(
+  alm: Almacen,
+  sesion: string | undefined,
+  id: string,
+  ahora = Date.now(),
+): { estado: "OK" | Error | "NO_EXISTE" | "SIN_BAJA" | "ANONIMIZADA" } {
+  const r = autorizado(alm, sesion, "ciudadanos.suspender");
+  if ("error" in r) return { estado: r.error! };
+  const c = ciudadanoDe(alm, r.c.alcaldia.id, id);
+  if (!c) return { estado: "NO_EXISTE" };
+  if (c.anonimizadoEl) return { estado: "ANONIMIZADA" };
+  if (!c.bajaSolicitadaEl) return { estado: "SIN_BAJA" };
+  Object.assign(c, {
+    nombre: "Cuenta anonimizada",
+    correo: "",
+    cedula: undefined,
+    rif: undefined,
+    telefono: undefined,
+    ocupacion: undefined,
+    representante: undefined,
+    documentos: [],
+    anonimizadoEl: new Date(ahora).toISOString(),
+  });
+  registrar(
+    alm,
+    {
+      actorId: r.c.usuario.id,
+      alcaldiaId: c.alcaldiaId,
+      accion: "CUENTA_ANONIMIZADA",
+      entidad: `ciudadano:${c.id}`,
+    },
+    ahora,
+  );
+  return { estado: "OK" };
+}
+
 export function csvCiudadanos(lista: Ciudadano[]) {
   return csv([
-    ["Nombre", "Tipo", "Documento", "Correo", "Teléfono", "Perfil", "Membresía", "Registrado"],
+    ["Nombre", "Tipo", "Documento", "Correo", "Teléfono", "Perfil", "Cuenta", "Registrado"],
     ...lista.map((c) => [
       c.nombre,
       c.tipo === "NATURAL" ? "Persona natural" : "Organización",
@@ -343,6 +416,180 @@ export function csvCiudadanos(lista: Ciudadano[]) {
 
 /** Catálogos fijos por despliegue (seed de la base de datos): el panel solo los lee. */
 export const catalogosDe = (alm: Almacen, alcaldiaId: string) => alm.catalogos.get(alcaldiaId);
+
+/** Cuántos registros vivos usan cada valor, como `usos` de la API (guía R16 §2). */
+function usosDe(alm: Almacen, alcaldiaId: string, tipo: TipoCatalogo): Map<string, number> {
+  const m = new Map<string, number>();
+  const sumar = (v?: string) => v && m.set(v, (m.get(v) ?? 0) + 1);
+  const deAlc = <T extends { alcaldiaId: string }>(x: Iterable<T>) =>
+    [...x].filter((y) => y.alcaldiaId === alcaldiaId);
+  switch (tipo) {
+    case "parroquias":
+      for (const p of deAlc(alm.participaciones.values())) sumar(p.parroquia);
+      break;
+    case "categoriasTecnicas":
+      for (const p of deAlc(alm.participaciones.values())) sumar(p.categoriaTecnica);
+      break;
+    case "categoriasNoticias":
+      for (const n of deAlc(alm.noticias.values())) if (!n.eliminadaEl) sumar(n.categoria);
+      break;
+    case "categoriasDocumentos":
+      for (const d of deAlc(alm.documentos.values())) if (!d.eliminadoEl) sumar(d.categoria);
+      break;
+    case "ocupaciones":
+      for (const c of deAlc(alm.ciudadanos.values())) if (!c.anonimizadoEl) sumar(c.ocupacion);
+      break;
+    case "tiposOrganizacion":
+      for (const c of deAlc(alm.ciudadanos.values())) sumar(c.tipoEntidad);
+      break;
+  }
+  return m;
+}
+
+/** Los catálogos con los usos de cada valor (lo que muestra Configuración en la simulación). */
+export function catalogosConUsos(alm: Almacen, alcaldiaId: string) {
+  const cat = alm.catalogos.get(alcaldiaId);
+  if (!cat) return cat;
+  return Object.fromEntries(
+    (Object.keys(cat) as TipoCatalogo[]).map((tipo) => {
+      const usos = usosDe(alm, alcaldiaId, tipo);
+      return [tipo, cat[tipo].map((i) => ({ ...i, usos: usos.get(i.nombre) ?? 0 }))];
+    }),
+  ) as typeof cat;
+}
+
+/*
+ * Edición de los desplegables del portal (R16): solo el Administrador (catalogos.editar). Los
+ * valores no se borran: se desactivan, así lo ya guardado conserva su valor y los formularios
+ * nuevos ofrecen solo los activos. El orden de la lista es el orden en que se ofrecen.
+ */
+
+export type ResultadoCatalogo = {
+  estado: "OK" | Error | "VACIO" | "REPETIDO" | "NO_EXISTE" | "ORDEN_INVALIDO";
+  /** Con REPETIDO: el valor que ya existe (si está inactivo, se puede activar). */
+  existente?: { id: string; nombre: string; activo: boolean };
+};
+
+/** Largo máximo de un valor de catálogo. */
+export const NOMBRE_CATALOGO_MAX = 80;
+
+function itemsDe(alm: Almacen, alcaldiaId: string, tipo: TipoCatalogo) {
+  let cat = alm.catalogos.get(alcaldiaId);
+  if (!cat) {
+    cat = {
+      parroquias: [],
+      categoriasTecnicas: [],
+      categoriasNoticias: [],
+      categoriasDocumentos: [],
+      ocupaciones: [],
+      tiposOrganizacion: [],
+    };
+    alm.catalogos.set(alcaldiaId, cat);
+  }
+  return cat[tipo];
+}
+
+/** Crea (sin id, al final) o renombra un valor. No se repiten nombres, sin importar tildes. */
+export function guardarItem(
+  alm: Almacen,
+  sesion: string | undefined,
+  tipo: TipoCatalogo,
+  nombre: string,
+  id?: string,
+  ahora = Date.now(),
+): ResultadoCatalogo {
+  const r = autorizado(alm, sesion, "catalogos.editar");
+  if ("error" in r) return { estado: r.error! };
+  const limpio = nombre.trim().replace(/\s+/g, " ").slice(0, NOMBRE_CATALOGO_MAX);
+  if (!limpio) return { estado: "VACIO" };
+  const items = itemsDe(alm, r.c.alcaldia.id, tipo);
+  const repetido = items.find((i) => i.id !== id && plano(i.nombre) === plano(limpio));
+  if (repetido)
+    return {
+      estado: "REPETIDO",
+      existente: { id: repetido.id, nombre: repetido.nombre, activo: repetido.activo },
+    };
+  let antes: string | undefined;
+  if (id) {
+    const item = items.find((i) => i.id === id);
+    if (!item) return { estado: "NO_EXISTE" };
+    antes = item.nombre;
+    item.nombre = limpio;
+  } else {
+    items.push({ id: `${tipo}-${nuevoId().slice(0, 8)}`, nombre: limpio, activo: true });
+  }
+  registrar(
+    alm,
+    {
+      actorId: r.c.usuario.id,
+      alcaldiaId: r.c.alcaldia.id,
+      accion: id ? "CATALOGO_EDITADO" : "CATALOGO_CREADO",
+      entidad: `catalogo:${tipo}`,
+      antes: antes ? { nombre: antes } : undefined,
+      despues: { nombre: limpio },
+    },
+    ahora,
+  );
+  return { estado: "OK" };
+}
+
+/** Activa o desactiva un valor: desactivado, el portal deja de ofrecerlo. */
+export function cambiarActivoItem(
+  alm: Almacen,
+  sesion: string | undefined,
+  tipo: TipoCatalogo,
+  id: string,
+  activo: boolean,
+  ahora = Date.now(),
+): ResultadoCatalogo {
+  const r = autorizado(alm, sesion, "catalogos.editar");
+  if ("error" in r) return { estado: r.error! };
+  const item = itemsDe(alm, r.c.alcaldia.id, tipo).find((i) => i.id === id);
+  if (!item) return { estado: "NO_EXISTE" };
+  item.activo = activo;
+  registrar(
+    alm,
+    {
+      actorId: r.c.usuario.id,
+      alcaldiaId: r.c.alcaldia.id,
+      accion: activo ? "CATALOGO_ACTIVADO" : "CATALOGO_DESACTIVADO",
+      entidad: `catalogo:${tipo}`,
+      despues: { nombre: item.nombre },
+    },
+    ahora,
+  );
+  return { estado: "OK" };
+}
+
+/** Sube (-1) o baja (+1) un valor en la lista. */
+export function moverItem(
+  alm: Almacen,
+  sesion: string | undefined,
+  tipo: TipoCatalogo,
+  id: string,
+  direccion: -1 | 1,
+  ahora = Date.now(),
+): ResultadoCatalogo {
+  const r = autorizado(alm, sesion, "catalogos.editar");
+  if ("error" in r) return { estado: r.error! };
+  const items = itemsDe(alm, r.c.alcaldia.id, tipo);
+  const i = items.findIndex((x) => x.id === id);
+  const j = i + direccion;
+  if (i < 0 || j < 0 || j >= items.length) return { estado: "NO_EXISTE" };
+  [items[i], items[j]] = [items[j]!, items[i]!];
+  registrar(
+    alm,
+    {
+      actorId: r.c.usuario.id,
+      alcaldiaId: r.c.alcaldia.id,
+      accion: "CATALOGO_REORDENADO",
+      entidad: `catalogo:${tipo}`,
+      despues: { orden: items.map((x) => x.nombre) },
+    },
+    ahora,
+  );
+  return { estado: "OK" };
+}
 
 /* ---------- Proceso: fases y fase actual (2.12) ---------- */
 
@@ -547,6 +794,7 @@ const NOMBRE_ACCION: Record<string, string> = {
   CATALOGO_CREADO: "Valor de catálogo creado",
   CATALOGO_DESACTIVADO: "Valor de catálogo desactivado",
   CATALOGO_EDITADO: "Valor de catálogo renombrado",
+  CATALOGO_REORDENADO: "Catálogo reordenado",
   CERRAR_TODAS_SESIONES: "Cierre de todas las sesiones",
   DOCUMENTO_NUEVA_VERSION: "Nueva versión de documento",
   FASE_ACTUAL: "Fase actual cambiada",
@@ -554,6 +802,7 @@ const NOMBRE_ACCION: Record<string, string> = {
   INICIO_SESION: "Inicio de sesión",
   INVITACION_ACEPTADA: "Invitación aceptada",
   INVITACION_REENVIADA: "Invitación reenviada",
+  CUENTA_ANONIMIZADA: "Cuenta anonimizada",
   MEMBRESIA_REACTIVADA: "Membresía reactivada",
   MEMBRESIA_SUSPENDIDA: "Membresía suspendida",
   MIEMBRO_ROLES: "Roles del miembro cambiados",

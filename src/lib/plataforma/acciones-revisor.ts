@@ -1,6 +1,8 @@
 "use server";
 
 import { refresh, revalidatePath } from "next/cache";
+import { usaApi } from "@/lib/api/cliente";
+import { agregarNotaApi, cambiarEstadoApi } from "@/lib/api/participaciones";
 import {
   agregarNota,
   cambiarEstado,
@@ -66,7 +68,9 @@ export async function cambiarEstadoAccion(
   datos: { motivo?: string; texto?: string; comentario?: string } = {},
   publicado = false,
 ): Promise<RespuestaRevisor> {
-  const r = cambiarEstado(almacen(), await idSesion(), folio, destino, datos);
+  const r = usaApi()
+    ? await cambiarEstadoApi(folio, destino, datos)
+    : cambiarEstado(almacen(), await idSesion(), folio, destino, datos);
   if (r !== "OK") return ERRORES[r];
   invalidar();
   return {
@@ -79,7 +83,9 @@ export async function cambiarEstadoAccion(
 }
 
 export async function agregarNotaAccion(folio: string, texto: string): Promise<RespuestaRevisor> {
-  const r = agregarNota(almacen(), await idSesion(), folio, texto);
+  const r = usaApi()
+    ? await agregarNotaApi(folio, texto)
+    : agregarNota(almacen(), await idSesion(), folio, texto);
   if (r !== "OK") return ERRORES[r];
   invalidar();
   return { ok: true, mensaje: "Nota interna agregada." };

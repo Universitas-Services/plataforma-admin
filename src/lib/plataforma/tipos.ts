@@ -114,19 +114,28 @@ export const MOTIVOS_RECHAZO = {
 export type MotivoRechazo = keyof typeof MOTIVOS_RECHAZO;
 
 export type ArchivoAporte = {
+  /** Con la API: id del archivo, para pedir su URL firmada (5 min). */
+  id?: string;
   nombre: string;
   mime: string;
   tamano: number;
+  /** Huella del archivo (con la API). */
+  sha256?: string;
   /** Solo en los datos de ejemplo con archivo público; con la API, URL firmada. */
   url?: string;
   credito?: string;
 };
 
 export type DocumentoAutor = {
+  /** Con la API: id del documento, para pedir su URL firmada. */
+  id?: string;
   tipo: "IDENTIDAD" | "REPRESENTACION" | "ENTIDAD";
   nombre: string;
   version: number;
 };
+
+/** Quién hizo algo en el panel: su id y su nombre (como lo devuelve la API). */
+export type Actor = { id: string; nombre: string };
 
 /** Instantánea del perfil del autor al momento de enviar el aporte. */
 export type AutorAporte = {
@@ -145,8 +154,8 @@ export type AutorAporte = {
 export type PasoParticipacion = {
   estado: EstadoParticipacion;
   fecha: string;
-  /** Id del usuario interno; sin él, el sistema (recepción). */
-  por?: string;
+  /** Quién lo hizo; sin él, el sistema (recepción). */
+  por?: Actor;
   /** Lo que lee el ciudadano (comentario o motivo del rechazo). */
   comentario?: string;
   motivo?: MotivoRechazo;
@@ -173,14 +182,25 @@ export type Participacion = {
   recibidaEl: string;
   historial: PasoParticipacion[];
   /** Notas internas: no las ve el ciudadano. */
-  notas: { id: string; por: string; texto: string; fecha: string }[];
+  notas: { id: string; por: Actor; texto: string; fecha: string }[];
   ejemplo?: boolean;
+  /* Lo que agrega la API (guía R11). */
+  /** Estados a los que puede pasar ahora: habilitan los botones. */
+  transiciones?: EstadoParticipacion[];
+  publicadaEl?: string;
+  /** Huella del contenido y código del acuse: el ciudadano los recibió al enviar. */
+  hashContenido?: string;
+  codigoVerificacion?: string;
+  totales?: { vistas: number; likes: number; dislikes: number };
 };
 
 /** Fila de la bandeja y del tablero, calculada desde la participación. */
 export type ParticipacionDemo = {
   folio: string;
+  /** Para leer («Propuesta formal»). */
   tipo: string;
+  /** El valor, para la insignia de estado (una opinión pendiente se ve «Recibida»). */
+  tipoClave: TipoParticipacion;
   autor: string;
   parroquia: string;
   categoriaTecnica: string;
@@ -210,6 +230,20 @@ export type Ciudadano = {
   membresia: { estado: "ACTIVA" | "SUSPENDIDA"; desde: string; motivo?: string };
   registradoEl: string;
   ejemplo?: boolean;
+  /** Pidió la baja desde el portal: el panel la atiende anonimizando la cuenta. */
+  bajaSolicitadaEl?: string;
+  /** Cuenta anonimizada: sin datos personales; sus aportes se conservan con su folio. */
+  anonimizadoEl?: string;
+  /* Con plataforma-api (guía R13). */
+  /** Cédula o RIF ya enmascarados («V-12.***.678»), como los da la lista de la API. */
+  documento?: string;
+  /** Aportes del ciudadano (detalle de la API). */
+  participaciones?: {
+    folio: string;
+    tipo: TipoParticipacion;
+    estado: EstadoParticipacion;
+    recibidaEl: string;
+  }[];
 };
 
 export const TIPOS_CATALOGO = {
@@ -222,7 +256,23 @@ export const TIPOS_CATALOGO = {
 } as const;
 export type TipoCatalogo = keyof typeof TIPOS_CATALOGO;
 
-export type ItemCatalogo = { id: string; nombre: string; activo: boolean };
+/** Nombre de cada catálogo en la URL de plataforma-api (/admin/catalogs/:tipo). */
+export const SLUG_CATALOGO: Record<TipoCatalogo, string> = {
+  parroquias: "parroquias",
+  categoriasTecnicas: "categorias-tecnicas",
+  categoriasNoticias: "categorias-noticias",
+  categoriasDocumentos: "categorias-documentos",
+  ocupaciones: "ocupaciones",
+  tiposOrganizacion: "tipos-entidad",
+};
+
+export type ItemCatalogo = {
+  id: string;
+  nombre: string;
+  activo: boolean;
+  /** Registros vivos que usan el valor (guía R16): participaciones, noticias, perfiles… */
+  usos?: number;
+};
 
 /**
  * Cómo se ve una fase mientras no le toca (D3, modelo híbrido): las anteriores a la actual se

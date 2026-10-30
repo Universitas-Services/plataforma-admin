@@ -1,25 +1,31 @@
+import { mensajeDeError } from "@/lib/api/errores";
+import { usaApi } from "@/lib/api/cliente";
+import { exportarCsvApi } from "@/lib/api/participaciones";
 import { bandeja, csvBandeja } from "@/lib/plataforma/participaciones";
+import { filtrosDeBandeja } from "@/lib/plataforma/filtros-bandeja";
 import { almacen, getContexto } from "@/lib/plataforma/sesion";
-import { ESTADOS_PARTICIPACION, TIPOS_PARTICIPACION } from "@/lib/plataforma/tipos";
 
-/** CSV de la bandeja con los filtros de la URL (backlog 2.10). Solo con permiso de evaluar. */
+/**
+ * CSV de la bandeja con los filtros de la URL (backlog 2.10). Solo con permiso de evaluar. Con
+ * plataforma-api se reenvía export.csv tal cual (ya enmascarado y en la bitácora).
+ */
 export async function GET(request: Request) {
   const c = await getContexto();
   if (!c?.alcaldia || !c.permisos.has("participaciones.evaluar"))
     return new Response("Sin permiso", { status: 403 });
-  const sp = new URL(request.url).searchParams;
-  const estado = ESTADOS_PARTICIPACION.find((e) => e === sp.get("estado"));
-  const tipo = Object.keys(TIPOS_PARTICIPACION).find((t) => t === sp.get("tipo")) as
-    keyof typeof TIPOS_PARTICIPACION | undefined;
-  const lista = bandeja(almacen(), c.alcaldia.id, {
-    estado,
-    tipo,
-    parroquia: sp.get("parroquia") || undefined,
-    categoria: sp.get("categoria") || undefined,
-    q: sp.get("q")?.slice(0, 80) || undefined,
-  });
+  const { filtros } = filtrosDeBandeja(Object.fromEntries(new URL(request.url).searchParams));
+  let csv: string;
+  if (usaApi()) {
+    try {
+      const r = await exportarCsvApi(filtros);
+      if (r.estado !== "OK") return new Response("Sin permiso", { status: 403 });
+      csv = r.csv;
+    } catch (e) {
+      return new Response(mensajeDeError(e), { status: 502 });
+    }
+  } else csv = csvBandeja(bandeja(almacen(), c.alcaldia.id, filtros));
   const fecha = new Date().toISOString().slice(0, 10);
-  return new Response(csvBandeja(lista), {
+  return new Response(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="participaciones-${c.alcaldia.sigla.toLowerCase()}-${fecha}.csv"`,

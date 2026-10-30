@@ -3,7 +3,12 @@ import { ErrorApi, pedirApi } from "./cliente";
 import { tokensDeCookie } from "./sesion-api";
 import { ALCALDIA } from "@/config/alcaldia";
 import type { CamposNoticia, EstadoNoticia, Noticia } from "@/lib/contenido/tipos";
-import type { CambioEstado, FiltrosNoticias, FilaNoticia } from "@/lib/plataforma/contenido";
+import {
+  botonUtil,
+  type CambioEstado,
+  type FiltrosNoticias,
+  type FilaNoticia,
+} from "@/lib/plataforma/contenido";
 import type { Almacen, ConteoDia } from "@/lib/plataforma/tipos";
 
 /*
@@ -135,7 +140,8 @@ export async function guardarNoticiaApi(id: string, campos: CamposNoticia) {
     const r = await pedirApi<EstadoCorto>(`/admin/posts/${encodeURIComponent(id)}`, {
       metodo: "PATCH",
       token: t,
-      cuerpo: campos,
+      // Sin botón (o vacío) se manda null: el PATCH lo quita en vez de conservar el anterior.
+      cuerpo: { ...campos, boton: botonUtil(campos.boton) ?? null },
     });
     return { estado: "OK" as const, noticia: r };
   } catch (e) {
@@ -148,9 +154,21 @@ export async function guardarNoticiaApi(id: string, campos: CamposNoticia) {
       };
     if (e instanceof ErrorApi && e.code === "MEDIO_AJENO")
       return { estado: "MEDIO_AJENO" as const };
+    // Un borrador puede llevar el botón a medio llenar, pero un enlace escrito tiene que ser
+    // válido (guía R16 §5): la API lo dice en la lista de `details`.
+    if (e instanceof ErrorApi && e.code === "VALIDATION_ERROR" && errorDeBoton(e))
+      return {
+        estado: "INCOMPLETA" as const,
+        errores: { boton: "Escribe un enlace que empiece por https:// o por /." },
+      };
     return comun(e);
   }
 }
+
+/** ¿El 400 es por el enlace del botón? */
+const errorDeBoton = (e: ErrorApi) =>
+  Array.isArray(e.details) &&
+  e.details.some((m) => typeof m === "string" && /boton|enlace que empiece/i.test(m));
 
 const RUTA: Record<Exclude<CambioEstado, "eliminar">, string> = {
   publicar: "publish",

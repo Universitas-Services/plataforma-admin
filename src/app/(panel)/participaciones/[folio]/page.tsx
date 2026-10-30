@@ -17,13 +17,10 @@ import { MapaUbicacion } from "@/components/revisor/mapa-ubicacion";
 import { AccionesEstado, NuevaNota } from "@/components/revisor/panel-revisor";
 import { EsqueletoEditor } from "@/components/ui/esqueletos";
 import { EstadoVacio, InsigniaEstado } from "@/components/ui/piezas";
+import { usaApi } from "@/lib/api/cliente";
 import { totalesDe } from "@/lib/plataforma/inicio";
-import {
-  participacionDe,
-  tieneSeguimiento,
-  transicionesValidas,
-} from "@/lib/plataforma/participaciones";
-import { nombreCompleto } from "@/lib/plataforma/servicio";
+import { tieneSeguimiento, transicionesValidas } from "@/lib/plataforma/participaciones";
+import { leerParticipacion } from "@/lib/plataforma/participaciones-datos";
 import { almacen, exigirEnAlcaldia } from "@/lib/plataforma/sesion";
 import {
   AUTOR_ANONIMO,
@@ -35,13 +32,27 @@ import { participacionesDemo } from "@/lib/plataforma/fixtures-participaciones";
 
 export const metadata: Metadata = { title: "Detalle del aporte" };
 
+/** Folios secuenciales por año (IRI-2026-0001…), como los da plataforma-api. */
+const folios = (anio: number, cuantos: number) =>
+  Array.from({ length: cuantos }, (_, i) => `IRI-${anio}-${String(i + 1).padStart(4, "0")}`);
+
 /*
- * Todos los ids de ejemplo: en Netlify, un id que no se generó al compilar devuelve 500 (el
- * adaptador aún no sirve el App Shell de los parámetros no listados de Next 16.3+).
+ * Los folios de ejemplo y los primeros reales de 2026 y 2027 (los mismos que precompila el
+ * portal): en Netlify, un folio que no se generó al compilar devuelve 500 (el adaptador aún no
+ * sirve el App Shell de los parámetros no listados de Next 16.3+).
  */
 export function generateStaticParams() {
-  return participacionesDemo(0).map(({ folio }) => ({ folio }));
+  const todos = new Set([
+    ...participacionesDemo(0).map(({ folio }) => folio),
+    ...folios(2026, 600),
+    ...folios(2027, 300),
+  ]);
+  return [...todos].map((folio) => ({ folio }));
 }
+
+/** La ruta que pide la URL firmada de un archivo del aporte y redirige a ella (con la API). */
+const rutaArchivo = (folio: string, id: string, tipo: "adjunto" | "documento") =>
+  `/participaciones/${encodeURIComponent(folio)}/archivo/${encodeURIComponent(id)}?tipo=${tipo}`;
 
 const fechaHora = new Intl.DateTimeFormat("es-VE", {
   day: "numeric",
@@ -96,8 +107,7 @@ async function Contenido({ params }: { params: Promise<{ folio: string }> }) {
   const { folio } = await params;
   const c = await exigirEnAlcaldia("participaciones.evaluar", `/participaciones/${folio}`);
   await connection();
-  const alm = almacen();
-  const p = participacionDe(alm, c.alcaldia.id, decodeURIComponent(folio));
+  const p = await leerParticipacion(c.alcaldia.id, decodeURIComponent(folio));
 
   if (!p) {
     return (
@@ -118,10 +128,14 @@ async function Contenido({ params }: { params: Promise<{ folio: string }> }) {
     );
   }
 
-  const quien = (id?: string) => {
-    const u = id ? alm.usuarios.get(id) : undefined;
-    return u ? nombreCompleto(u) : "Sistema";
-  };
+  const quien = (por?: { nombre: string }) => por?.nombre ?? "Sistema";
+  // Con la API, los botones y los totales vienen en el detalle; en la simulación, del almacén.
+  const transiciones = p.transiciones ?? transicionesValidas(p);
+  const totales = p.totales ?? (usaApi() ? undefined : totalesDe(almacen(), `aporte:${p.folio}`));
+  /** URL de una foto o del soporte: la pública del ejemplo o la ruta firmada. */
+  const urlDe = (f: { id?: string; url?: string }) =>
+    f.url ?? (f.id ? rutaArchivo(p.folio, f.id, "adjunto") : undefined);
+  const soporte = p.soporte && urlDe(p.soporte);
 
   return (
     <>
@@ -157,13 +171,13 @@ async function Contenido({ params }: { params: Promise<{ folio: string }> }) {
           folio={p.folio}
           tipo={p.tipo}
           estado={p.estado}
-          transiciones={transicionesValidas(p)}
+          transiciones={transiciones}
           mostrarNombre={p.mostrarNombre}
         />
-        {p.estado === "PUBLICADA" && (
+        {totales && (p.estado === "PUBLICADA" || totales.vistas > 0) && (
           <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-linea pt-4 text-sm text-gris">
             En el portal:
-            <Alcance totales={totalesDe(alm, `aporte:${p.folio}`)} />
+            <Alcance totales={totales} />
           </p>
         )}
       </div>
@@ -194,15 +208,21 @@ async function Contenido({ params }: { params: Promise<{ folio: string }> }) {
               <div className="mt-5">
                 <h3 className="mb-2 text-sm font-bold text-tinta">Fotos ({p.imagenes.length})</h3>
                 <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {p.imagenes.map((f) => (
-                    <li key={f.nombre}>
-                      {f.url ? (
-                        <a href={f.url} target="_blank" rel="noopener noreferrer" className="block">
-                          {/* eslint-disable-next-line @next/next/no-img-element -- archivo del aporte */}
+                  {p.imagenes.map((f, i) => (
+                    <li key={f.id ?? `${f.nombre}-${i}`}>
+                      {urlDe(f) ? (
+                        <a
+                          href={urlDe(f)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element -- archivo del aporte (URL firmada) */}
                           <img
-                            src={f.url}
+                            src={urlDe(f)}
                             alt={`Foto del aporte: ${f.nombre}`}
-                            className="aspect-[4/3] w-full rounded-control border border-linea object-cover"
+                            loading="lazy"
+                            className="aspect-[4/3] w-full rounded-control border border-linea bg-superficie object-cover"
                           />
                           <span className="sr-only"> (se abre en otra pestaña)</span>
                         </a>
@@ -241,16 +261,49 @@ async function Contenido({ params }: { params: Promise<{ folio: string }> }) {
                 <p className="mb-2 text-sm text-gris">
                   {p.soporte.nombre} · {peso(p.soporte.tamano)}
                 </p>
-                {p.soporte.url && (
-                  <iframe
-                    src={p.soporte.url}
-                    title={`Documento de soporte de ${p.folio}`}
-                    className="h-96 w-full rounded-control border border-linea"
-                  />
+                {soporte && (
+                  <>
+                    <iframe
+                      src={soporte}
+                      title={`Documento de soporte de ${p.folio}`}
+                      loading="lazy"
+                      className="h-96 w-full rounded-control border border-linea"
+                    />
+                    <a
+                      href={soporte}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-marca-texto hover:underline"
+                    >
+                      Abrir el documento
+                      <ExternalLink size={14} aria-hidden="true" />
+                      <span className="sr-only"> (se abre en otra pestaña)</span>
+                    </a>
+                  </>
                 )}
               </div>
             )}
           </Bloque>
+
+          {p.codigoVerificacion && (
+            <Bloque titulo="Acuse de recibo" id="acuse">
+              <p className="mb-3 text-sm text-gris">
+                Lo recibió el ciudadano al enviar el aporte: con estos datos puede probar qué envió
+                y cuándo.
+              </p>
+              <dl className="grid gap-3">
+                <Dato k="Código de verificación" v={p.codigoVerificacion} />
+                <Dato
+                  k="Huella del contenido (SHA-256)"
+                  v={
+                    <span className="font-mono text-sm [overflow-wrap:anywhere]">
+                      {p.hashContenido}
+                    </span>
+                  }
+                />
+              </dl>
+            </Bloque>
+          )}
 
           {p.ubicacion && (
             <Bloque titulo="Ubicación" id="ubicacion">
@@ -347,7 +400,7 @@ function Autor({ p }: { p: Participacion }) {
       <ul className="space-y-2">
         {a.documentos.map((d) => (
           <li
-            key={d.tipo}
+            key={d.id ?? d.tipo}
             className="flex items-center gap-3 rounded-control border border-linea px-3 py-2 text-sm"
           >
             <FileText size={16} aria-hidden="true" className="shrink-0 text-gris" />
@@ -357,12 +410,31 @@ function Autor({ p }: { p: Participacion }) {
                 {d.nombre} · versión {d.version}
               </span>
             </span>
+            {d.id && (
+              <a
+                href={rutaArchivo(p.folio, d.id, "documento")}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-10 shrink-0 items-center gap-1 font-semibold text-marca-texto hover:underline"
+              >
+                Ver
+                <ExternalLink size={14} aria-hidden="true" />
+                <span className="sr-only">
+                  {" "}
+                  {DOCUMENTO[d.tipo].toLowerCase()} (se abre en otra pestaña; queda en la bitácora)
+                </span>
+              </a>
+            )}
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-xs text-gris">
-        Archivos de ejemplo: la vista previa de los documentos llega con la API (URL firmada).
-      </p>
+      {a.documentos.some((d) => d.id) ? (
+        <p className="mt-2 text-xs text-gris">Cada documento que abres queda en la bitácora.</p>
+      ) : (
+        p.ejemplo && (
+          <p className="mt-2 text-xs text-gris">Archivos de ejemplo: sin vista previa.</p>
+        )
+      )}
     </div>
   );
 }

@@ -4,6 +4,8 @@ import { Suspense } from "react";
 import { EsqueletoFormulario } from "@/components/ui/esqueletos";
 import { FormInvitacion, FormReenviarInvitacion } from "@/components/acceso/formularios";
 import { MarcoAcceso } from "@/components/acceso/marco-acceso";
+import { usaApi } from "@/lib/api/cliente";
+import { verInvitacionApi } from "@/lib/api/acceso";
 import { verInvitacion } from "@/lib/plataforma/servicio";
 import { almacen } from "@/lib/plataforma/sesion";
 import { NOMBRE_ROL } from "@/lib/plataforma/tipos";
@@ -27,7 +29,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
   const t = typeof token === "string" ? token : "";
   // El enlace vence con la hora: se revisa en cada visita, no al prerenderizar.
   await connection();
-  const inv = verInvitacion(almacen(), t);
+  const inv = usaApi() ? await verInvitacionApi(t) : verInvitacion(almacen(), t);
 
   if (inv.estado === "INVALIDO")
     return (

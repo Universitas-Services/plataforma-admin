@@ -31,9 +31,12 @@ const opciones = {
 };
 
 export async function proxy(request: NextRequest) {
+  const consulta = request.nextUrl.pathname === "/api/sesion";
+  // La consulta de VigiaSesion no renueva el token: así no compite con la página que se está
+  // cargando por el mismo refresh token (en Netlify pueden llegar a instancias distintas).
   const cambio = usaApi()
     ? await revisarCookie(request.cookies.get(COOKIE_API)?.value, {
-        prefetch: esPrefetch(request.headers),
+        prefetch: consulta || esPrefetch(request.headers),
       })
     : undefined;
   if (cambio) {
@@ -42,8 +45,14 @@ export async function proxy(request: NextRequest) {
   }
 
   let respuesta: NextResponse;
-  const consulta = request.nextUrl.pathname === "/api/sesion";
-  if (consulta || request.cookies.has(usaApi() ? COOKIE_API : COOKIE_SESION)) {
+  const conCookie = request.cookies.has(usaApi() ? COOKIE_API : COOKIE_SESION);
+  // Una Server Action sin sesión no se redirige (el cliente no sabría leer la respuesta): la
+  // acción responde SIN_SESION y el panel muestra «Tu sesión terminó».
+  const accion = request.method === "POST" && request.headers.has("next-action");
+  if (request.nextUrl.pathname === "/" && conCookie && !accion) {
+    // La raíz va directo al tablero, sin pasar por una página que espera la sesión.
+    respuesta = NextResponse.redirect(new URL("/tablero", request.url));
+  } else if (consulta || accion || conCookie) {
     respuesta = NextResponse.next({ request: { headers: request.headers } });
   } else {
     const { pathname, search } = request.nextUrl;

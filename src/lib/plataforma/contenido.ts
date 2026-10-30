@@ -248,6 +248,15 @@ function mediosPropios(alm: Almacen, alcaldiaId: string, c: CamposNoticia) {
 
 const imagenCompleta = (i?: Imagen) => Boolean(i?.src && i.alt.trim());
 
+/** URL http(s) o ruta del propio sitio, para el botón opcional. */
+const enlaceDeBoton = (v: string) => /^https?:\/\/\S+$/i.test(v) || /^\/(?!\/)\S*$/.test(v);
+
+/** Un botón con los dos campos vacíos es como no tener botón. */
+export const botonUtil = (b: CamposNoticia["boton"]) =>
+  b && (b.texto.trim() || b.href.trim())
+    ? { texto: b.texto.trim(), href: b.href.trim() }
+    : undefined;
+
 /**
  * Lo que falta para publicar o programar, por campo. Un borrador se guarda con cualquier cosa;
  * lo que exige cada formato se comprueba aquí.
@@ -258,6 +267,11 @@ export function faltantesPublicacion(n: CamposNoticia): Record<string, string> {
   if (!n.resumen.trim()) e.resumen = "Escribe el resumen: es lo que se ve en el listado.";
   if (!n.categoria) e.categoria = "Elige la categoría.";
   if (n.portada && !n.portada.alt.trim()) e.portada = "Describe la portada (texto alternativo).";
+  if (n.boton && (n.boton.texto.trim() || n.boton.href.trim())) {
+    if (!n.boton.texto.trim()) e.boton = "Escribe el texto del botón.";
+    else if (!enlaceDeBoton(n.boton.href.trim()))
+      e.boton = "Escribe un enlace que empiece por https:// o por /.";
+  }
   switch (n.formato) {
     case "TEXTO":
       if (!textoDe(n.cuerpo)) e.cuerpo = "Escribe el cuerpo de la noticia.";
@@ -311,6 +325,7 @@ export function guardarNoticia(
     titulo: campos.titulo.trim(),
     resumen: campos.resumen.trim(),
     parroquia: campos.parroquia?.trim() || undefined,
+    boton: botonUtil(campos.boton),
     cuerpo: sanearHtml(campos.cuerpo),
     // Un enlace de video se guarda normalizado.
     video:

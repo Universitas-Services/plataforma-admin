@@ -1,3 +1,5 @@
+import { usaApi } from "@/lib/api/cliente";
+import { estadoRestablecerApi } from "@/lib/api/acceso";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
@@ -36,7 +38,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
   const t = typeof token === "string" ? token : "";
   // El enlace vence con la hora: se revisa en cada visita, no al prerenderizar.
   await connection();
-  const estado = estadoRestablecer(almacen(), t);
+  const estado = usaApi() ? await estadoRestablecerApi(t) : estadoRestablecer(almacen(), t);
   if (estado !== "OK")
     return (
       <div

@@ -26,7 +26,6 @@ import {
   type RespuestaEditor,
 } from "@/lib/plataforma/acciones-contenido";
 import {
-  CATEGORIAS,
   FORMATOS,
   NOMBRE_FORMATO,
   NOMBRE_TIPO,
@@ -44,6 +43,8 @@ import {
   MensajeError,
   claseEntrada,
 } from "./campos-medios";
+import type { ConteoDia } from "@/lib/plataforma/tipos";
+import { Alcance } from "./alcance";
 import { EditorTexto } from "./editor-texto";
 import { EstadoNoticiaEtiqueta, ICONO_FORMATO, formatearFecha } from "./estado-noticia";
 import { VistaPreviaNoticia } from "./vista-previa-noticia";
@@ -123,7 +124,14 @@ function opcionesHora(actual: string) {
 
 type Guardado = { estado: "guardado" | "pendiente" | "guardando" | "error"; en?: string };
 
-export function EditorNoticia({ noticia }: { noticia: Noticia }) {
+/** `categorias`: los valores activos del catálogo (más el actual, si ya no lo está). */
+export function EditorNoticia({
+  noticia,
+  categorias,
+}: {
+  noticia: NoticiaConTotales;
+  categorias: string[];
+}) {
   const [campos, setCampos] = useState<CamposNoticia>(() => camposDe(noticia));
   const [estado, setEstado] = useState<EstadoNoticia>(noticia.estado);
   const [publicarEl, setPublicarEl] = useState(noticia.publicarEl);
@@ -136,6 +144,9 @@ export function EditorNoticia({ noticia }: { noticia: Noticia }) {
   const [ocupado, setOcupado] = useState(false);
   const { aviso, mostrar, cerrar } = useAviso();
   const resumenErrores = useRef<HTMLDivElement>(null);
+  // El resumen toma el foco (y la página sube a él) solo tras publicar, programar o guardar a
+  // mano; nunca por el autoguardado, que no debe mover a nadie mientras escribe.
+  const enfocarResumen = useRef(false);
 
   // Versión de lo escrito: si cambia durante un guardado, sigue pendiente.
   const version = useRef(0);
@@ -185,7 +196,10 @@ export function EditorNoticia({ noticia }: { noticia: Noticia }) {
         if (manual) mostrar({ tipo: "exito", texto: "Cambios guardados." });
       } else {
         setGuardado((g) => ({ ...g, estado: "error" }));
-        if (r.errores) setErrores(r.errores);
+        if (r.errores && manual) {
+          enfocarResumen.current = true;
+          setErrores(r.errores);
+        }
         // Con errores por campo ya habla el resumen de arriba: sin toast que lo repita.
         if (manual && !r.errores) mostrar({ tipo: "error", texto: r.mensaje });
       }
@@ -212,7 +226,9 @@ export function EditorNoticia({ noticia }: { noticia: Noticia }) {
   }, [sucio]);
 
   useEffect(() => {
-    if (Object.keys(errores).length) resumenErrores.current?.focus();
+    if (!enfocarResumen.current || !Object.keys(errores).length) return;
+    enfocarResumen.current = false;
+    resumenErrores.current?.focus();
   }, [errores]);
 
   async function cambiarEstado(cambio: CambioEstado, fecha?: string) {
@@ -221,7 +237,14 @@ export function EditorNoticia({ noticia }: { noticia: Noticia }) {
       // Lo último escrito va primero: se publica lo que se ve en pantalla.
       if (cambio !== "eliminar" && version.current !== guardadaVersion.current) {
         const g = await guardar();
-        if (g && !g.ok) return;
+        if (g && !g.ok) {
+          // El guardado previo falló: se explica qué falta, ahora sí con el resumen a la vista.
+          if (g.errores) {
+            enfocarResumen.current = true;
+            setErrores(g.errores);
+          } else mostrar({ tipo: "error", texto: g.mensaje });
+          return;
+        }
       }
       const r = await cambiarEstadoAccion(noticia.id, cambio, fecha);
       if (r.ok) {
@@ -232,7 +255,10 @@ export function EditorNoticia({ noticia }: { noticia: Noticia }) {
         setDialogo(undefined);
         if (r.mensaje) mostrar({ tipo: "exito", texto: r.mensaje });
       } else {
-        if (r.errores) setErrores(r.errores);
+        if (r.errores) {
+          enfocarResumen.current = true;
+          setErrores(r.errores);
+        }
         if (!r.errores?.publicarEl) setDialogo(undefined);
         if (!r.errores) mostrar({ tipo: "error", texto: r.mensaje });
       }
@@ -372,7 +398,7 @@ export function EditorNoticia({ noticia }: { noticia: Noticia }) {
                 <Selector
                   id="categoria"
                   etiqueta="Categoría"
-                  opciones={CATEGORIAS}
+                  opciones={categorias}
                   valor={campos.categoria ?? ""}
                   onCambio={(v) =>
                     cambiar("categoria", (v || undefined) as CamposNoticia["categoria"])
@@ -800,6 +826,8 @@ function BotonFinal({
                 value={valor.texto}
                 maxLength={40}
                 onChange={(e) => onCambio({ ...valor, texto: e.target.value })}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? "boton-error" : undefined}
                 className={claseEntrada(error)}
               />
             </div>
@@ -916,7 +944,7 @@ function PanelPublicacion({
 }: {
   estado: EstadoNoticia;
   publicarEl?: string;
-  noticia: Noticia;
+  noticia: NoticiaConTotales;
   ocupado: boolean;
   sucio: boolean;
   guardando: boolean;
@@ -1023,10 +1051,21 @@ function PanelPublicacion({
         <dd className="text-tinta">{formatearFecha(noticia.creadoEl, true)}</dd>
         <dt className="text-gris">Dirección</dt>
         <dd className="min-w-0 truncate text-tinta">/noticias/{noticia.slug}</dd>
+        {noticia.totales && (
+          <>
+            <dt className="text-gris">En el portal</dt>
+            <dd className="min-w-0">
+              <Alcance totales={noticia.totales} />
+            </dd>
+          </>
+        )}
       </dl>
     </div>
   );
 }
+
+/** La noticia con sus vistas y reacciones en el portal (con la API vienen en la respuesta). */
+type NoticiaConTotales = Noticia & { totales?: ConteoDia };
 
 const CONFIRMACION: Record<
   Exclude<CambioEstado, "programar">,

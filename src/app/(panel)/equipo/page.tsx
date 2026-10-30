@@ -7,7 +7,9 @@ import { FiltrosPlegables } from "@/components/panel/filtros-plegables";
 import { EsqueletoTabla } from "@/components/ui/esqueletos";
 import { EncabezadoPagina, EstadoVacio } from "@/components/ui/piezas";
 import { Selector } from "@/components/ui/selector";
-import { equipoDe, type EstadoMiembro } from "@/lib/plataforma/alcaldia";
+import { usaApi } from "@/lib/api/cliente";
+import { listarEquipoApi } from "@/lib/api/equipo";
+import { equipoDe, type EstadoMiembro, type Miembro } from "@/lib/plataforma/alcaldia";
 import { almacen, exigirEnAlcaldia } from "@/lib/plataforma/sesion";
 import { NOMBRE_ROL, type RolAlcaldia } from "@/lib/plataforma/tipos";
 
@@ -22,6 +24,14 @@ export default function EquipoPage({ searchParams }: { searchParams: SearchParam
     </Suspense>
   );
 }
+
+const ultimoAcceso = new Intl.DateTimeFormat("es-VE", {
+  day: "numeric",
+  month: "short",
+  hour: "numeric",
+  minute: "2-digit",
+  timeZone: "America/Caracas",
+});
 
 const ESTADO: Record<EstadoMiembro, { texto: string; clase: string; relleno: boolean }> = {
   ACTIVO: { texto: "Activo", clase: "border-turquesa/40 text-turquesa-texto", relleno: true },
@@ -58,7 +68,15 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
   const estado = (["ACTIVO", "INVITADO", "DESACTIVADO"] as const).find(
     (e) => e === texto("estado"),
   );
-  const miembros = equipoDe(almacen(), c.alcaldia.id, c.usuario.id, { rol, estado, q });
+  const filtros = { rol, estado, q: q || undefined };
+  let miembros: Miembro[];
+  let conteos: Record<EstadoMiembro, number> | undefined;
+  if (usaApi()) {
+    const r = await listarEquipoApi(filtros);
+    if (r.estado !== "OK") return null; // exigirEnAlcaldia ya cubrió sesión y permiso.
+    miembros = r.miembros;
+    conteos = r.conteos;
+  } else miembros = equipoDe(almacen(), c.alcaldia.id, c.usuario.id, filtros);
   const filtrando = !!(q || rol || estado);
 
   return (
@@ -108,7 +126,10 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
           <Selector
             id="estado"
             etiqueta="Estado"
-            opciones={Object.entries(ESTADO).map(([valor, e]) => ({ valor, texto: e.texto }))}
+            opciones={Object.entries(ESTADO).map(([valor, e]) => ({
+              valor,
+              texto: conteos ? `${e.texto} (${conteos[valor as EstadoMiembro]})` : e.texto,
+            }))}
             valorInicial={estado}
             permitirVacio
             vacio="Todos"
@@ -156,6 +177,16 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
                       {m.esYo && <span className="font-normal text-gris"> (tú)</span>}
                     </span>
                     <span className="block truncate text-sm text-gris">{m.correo}</span>
+                    {m.invitacionVencida && (
+                      <span className="mt-1 block text-sm font-semibold text-peligro">
+                        La invitación venció: reenvíala.
+                      </span>
+                    )}
+                    {m.ultimoAcceso && (
+                      <span className="block text-xs text-gris">
+                        Último acceso: {ultimoAcceso.format(new Date(m.ultimoAcceso))}
+                      </span>
+                    )}
                     <span className="mt-1 block text-sm text-cuerpo md:hidden">
                       {m.roles.map((r) => NOMBRE_ROL[r]).join(" · ")}
                     </span>
@@ -176,6 +207,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
                         nombre={m.nombre}
                         roles={m.roles}
                         estado={m.estado}
+                        invitacionId={m.invitacionId}
                       />
                     )}
                   </td>

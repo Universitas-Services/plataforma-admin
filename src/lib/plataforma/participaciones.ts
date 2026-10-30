@@ -1,4 +1,4 @@
-import { contextoDe, registrar } from "./servicio";
+import { contextoDe, nombreCompleto, registrar } from "./servicio";
 import {
   ESTADOS_PARTICIPACION,
   MOTIVOS_RECHAZO,
@@ -19,7 +19,8 @@ import {
  *   Verificada al despublicar.
  * - Opinión (general o sobre una noticia): sin seguimiento. Queda en PENDIENTE —el portal la
  *   muestra como «Recibida»— y el Revisor la publica o la despublica.
- * Publicar exige, en los dos casos, que el autor haya autorizado mostrar su nombre.
+ * Publicar no depende de que el autor autorice mostrar su nombre (D14): sin autorización, el
+ * portal lo muestra como AUTOR_ANONIMO. Con plataforma-api, todo esto lo hace la API (guía R11).
  */
 
 const DIA = 86_400_000;
@@ -57,6 +58,7 @@ export function fila(p: Participacion, ahora = Date.now()): ParticipacionDemo {
   return {
     folio: p.folio,
     tipo: TIPOS_PARTICIPACION[p.tipo],
+    tipoClave: p.tipo,
     autor: p.autor.nombre,
     parroquia: p.parroquia,
     categoriaTecnica: p.categoriaTecnica,
@@ -96,6 +98,14 @@ const plano = (t: string) =>
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase();
 
+/** Órdenes de la bandeja, como `sort` en GET /admin/participations. */
+export const ORDENES_BANDEJA = {
+  atender: "Por atender",
+  recientes: "Más recientes",
+  antiguas: "Más antiguas",
+} as const;
+export type OrdenBandeja = keyof typeof ORDENES_BANDEJA;
+
 export type FiltrosBandeja = {
   estado?: EstadoParticipacion;
   tipo?: TipoParticipacion;
@@ -103,32 +113,85 @@ export type FiltrosBandeja = {
   categoria?: string;
   /** Folio, autor o cédula. */
   q?: string;
+  /** AAAA-MM-DD, sobre el día de recepción en la hora de Venezuela. */
+  desde?: string;
+  hasta?: string;
+  orden?: OrdenBandeja;
 };
 
-/** La bandeja: por atender primero (de la más antigua), luego el resto (de la más reciente). */
-export function bandeja(alm: Almacen, alcaldiaId: string, f: FiltrosBandeja = {}) {
+const FECHA = /^\d{4}-\d{2}-\d{2}$/;
+/** Una fecha AAAA-MM-DD válida, o undefined. */
+export const fechaFiltro = (v: unknown) =>
+  typeof v === "string" && FECHA.test(v) && !Number.isNaN(Date.parse(v)) ? v : undefined;
+
+function coincide(p: Participacion, f: FiltrosBandeja) {
   const q = f.q ? plano(f.q.trim()) : "";
   const digitos = q.replace(/\D/g, "");
+  const dia = diaVe(Date.parse(p.recibidaEl));
+  return (
+    (!f.estado || p.estado === f.estado) &&
+    (!f.tipo || p.tipo === f.tipo) &&
+    (!f.parroquia || p.parroquia === f.parroquia) &&
+    (!f.categoria || p.categoriaTecnica === f.categoria) &&
+    (!f.desde || dia >= f.desde) &&
+    (!f.hasta || dia <= f.hasta) &&
+    (!q ||
+      plano(`${p.folio} ${p.autor.nombre}`).includes(q) ||
+      (digitos.length >= 4 &&
+        (p.autor.cedula ?? p.autor.rif ?? "").replace(/\D/g, "").includes(digitos)))
+  );
+}
+
+/**
+ * La bandeja. Por defecto, por atender primero (de la más antigua) y luego el resto (de la más
+ * reciente); también de la más reciente o de la más antigua.
+ */
+export function bandeja(alm: Almacen, alcaldiaId: string, f: FiltrosBandeja = {}) {
   const atender = (p: Participacion) => p.estado === "PENDIENTE" || p.estado === "EN_REVISION";
+  const orden = f.orden ?? "atender";
   return deAlcaldia(alm, alcaldiaId)
-    .filter(
-      (p) =>
-        (!f.estado || p.estado === f.estado) &&
-        (!f.tipo || p.tipo === f.tipo) &&
-        (!f.parroquia || p.parroquia === f.parroquia) &&
-        (!f.categoria || p.categoriaTecnica === f.categoria) &&
-        (!q ||
-          plano(`${p.folio} ${p.autor.nombre}`).includes(q) ||
-          (digitos.length >= 4 &&
-            (p.autor.cedula ?? p.autor.rif ?? "").replace(/\D/g, "").includes(digitos))),
-    )
+    .filter((p) => coincide(p, f))
     .sort((a, b) =>
-      atender(a) !== atender(b)
-        ? Number(atender(b)) - Number(atender(a))
-        : atender(a)
+      orden === "recientes"
+        ? b.recibidaEl.localeCompare(a.recibidaEl)
+        : orden === "antiguas"
           ? a.recibidaEl.localeCompare(b.recibidaEl)
-          : b.recibidaEl.localeCompare(a.recibidaEl),
+          : atender(a) !== atender(b)
+            ? Number(atender(b)) - Number(atender(a))
+            : atender(a)
+              ? a.recibidaEl.localeCompare(b.recibidaEl)
+              : b.recibidaEl.localeCompare(a.recibidaEl),
     );
+}
+
+export type ConteosBandeja = {
+  estado: Record<EstadoParticipacion, number>;
+  tipo: Record<TipoParticipacion, number>;
+};
+
+/**
+ * Cuántas hay en cada estado y en cada tipo, como `meta.conteos` de la API: cada conteo aplica
+ * los demás filtros, pero no el suyo, para que cada opción diga cuántas mostraría.
+ */
+export function conteosBandeja(
+  alm: Almacen,
+  alcaldiaId: string,
+  f: FiltrosBandeja = {},
+): ConteosBandeja {
+  const todas = deAlcaldia(alm, alcaldiaId);
+  const sinEstado = todas.filter((p) => coincide(p, { ...f, estado: undefined }));
+  const sinTipo = todas.filter((p) => coincide(p, { ...f, tipo: undefined }));
+  return {
+    estado: Object.fromEntries(
+      ESTADOS_PARTICIPACION.map((e) => [e, sinEstado.filter((p) => p.estado === e).length]),
+    ) as Record<EstadoParticipacion, number>,
+    tipo: Object.fromEntries(
+      (Object.keys(TIPOS_PARTICIPACION) as TipoParticipacion[]).map((t) => [
+        t,
+        sinTipo.filter((p) => p.tipo === t).length,
+      ]),
+    ) as Record<TipoParticipacion, number>,
+  };
 }
 
 /** Solo la propuesta formal tiene seguimiento con respuesta (en revisión, verificada, rechazada). */
@@ -210,7 +273,7 @@ export function cambiarEstado(
   p.historial.push({
     estado: destino,
     fecha: new Date(ahora).toISOString(),
-    por: c.usuario.id,
+    por: { id: c.usuario.id, nombre: nombreCompleto(c.usuario) },
     comentario,
     motivo,
   });
@@ -242,7 +305,7 @@ export function agregarNota(
   if (!limpio) return "NOTA_VACIA";
   r.p.notas.push({
     id: `${r.p.folio}-n${r.p.notas.length + 1}`,
-    por: r.c.usuario.id,
+    por: { id: r.c.usuario.id, nombre: nombreCompleto(r.c.usuario) },
     texto: limpio,
     fecha: new Date(ahora).toISOString(),
   });
@@ -261,7 +324,19 @@ export function agregarNota(
 
 const celda = (v: string) => `"${v.replace(/"/g, '""')}"`;
 
-/** CSV de la bandeja con los filtros activos (separador «;» para Excel en español). */
+/** Cédula o RIF enmascarados como en la API: «V-12.***.678», «J-30.***.789-0». */
+export function enmascararDocumento(doc?: string) {
+  if (!doc) return "";
+  const m = /^([VEJGC])-(\d+)(-\d)?$/.exec(doc);
+  if (!m) return "***";
+  const d = m[2] ?? "";
+  return `${m[1]}-${d.slice(0, 2)}.***.${d.slice(-3)}${m[3] ?? ""}`;
+}
+
+/**
+ * CSV de la bandeja con los filtros activos (separador «;» para Excel en español). La cédula o
+ * el RIF van enmascarados: el archivo sale del panel y puede circular.
+ */
 export function csvBandeja(lista: Participacion[]) {
   const cabecera = [
     "Folio",
@@ -284,7 +359,7 @@ export function csvBandeja(lista: Participacion[]) {
     p.sector,
     p.categoriaTecnica,
     p.autor.nombre,
-    p.autor.cedula ?? p.autor.rif ?? "",
+    enmascararDocumento(p.autor.cedula ?? p.autor.rif),
     p.mostrarNombre ? "Sí" : "No",
   ]);
   return `﻿${[cabecera, ...filas].map((f) => f.map(celda).join(";")).join("\r\n")}\r\n`;

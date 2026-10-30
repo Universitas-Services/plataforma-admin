@@ -193,7 +193,7 @@ Refactorización según `Backlog_Refactorizacion_API_Admin.docx`: **una base de 
   - **Admin:** todo lo de la alcaldía (equipo, catálogos de lectura, bitácora, contenido, participaciones, ciudadanos, indicadores).
   - **Operador:** noticias, documentos, Inicio del portal y proceso; indicadores de contenido.
   - **Revisor:** participaciones y ciudadanos; indicadores de participación y ciudadanía.
-- **Catálogos fijos por despliegue:** `/configuracion` es solo lectura. Las fases del proceso se editan en Contenido → Proceso.
+- **Catálogos editables (R16, 29-10-2026):** en `/configuracion` el Administrador (`catalogos.editar`) agrega, renombra, ordena y activa o desactiva los 6 desplegables del portal; los valores no se borran. Las categorías de noticias y documentos del panel salen del catálogo (`valoresActivos` en `src/lib/plataforma/catalogos-activos.ts`). Contrato para backend: `Downloads/R16_CATALOGOS.md`. Las fases del proceso se editan en Contenido → Proceso.
 - **Contenido** (`/contenido/*`, pestañas Noticias · Documentos · Inicio del portal · Proceso):
   - noticias con los 5 formatos, con vistas, me gusta y no me gusta en la lista;
   - documentos con versiones y descargas;

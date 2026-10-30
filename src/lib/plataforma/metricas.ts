@@ -319,8 +319,8 @@ export function decisionesPorRevisor(alm: Almacen, alcaldiaId: string, r: Rango)
     for (const h of p.historial) {
       const d = diaDe(Date.parse(h.fecha));
       if (!h.por || d < r.desde || d > r.hasta) continue;
-      const u = alm.usuarios.get(h.por);
-      sumar(m, u ? nombreCompleto(u) : "Persona retirada");
+      const u = alm.usuarios.get(h.por.id);
+      sumar(m, u ? nombreCompleto(u) : h.por.nombre);
     }
   }
   return ordenar(m);
@@ -412,6 +412,18 @@ export function csvMetricas(
   return `﻿${filas.map((f) => f.map(celda).join(";")).join("\r\n")}\r\n`;
 }
 
+/** Lo que muestra el Tablero, venga del almacén o de la API (guía R14: las mismas formas). */
+export type Indicadores = {
+  participacion?: MetricasParticipacion;
+  contenido?: MetricasContenido;
+  ciudadania?: MetricasCiudadania;
+  equipo?: Fila[];
+  /** Cifras del almacén simulado: el Tablero lo avisa. */
+  simulado?: boolean;
+  /** Con la API, alguna sección no se pudo leer. */
+  incompletas?: boolean;
+};
+
 /** Las secciones de indicadores que puede ver cada rol (Revisor, Operador, Admin). */
 export function indicadoresDe(
   alm: Almacen,
@@ -419,7 +431,7 @@ export function indicadoresDe(
   permisos: ReadonlySet<string>,
   r: Rango,
   ahora = Date.now(),
-) {
+): Indicadores {
   return {
     participacion: permisos.has("metricas.participacion")
       ? metricasParticipacion(alm, alcaldiaId, r, ahora)
@@ -431,5 +443,6 @@ export function indicadoresDe(
       ? metricasCiudadania(alm, alcaldiaId, r)
       : undefined,
     equipo: permisos.has("metricas.equipo") ? decisionesPorRevisor(alm, alcaldiaId, r) : undefined,
+    simulado: true,
   };
 }

@@ -39,6 +39,22 @@ async function confirmar(page: Page, boton: RegExp | string) {
   await page.getByRole("dialog").getByRole("button", { name: boton }).click();
 }
 
+test("el botón a medio llenar no salta ni marca error al autoguardar", async ({ page }) => {
+  test.slow();
+  await ingresar(page, "operador@iribarren.test");
+  await nuevaNoticia(page);
+  await page.getByRole("button", { name: "Añadir un botón" }).click();
+  await page.locator("#boton-texto").click();
+  await page.locator("#boton-href").click();
+  await page.locator("#boton-texto").fill("Inscríbete");
+  await page.locator("#titulo").click();
+  await expect(page.getByText(/^Guardado /).first()).toBeVisible({ timeout: 30_000 });
+  // Sin el resumen de errores ni «No se pudo guardar»: el borrador admite el botón incompleto.
+  await expect(page.getByText(/Para publicar o programar, falta/)).toHaveCount(0);
+  await expect(page.getByText("No se pudo guardar")).toHaveCount(0);
+  await expect(page.locator("#titulo")).toBeFocused();
+});
+
 test("crea una noticia con imagen, se guarda sola y se programa", async ({ page }, info) => {
   test.slow();
   const titulo = `Prueba E2E imagen ${info.project.name}`;

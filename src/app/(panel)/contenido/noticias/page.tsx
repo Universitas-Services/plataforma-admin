@@ -27,11 +27,11 @@ import {
 } from "@/lib/plataforma/contenido";
 import { totalesDe } from "@/lib/plataforma/inicio";
 import { exigirEnAlcaldia, almacen, idSesion, leerAviso } from "@/lib/plataforma/sesion";
+import { valoresActivos } from "@/lib/plataforma/catalogos-activos";
 import { usaApi } from "@/lib/api/cliente";
 import { listarNoticiasApi } from "@/lib/api/noticias";
 import type { ConteoDia } from "@/lib/plataforma/tipos";
 import {
-  CATEGORIAS,
   ESTADOS_NOTICIA,
   FORMATOS,
   NOMBRE_FORMATO,
@@ -72,7 +72,7 @@ export default function NoticiasPage({ searchParams }: { searchParams: SearchPar
 const fechaValida = (v: string) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : "");
 
 async function Contenido({ searchParams }: { searchParams: SearchParams }) {
-  await exigirEnAlcaldia("contenido.editar", "/contenido/noticias");
+  const ctx = await exigirEnAlcaldia("contenido.editar", "/contenido/noticias");
   const sp = await searchParams;
   const texto = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string).trim() : "");
   const de = <T extends string>(lista: readonly T[], k: string) =>
@@ -81,7 +81,8 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
   const estado = de(ESTADOS_NOTICIA, "estado");
   const tipo = de(TIPOS_NOTICIA, "tipo") as TipoNoticia | undefined;
   const formato = de(FORMATOS, "formato") as Formato | undefined;
-  const categoria = de(CATEGORIAS, "categoria") as Categoria | undefined;
+  const categorias = await valoresActivos("categoriasNoticias", ctx.alcaldia.id);
+  const categoria = de(categorias, "categoria") as Categoria | undefined;
   const orden = de(ORDENES, "orden") ?? "recientes";
   const q = texto("q").slice(0, 80);
   const [desde, hasta] = [fechaValida(texto("desde")), fechaValida(texto("hasta"))];
@@ -104,11 +105,14 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
     : listarNoticias(alm, await idSesion(), filtros);
   if (r.estado !== "OK") return null; // exigirEnAlcaldia ya cubrió sesión y permiso.
   // Con la API, cada fila trae sus totales; en la simulación salen del almacén.
-  const totales = new Map<string, ConteoDia>(
+  const totales = new Map<string, ConteoDia | undefined>(
     r.items.map((n) => [
       n.id,
-      ("totales" in n ? (n.totales as ConteoDia | undefined) : undefined) ??
-        totalesDe(alm, `noticia:${n.id}`),
+      usaApi()
+        ? "totales" in n
+          ? (n.totales as ConteoDia | undefined)
+          : undefined
+        : totalesDe(alm, `noticia:${n.id}`),
     ]),
   );
   const aviso = await leerAviso();
@@ -202,7 +206,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
             <Selector
               id="categoria"
               etiqueta="Categoría"
-              opciones={CATEGORIAS}
+              opciones={categorias}
               valorInicial={categoria ?? ""}
               permitirVacio
               vacio="Todas"
@@ -281,7 +285,7 @@ function ListaNoticias({
 }: {
   items: FilaNoticia[];
   /** Vistas y reacciones en el portal (desde la publicación). */
-  totales: Map<string, ConteoDia>;
+  totales: Map<string, ConteoDia | undefined>;
   orden: Orden;
   /** Enlace que invierte el orden por fecha. */
   hrefOrden: string;

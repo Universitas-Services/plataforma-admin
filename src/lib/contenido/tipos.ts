@@ -70,7 +70,8 @@ export const CATEGORIAS = [
   "Despliegue territorial",
   "Visión de futuro",
 ] as const;
-export type Categoria = (typeof CATEGORIAS)[number];
+/** Un valor del catálogo «Categorías de noticias» (editable en Configuración, R16). */
+export type Categoria = string;
 
 export const ESTADOS_NOTICIA = ["BORRADOR", "PROGRAMADO", "PUBLICADO", "DESPUBLICADO"] as const;
 export type EstadoNoticia = (typeof ESTADOS_NOTICIA)[number];
@@ -229,7 +230,8 @@ export const DOC_CATEGORIAS = [
   "Cartografía",
   "Minutas",
 ] as const;
-export type DocCategoria = (typeof DOC_CATEGORIAS)[number];
+/** Un valor del catálogo «Categorías de documentos» (editable en Configuración, R16). */
+export type DocCategoria = string;
 
 /** Borrador de trabajo o documento oficializado (lo dice el portal junto al documento). */
 export const DOC_ESTADOS = ["BORRADOR", "OFICIAL"] as const;

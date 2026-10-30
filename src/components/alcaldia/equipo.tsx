@@ -158,11 +158,14 @@ export function GestionarMiembro({
   nombre,
   roles,
   estado,
+  invitacionId,
 }: {
   id: string;
   nombre: string;
   roles: RolAlcaldia[];
   estado: EstadoMiembro;
+  /** Con la API, la invitación pendiente se reenvía por su id. */
+  invitacionId?: string;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [marcados, setMarcados] = useState<string[]>(roles);
@@ -208,7 +211,7 @@ export function GestionarMiembro({
               <button
                 type="button"
                 disabled={pendiente}
-                onClick={() => correr(() => reenviarInvitacionAccion(id), false)}
+                onClick={() => correr(() => reenviarInvitacionAccion(id, invitacionId), false)}
                 className={claseBoton.secundario}
               >
                 <Mail size={16} aria-hidden="true" />

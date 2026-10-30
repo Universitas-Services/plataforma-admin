@@ -84,7 +84,7 @@ export function TablaCola({
           <li key={p.folio} className="px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <Folio folio={p.folio} />
-              <InsigniaEstado estado={p.estado} tipo={p.tipo} />
+              <InsigniaEstado estado={p.estado} tipo={p.tipoClave} />
             </div>
             <p className="mt-0.5 truncate text-sm text-gris">
               {p.tipo} · {p.parroquia}
@@ -162,7 +162,7 @@ export function TablaCola({
                   {p.recibida}
                 </td>
                 <td className="px-3 py-3.5">
-                  <InsigniaEstado estado={p.estado} tipo={p.tipo} />
+                  <InsigniaEstado estado={p.estado} tipo={p.tipoClave} />
                 </td>
                 <td className={`px-3 py-3.5 ${ver.recorrido}`}>
                   <RecorridoFila p={p} />

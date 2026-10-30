@@ -7,7 +7,10 @@ import { Dialogo } from "@/components/ui/dialogo";
 import { membresiaAccion } from "@/lib/plataforma/acciones-alcaldia";
 import { claseBoton, claseCampo, ErrorCampo, Etiqueta, useRespuesta } from "./comunes";
 
-/** Suspender o reactivar la membresía de un ciudadano en esta alcaldía, siempre con motivo. */
+/**
+ * Suspender o reactivar la membresía de un ciudadano en esta alcaldía. Suspender exige el motivo;
+ * al reactivar es opcional, como en la API.
+ */
 export function CambiarMembresia({
   id,
   nombre,
@@ -56,7 +59,9 @@ export function CambiarMembresia({
           }}
         >
           <div>
-            <Etiqueta htmlFor="membresia-motivo">Motivo</Etiqueta>
+            <Etiqueta htmlFor="membresia-motivo">
+              {suspendida ? "Motivo (opcional)" : "Motivo"}
+            </Etiqueta>
             <textarea
               id="membresia-motivo"
               rows={3}
@@ -68,7 +73,9 @@ export function CambiarMembresia({
               className={claseCampo(r.errores.motivo)}
             />
             <p id="membresia-motivo-ayuda" className="mt-1 text-sm text-gris">
-              Queda en la bitácora. Mínimo 10 caracteres.
+              {suspendida
+                ? "Queda en la bitácora. Si lo escribes, de 10 a 500 caracteres."
+                : "Queda en la bitácora. De 10 a 500 caracteres."}
             </p>
             <ErrorCampo id="membresia-motivo-error" error={r.errores.motivo} />
           </div>

@@ -1,8 +1,6 @@
 import { z } from "zod";
 import { cedulaSchema, contrasenaSchema, correoSchema, nombreSchema } from "./common";
 import {
-  CATEGORIAS,
-  DOC_CATEGORIAS,
   DOC_ESTADOS,
   FORMATOS,
   FUENTES_VIDEO,
@@ -123,7 +121,8 @@ export const noticiaSchema = z.object({
   formato: z.enum(FORMATOS),
   titulo: z.string().trim().max(160, "El título no puede superar 160 caracteres."),
   resumen: z.string().trim().max(300, "El resumen no puede superar 300 caracteres."),
-  categoria: z.enum(CATEGORIAS).optional(),
+  // Un valor del catálogo: la lista la administra el Administrador; la valida el servidor.
+  categoria: z.string().trim().max(80).optional(),
   parroquia: z.string().trim().max(80).optional(),
   portada: imagenSchema.optional(),
   cuerpo: z.string().max(200_000, "El cuerpo es demasiado largo."),
@@ -159,10 +158,12 @@ export const noticiaSchema = z.object({
         .max(12, "Hasta 12 puntos de análisis."),
     })
     .optional(),
+  // Un borrador guarda el botón aunque esté a medio llenar; completo se exige al publicar
+  // (faltantesPublicacion en contenido.ts).
   boton: z
     .object({
-      texto: z.string().trim().min(1, "Escribe el texto del botón.").max(40),
-      href: enlaceBoton,
+      texto: z.string().trim().max(40),
+      href: z.string().trim().max(500),
     })
     .optional(),
   destacada: z.boolean(),
@@ -181,7 +182,7 @@ export const documentoSchema = z.object({
     .trim()
     .min(1, "Escribe una descripción breve.")
     .max(500, "La descripción no puede superar 500 caracteres."),
-  categoria: z.enum(DOC_CATEGORIAS, { error: "Elige la categoría." }),
+  categoria: z.string().trim().min(1, "Elige la categoría.").max(80),
   estado: z.enum(DOC_ESTADOS),
   publico: z.boolean(),
 });

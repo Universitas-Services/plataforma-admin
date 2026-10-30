@@ -32,12 +32,15 @@ const natural = (nombre: string, cedula: string, correo: string, telefono: strin
   documentos: [{ tipo: "IDENTIDAD" as const, nombre: "cedula.pdf", version: 1 }],
 });
 
+/** La revisora de los ejemplos (revisor@iribarren.test). */
+const REVISORA = { id: "u-revisor-iri", nombre: "María Fernández" };
+
 /** Historial a partir de pasos «hace N horas». */
 function pasos(ahora: number, lista: [PasoParticipacion["estado"], number, string?][]) {
   return lista.map(([estado, horasAtras, comentario]) => ({
     estado,
     fecha: new Date(ahora - horasAtras * HORA).toISOString(),
-    por: estado === "PENDIENTE" ? undefined : "u-revisor-iri",
+    por: estado === "PENDIENTE" ? undefined : REVISORA,
     comentario,
   }));
 }
@@ -257,7 +260,7 @@ export function participacionesDemo(ahora: number): Participacion[] {
         {
           estado: "RECHAZADA",
           fecha: new Date(ahora - 17 * 24 * HORA).toISOString(),
-          por: "u-revisor-iri",
+          por: REVISORA,
           motivo: "FUERA_DE_ALCANCE",
           comentario:
             "La definición de alturas corresponde a la Fase III (construcción del plan). Te invitamos a enviarla de nuevo cuando se abra esa fase.",

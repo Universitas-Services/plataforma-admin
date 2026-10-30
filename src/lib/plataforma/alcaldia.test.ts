@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  anonimizarCiudadano,
+  cambiarActivoItem,
+  catalogosConUsos,
   catalogosDe,
   cambiarActivoMiembro,
   cambiarMembresia,
@@ -11,10 +14,13 @@ import {
   enmascarar,
   equipoDe,
   eventosDe,
+  filtrosCiudadanos,
   fijarFaseActual,
   guardarFase,
+  guardarItem,
   invitarMiembro,
   moverFase,
+  moverItem,
   reenviarInvitacionMiembro,
 } from "./alcaldia";
 import { CONTRASENA_DEMO, almacenDemo } from "./fixtures";
@@ -91,8 +97,9 @@ describe("equipo", () => {
 
 describe("ciudadanos", () => {
   it("enmascara la cédula y el RIF", () => {
-    expect(enmascarar("V-12345678")).toBe("V-•••••678");
-    expect(enmascarar("C-29876543-7")).toBe("C-••••••437");
+    // El mismo formato que la API (guía R13).
+    expect(enmascarar("V-12345678")).toBe("V-12.***.678");
+    expect(enmascarar("C-29876543-7")).toBe("C-29.***.543-7");
   });
 
   it("filtra por tipo, perfil, membresía y busca por nombre o cédula", () => {
@@ -118,12 +125,56 @@ describe("ciudadanos", () => {
     expect(alm.bitacora.at(-1)!.accion).toBe("MEMBRESIA_SUSPENDIDA");
   });
 
+  it("reactivar no exige motivo, como en la API", () => {
+    const { alm, s } = sesionDe(ADMIN);
+    const id = ciudadanosDe(alm, "iribarren", { membresia: "SUSPENDIDA" })[0]!.id;
+    expect(cambiarMembresia(alm, s, id, "ACTIVA", "")).toEqual({ estado: "OK" });
+    expect(cambiarMembresia(alm, s, id, "SUSPENDIDA", "")).toEqual({ estado: "SIN_MOTIVO" });
+    expect(alm.ciudadanos.get(id)!.membresia.estado).toBe("ACTIVA");
+  });
+
+  it("filtra las bajas pedidas, ordena y lee el orden de la URL", () => {
+    const { alm } = sesionDe(ADMIN);
+    const bajas = ciudadanosDe(alm, "iribarren", { baja: "solicitada" });
+    expect(bajas.map((c) => c.nombre)).toEqual(["Gabriel Torrealba"]);
+    const porNombre = ciudadanosDe(alm, "iribarren", { orden: "nombre" }).map((c) => c.nombre);
+    expect(porNombre).toEqual([...porNombre].sort((a, b) => a.localeCompare(b, "es")));
+    const leer = (q: Record<string, string>) => filtrosCiudadanos((k) => q[k]);
+    expect(leer({ orden: "nombre", baja: "solicitada" })).toMatchObject({
+      orden: "nombre",
+      baja: "solicitada",
+    });
+    expect(leer({ orden: "toString", baja: "x" })).toMatchObject({
+      orden: undefined,
+      baja: undefined,
+    });
+  });
+
+  it("anonimiza solo si pidió la baja, y después no se puede suspender", () => {
+    const { alm, s } = sesionDe(ADMIN);
+    const sinBaja = ciudadanosDe(alm, "iribarren", { q: "jose rodriguez" })[0]!.id;
+    expect(anonimizarCiudadano(alm, s, sinBaja)).toEqual({ estado: "SIN_BAJA" });
+    const id = ciudadanosDe(alm, "iribarren", { baja: "solicitada" })[0]!.id;
+    expect(anonimizarCiudadano(alm, s, id)).toEqual({ estado: "OK" });
+    const c = alm.ciudadanos.get(id)!;
+    expect(c).toMatchObject({ nombre: "Cuenta anonimizada", correo: "", documentos: [] });
+    expect(c.cedula).toBeUndefined();
+    expect(alm.bitacora.at(-1)!.accion).toBe("CUENTA_ANONIMIZADA");
+    expect(ciudadanosDe(alm, "iribarren", { baja: "solicitada" })).toHaveLength(0);
+    expect(ciudadanosDe(alm, "iribarren", { baja: "anonimizada" })).toHaveLength(1);
+    expect(cambiarMembresia(alm, s, id, "SUSPENDIDA", "Motivo suficiente")).toEqual({
+      estado: "ANONIMIZADA",
+    });
+    expect(csvCiudadanos([c]).split("\r\n")[0]).toContain('"Cuenta"');
+  });
+
   it("el Revisor ve ciudadanos pero no suspende", () => {
     const { alm, s } = sesionDe("revisor@iribarren.test");
     const id = ciudadanosDe(alm, "iribarren")[0]!.id;
     expect(cambiarMembresia(alm, s, id, "SUSPENDIDA", "Motivo suficiente")).toEqual({
       estado: "SIN_PERMISO",
     });
+    expect(anonimizarCiudadano(alm, s, id)).toEqual({ estado: "SIN_PERMISO" });
   });
 });
 
@@ -131,6 +182,39 @@ describe("catálogos y proceso", () => {
   it("los catálogos vienen del despliegue y se leen tal cual", () => {
     const alm = almacenDemo();
     expect(catalogosDe(alm, "iribarren")!.parroquias.length).toBeGreaterThan(0);
+  });
+
+  it("el Administrador crea, renombra sin repetir (sin tildes), ordena y desactiva", () => {
+    const { alm, s } = sesionDe(ADMIN);
+    const lista = () => catalogosDe(alm, "iribarren")!.parroquias;
+    const antes = lista().length;
+    expect(guardarItem(alm, s, "parroquias", "  Nueva   parroquia ").estado).toBe("OK");
+    expect(lista().at(-1)).toMatchObject({ nombre: "Nueva parroquia", activo: true });
+    expect(guardarItem(alm, s, "parroquias", "el cuji").estado).toBe("REPETIDO");
+    expect(guardarItem(alm, s, "parroquias", "   ").estado).toBe("VACIO");
+    const nueva = lista().at(-1)!;
+    expect(guardarItem(alm, s, "parroquias", "Parroquia renombrada", nueva.id).estado).toBe("OK");
+    expect(moverItem(alm, s, "parroquias", nueva.id, -1).estado).toBe("OK");
+    expect(lista()[antes - 1]!.id).toBe(nueva.id);
+    expect(moverItem(alm, s, "parroquias", lista()[0]!.id, -1).estado).toBe("NO_EXISTE");
+    expect(cambiarActivoItem(alm, s, "parroquias", nueva.id, false).estado).toBe("OK");
+    expect(lista().find((i) => i.id === nueva.id)?.activo).toBe(false);
+    expect(alm.bitacora.map((e) => e.accion)).toEqual(
+      expect.arrayContaining([
+        "CATALOGO_CREADO",
+        "CATALOGO_EDITADO",
+        "CATALOGO_REORDENADO",
+        "CATALOGO_DESACTIVADO",
+      ]),
+    );
+    expect(verificarIntegridad(alm).ok).toBe(true);
+  });
+
+  it("el Operador y el Revisor no editan los catálogos", () => {
+    for (const correo of ["operador@iribarren.test", "revisor@iribarren.test"]) {
+      const { alm, s } = sesionDe(correo);
+      expect(guardarItem(alm, s, "parroquias", "Otra").estado).toBe("SIN_PERMISO");
+    }
   });
 
   it("edita fases, valida fechas, reordena y mantiene la fase actual", () => {
@@ -183,5 +267,24 @@ describe("bitácora", () => {
       { campo: "roles", antes: ["REVISOR"], despues: ["OPERADOR"] },
     ]);
     expect(verificarIntegridad(alm)).toEqual({ ok: true });
+  });
+});
+
+describe("catálogos: usos y repetidos (R16)", () => {
+  it("cuenta los usos de cada valor y dice cuál repetido existe", () => {
+    const { alm, s } = sesionDe(ADMIN);
+    const parroquias = catalogosConUsos(alm, "iribarren")!.parroquias;
+    const usada = parroquias.find((p) => (p.usos ?? 0) > 0)!;
+    expect(usada.usos).toBe(
+      [...alm.participaciones.values()].filter(
+        (p) => p.alcaldiaId === "iribarren" && p.parroquia === usada.nombre,
+      ).length,
+    );
+    const primera = catalogosDe(alm, "iribarren")!.parroquias[0]!;
+    expect(cambiarActivoItem(alm, s, "parroquias", primera.id, false)).toEqual({ estado: "OK" });
+    expect(guardarItem(alm, s, "parroquias", primera.nombre.toUpperCase())).toEqual({
+      estado: "REPETIDO",
+      existente: { id: primera.id, nombre: primera.nombre, activo: false },
+    });
   });
 });

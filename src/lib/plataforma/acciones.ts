@@ -3,6 +3,12 @@
 import { RedirectType, redirect } from "next/navigation";
 import type { z } from "zod";
 import { ErrorApi, pedirApi, usaApi, type SesionApi } from "@/lib/api/cliente";
+import {
+  aceptarInvitacionApi,
+  recuperarApi,
+  reenviarInvitacionPublicaApi,
+  restablecerApi,
+} from "@/lib/api/acceso";
 import { mensajeDeError } from "@/lib/api/errores";
 import { borrarTokens, guardarTokens, tokensDeCookie } from "@/lib/api/sesion-api";
 import {
@@ -127,7 +133,10 @@ async function ingresarApi(correo: string, contrasena: string, volver: unknown) 
     const texto =
       e instanceof ErrorApi && e.code === "FORBIDDEN"
         ? "Esta cuenta no es del personal de la alcaldía. Si eres ciudadano, entra por el portal."
-        : mensajeDeError(e);
+        : // El personal desactivado: «Tu acceso al panel fue desactivado…» (guía R13).
+          e instanceof ErrorApi && e.code === "ACCOUNT_DISABLED" && e.message
+          ? e.message
+          : mensajeDeError(e);
     return { valores, mensaje: { tipo: "error" as const, texto } };
   }
   return ir(destinoSeguro(volver, "/tablero"));
@@ -232,7 +241,17 @@ export async function recuperarAccion(
   const datos = leer(fd);
   const p = recuperarSchema.safeParse(datos);
   if (!p.success) return conErrores(p.error, datos);
-  const { tokenDesarrollo } = recuperar(almacen(), p.data.correo);
+  let tokenDesarrollo: string | undefined;
+  if (usaApi()) {
+    try {
+      await recuperarApi(p.data.correo);
+    } catch (e) {
+      return {
+        valores: { correo: p.data.correo },
+        mensaje: { tipo: "error", texto: mensajeDeError(e) },
+      };
+    }
+  } else tokenDesarrollo = recuperar(almacen(), p.data.correo).tokenDesarrollo;
   return {
     valores: { correo: p.data.correo },
     mensaje: {
@@ -251,7 +270,14 @@ export async function restablecerAccion(
   const datos = leer(fd);
   const p = restablecerSchema.safeParse(datos);
   if (!p.success) return conErrores(p.error, datos);
-  const estado = restablecer(almacen(), p.data.token, p.data.contrasena);
+  let estado: "OK" | "VENCIDO" | "USADO" | "INVALIDO";
+  if (usaApi()) {
+    try {
+      estado = await restablecerApi(p.data.token, p.data.contrasena);
+    } catch (e) {
+      return { mensaje: { tipo: "error", texto: mensajeDeError(e) } };
+    }
+  } else estado = restablecer(almacen(), p.data.token, p.data.contrasena);
   if (estado === "OK") {
     await guardarAviso("Listo: ya puedes entrar con tu contraseña nueva.");
     ir("/ingresar");
@@ -272,7 +298,9 @@ export async function aceptarInvitacionAccion(
   const datos = leer(fd);
   const p = aceptarInvitacionSchema.safeParse(datos);
   if (!p.success) return conErrores(p.error, datos);
-  const r = aceptarInvitacion(almacen(), String(fd.get("token") ?? ""), p.data);
+  const token = String(fd.get("token") ?? "");
+  if (usaApi()) return aceptarConApi(token, p.data, datos);
+  const r = aceptarInvitacion(almacen(), token, p.data);
   if (r === "CEDULA_EN_USO")
     return {
       errores: { cedula: "Esta cédula ya pertenece a otra cuenta del panel." },
@@ -288,11 +316,55 @@ export async function aceptarInvitacionAccion(
   ir("/ingresar");
 }
 
+/**
+ * Con la API, aceptar devuelve la sesión: se guarda y se entra al Tablero. Si guardarla falla, la
+ * invitación ya quedó usada, así que se va a Ingresar con el correo y la contraseña nuevos.
+ */
+async function aceptarConApi(
+  token: string,
+  d: { cedula: string; nombres: string; apellidos: string; contrasena: string },
+  datos: Record<string, unknown>,
+): Promise<EstadoFormulario> {
+  let r: Awaited<ReturnType<typeof aceptarInvitacionApi>>;
+  try {
+    r = await aceptarInvitacionApi(token, d);
+  } catch (e) {
+    return { valores: valoresDe(datos), mensaje: { tipo: "error", texto: mensajeDeError(e) } };
+  }
+  if (r.estado === "CEDULA_EN_USO")
+    return {
+      errores: { cedula: "Esta cédula ya pertenece a otra cuenta." },
+      valores: valoresDe(datos),
+    };
+  if (r.estado !== "OK")
+    return {
+      mensaje: { tipo: "error", texto: "La invitación ya no es válida. Pide que te la reenvíen." },
+    };
+  try {
+    await guardarTokens(r.sesion);
+  } catch {
+    await guardarAviso(
+      "Tu cuenta está lista. Inicia sesión con tu correo y la contraseña que creaste.",
+    );
+    ir("/ingresar");
+  }
+  await guardarAviso("Tu cuenta está lista. Bienvenido al panel de tu alcaldía.");
+  ir("/tablero");
+}
+
 export async function reenviarInvitacionAccion(
   _p: EstadoFormulario,
   fd: FormData,
 ): Promise<EstadoFormulario> {
-  const nuevo = reenviarInvitacion(almacen(), String(fd.get("token") ?? ""));
+  const token = String(fd.get("token") ?? "");
+  let nuevo: string | undefined;
+  if (usaApi()) {
+    try {
+      await reenviarInvitacionPublicaApi(token);
+    } catch (e) {
+      return { mensaje: { tipo: "error", texto: mensajeDeError(e) } };
+    }
+  } else nuevo = reenviarInvitacion(almacen(), token);
   return {
     mensaje: {
       tipo: "info",

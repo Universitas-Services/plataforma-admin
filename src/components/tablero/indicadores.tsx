@@ -2,7 +2,7 @@ import { Download } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Barras, Columnas } from "./graficos";
-import { RANGOS, type ClaveRango, type Rango, type indicadoresDe } from "@/lib/plataforma/metricas";
+import { RANGOS, type ClaveRango, type Indicadores, type Rango } from "@/lib/plataforma/metricas";
 
 /*
  * Indicadores del tablero (backlog de refactorización, KPI): cada rol ve lo suyo. El Revisor,
@@ -87,21 +87,24 @@ export function SelectorRango({ actual }: { actual: ClaveRango }) {
   );
 }
 
-export function Indicadores({
-  rango,
-  datos,
-}: {
-  rango: Rango;
-  datos: ReturnType<typeof indicadoresDe>;
-}) {
-  const { participacion: p, contenido: c, ciudadania: ci, equipo } = datos;
+export function Indicadores({ rango, datos }: { rango: Rango; datos: Indicadores }) {
+  const { participacion: p, contenido: c, ciudadania: ci, equipo, simulado, incompletas } = datos;
   const fechas = `del ${rango.desde.split("-").reverse().join("/")} al ${rango.hasta.split("-").reverse().join("/")}`;
   return (
     <div className="space-y-10">
       <p className="text-sm text-gris">
-        {rango.etiqueta}, {fechas}. Las cifras de vistas, reacciones y descargas son de demostración
-        hasta conectar la API.
+        {rango.etiqueta}, {fechas}.
+        {simulado &&
+          " Las cifras de vistas, reacciones y descargas son de demostración hasta conectar la API."}
       </p>
+      {incompletas && (
+        <p
+          role="status"
+          className="rounded-lg bg-peligro-suave p-4 text-sm text-tinta ring-1 ring-peligro/30 ring-inset"
+        >
+          Algunos indicadores no cargaron: recarga la página.
+        </p>
+      )}
 
       {p && (
         <Seccion id="ind-participacion" titulo="Participación">

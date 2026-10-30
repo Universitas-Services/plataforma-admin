@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   anonimizarCiudadano,
   cambiarActivoItem,
+  catalogosConUsos,
   catalogosDe,
   cambiarActivoMiembro,
   cambiarMembresia,
@@ -266,5 +267,24 @@ describe("bitácora", () => {
       { campo: "roles", antes: ["REVISOR"], despues: ["OPERADOR"] },
     ]);
     expect(verificarIntegridad(alm)).toEqual({ ok: true });
+  });
+});
+
+describe("catálogos: usos y repetidos (R16)", () => {
+  it("cuenta los usos de cada valor y dice cuál repetido existe", () => {
+    const { alm, s } = sesionDe(ADMIN);
+    const parroquias = catalogosConUsos(alm, "iribarren")!.parroquias;
+    const usada = parroquias.find((p) => (p.usos ?? 0) > 0)!;
+    expect(usada.usos).toBe(
+      [...alm.participaciones.values()].filter(
+        (p) => p.alcaldiaId === "iribarren" && p.parroquia === usada.nombre,
+      ).length,
+    );
+    const primera = catalogosDe(alm, "iribarren")!.parroquias[0]!;
+    expect(cambiarActivoItem(alm, s, "parroquias", primera.id, false)).toEqual({ estado: "OK" });
+    expect(guardarItem(alm, s, "parroquias", primera.nombre.toUpperCase())).toEqual({
+      estado: "REPETIDO",
+      existente: { id: primera.id, nombre: primera.nombre, activo: false },
+    });
   });
 });

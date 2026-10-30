@@ -67,26 +67,6 @@ export const filaDeApi = (f: FilaApi, ahora = Date.now()): ParticipacionDemo => 
   estado: f.estado,
 });
 
-/** La fila como participación, sin historial ni contenido: para las métricas del Tablero. */
-export const participacionDeFila = (f: FilaApi): Participacion => ({
-  folio: f.folio,
-  alcaldiaId: ALCALDIA.id,
-  tipo: f.tipo,
-  noticia: f.noticia,
-  parroquia: f.parroquia,
-  sector: f.sector,
-  categoriaTecnica: f.categoriaTecnica,
-  descripcion: "",
-  imagenes: [],
-  mostrarNombre: f.mostrarNombre,
-  autor: { tipo: f.autor.tipo, nombre: f.autor.nombre, correo: "", documentos: [] },
-  estado: f.estado,
-  recibidaEl: f.recibidaEl,
-  publicadaEl: f.publicadaEl,
-  historial: [],
-  notas: [],
-});
-
 export const detalleDeApi = (d: DetalleApi): Participacion => ({
   ...d,
   alcaldiaId: ALCALDIA.id,
@@ -144,21 +124,6 @@ export async function listarParticipacionesApi(f: FiltrosBandeja, pagina = 1, li
   } catch (e) {
     return { estado: comun(e) };
   }
-}
-
-/**
- * Toda la bandeja (recorre las páginas de 100), para las métricas del Tablero. Con R13 la API
- * dará los indicadores calculados; mientras tanto, se corta en 5.000 aportes.
- */
-export async function todasLasFilasApi() {
-  const filas: FilaApi[] = [];
-  for (let pagina = 1; pagina <= 50; pagina++) {
-    const r = await listarParticipacionesApi({ orden: "recientes" }, pagina, 100);
-    if (r.estado !== "OK") return r;
-    filas.push(...r.filas);
-    if (pagina >= r.meta.totalPages) break;
-  }
-  return { estado: "OK" as const, filas };
 }
 
 export async function obtenerParticipacionApi(folio: string) {

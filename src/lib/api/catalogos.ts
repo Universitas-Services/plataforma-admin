@@ -10,14 +10,26 @@ import {
 } from "@/lib/plataforma/tipos";
 
 /*
- * Desplegables del portal contra plataforma-api. La lectura (GET /admin/catalogs/:tipo) ya
- * existe; crear, renombrar, activar y ordenar son de R16 (pedido a backend: POST, PATCH y PUT
- * order, permiso catalogos.editar). Devuelven los mismos códigos que alcaldia.ts.
+ * Desplegables del portal contra plataforma-api (guía R16: /admin/catalogs, permiso
+ * catalogos.editar para escribir). Devuelven los mismos códigos que alcaldia.ts.
  */
 
-type ItemApi = { id: string; valor: string; codigo: string | null; orden: number; activo: boolean };
+type ItemApi = {
+  id: string;
+  valor: string;
+  codigo: string | null;
+  orden: number;
+  activo: boolean;
+  /** Registros vivos que lo usan (solo en los 6 editables). */
+  usos?: number;
+};
 
-const deApi = (i: ItemApi): ItemCatalogo => ({ id: i.id, nombre: i.valor, activo: i.activo });
+const deApi = (i: ItemApi): ItemCatalogo => ({
+  id: i.id,
+  nombre: i.valor,
+  activo: i.activo,
+  usos: i.usos,
+});
 
 const ruta = (tipo: TipoCatalogo) => `/admin/catalogs/${SLUG_CATALOGO[tipo]}`;
 
@@ -28,7 +40,19 @@ async function token() {
 
 function fallo(e: unknown): ResultadoCatalogo {
   if (e instanceof ErrorApi) {
-    if (e.code === "CATALOGO_REPETIDO" || e.status === 409) return { estado: "REPETIDO" };
+    if (e.code === "CATALOGO_REPETIDO" || e.status === 409) {
+      // La API dice cuál es el que ya existe: si está inactivo, el panel ofrece activarlo.
+      const d = e.details as { id?: string; valor?: string; activo?: boolean } | undefined;
+      return {
+        estado: "REPETIDO",
+        existente:
+          d?.id && d.valor !== undefined
+            ? { id: d.id, nombre: d.valor, activo: d.activo !== false }
+            : undefined,
+      };
+    }
+    // La lista cambió mientras tanto (otro Administrador la editó).
+    if (e.code === "ORDEN_INVALIDO") return { estado: "ORDEN_INVALIDO" };
     if (e.code === "VALIDATION_ERROR") return { estado: "VACIO" };
     if (e.status === 401) return { estado: "SIN_SESION" };
     if (e.status === 403) return { estado: "SIN_PERMISO" };

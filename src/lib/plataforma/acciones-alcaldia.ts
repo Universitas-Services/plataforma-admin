@@ -43,6 +43,8 @@ export type Respuesta = {
   errores?: Record<string, string>;
   /** Solo en desarrollo o demostración: el enlace que en producción llegaría por correo. */
   enlace?: string;
+  /** Catálogos: el valor repetido existe pero está inactivo; se ofrece activarlo. */
+  reactivar?: { id: string; nombre: string };
 };
 
 const COMUNES: Record<string, Respuesta> = {
@@ -220,12 +222,21 @@ export async function guardarItemAccion(
     : guardarItem(almacen(), await idSesion(), tipo, limpio, id);
   if (r.estado === "VACIO")
     return { ok: false, mensaje: "Escribe el nombre.", errores: { nombre: "Escribe el nombre." } };
-  if (r.estado === "REPETIDO")
+  if (r.estado === "REPETIDO") {
+    const e = r.existente;
+    if (e && !e.activo)
+      return {
+        ok: false,
+        mensaje: `«${e.nombre}» ya existe, pero está inactivo.`,
+        errores: { nombre: `Ya existe «${e.nombre}», inactivo: puedes activarlo.` },
+        reactivar: { id: e.id, nombre: e.nombre },
+      };
     return {
       ok: false,
       mensaje: "Ese valor ya existe.",
-      errores: { nombre: "Ya existe un valor con ese nombre." },
+      errores: { nombre: e ? `Ya existe «${e.nombre}».` : "Ya existe un valor con ese nombre." },
     };
+  }
   if (r.estado !== "OK") return COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
   purgar("/configuracion");
   return {
@@ -264,6 +275,10 @@ export async function moverItemAccion(
   const r = usaApi()
     ? await moverItemApi(tipo, String(id), direccion)
     : moverItem(almacen(), await idSesion(), tipo, String(id), direccion);
+  if (r.estado === "ORDEN_INVALIDO") {
+    purgar("/configuracion");
+    return { ok: false, mensaje: "El catálogo cambió: recarga la página e intenta de nuevo." };
+  }
   if (r.estado !== "OK") return COMUNES[r.estado] ?? COMUNES.SIN_PERMISO!;
   purgar("/configuracion");
   return { ok: true, mensaje: "Orden guardado." };

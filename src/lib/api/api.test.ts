@@ -23,6 +23,8 @@ const acceso = await import("./acceso");
 const equipo = await import("./equipo");
 const ciudadanos = await import("./ciudadanos");
 const bitacora = await import("./bitacora");
+const metricas = await import("./metricas");
+const { indicadoresApi } = await import("@/lib/plataforma/tablero-datos");
 const { reflejarUsuario } = await import("./sesion-api");
 const { abrirSello, sellar } = await import("./sello");
 const { esMedioApi } = await import("@/lib/contenido/medio-api");
@@ -1084,5 +1086,118 @@ describe("Bitácora contra la API (R13)", () => {
     expect((await bitacora.listarBitacoraApi({ actor: "no-es-uuid" })).estado).toBe(
       "FILTRO_INVALIDO",
     );
+  });
+});
+
+describe("Métricas del Tablero contra la API (R14)", () => {
+  const CONTENIDO = {
+    alcance: { vistas: 9, likes: 2, dislikes: 0 },
+    serieVistas: [],
+    masVistas: [{ nombre: "Una noticia", valor: 9, href: "n-1" }],
+    masValoradas: [{ nombre: "Una noticia", valor: 2, href: "n-1" }],
+    porFormato: [],
+    publicadasEnRango: 1,
+    descargas: 3,
+    masDescargados: [{ nombre: "Gaceta", valor: 3, href: "d-1" }],
+  };
+
+  it("pide la sección con su rango y arma las rutas del panel", async () => {
+    const llamadas = simularFetch(
+      { cuerpo: CONTENIDO },
+      { cuerpo: [{ nombre: "María Fernández", valor: 4 }] },
+    );
+    const c = await metricas.metricasApi("contenido", "7d");
+    expect(llamadas[0]!.url).toBe(`${API}/admin/metrics/content?rango=7d`);
+    expect(c.masVistas[0]!.href).toBe("/contenido/noticias/n-1");
+    expect(c.masDescargados[0]!.href).toBe("/contenido/documentos/d-1");
+    const equipo = await metricas.metricasApi("equipo", "anio");
+    expect(llamadas[1]!.url).toBe(`${API}/admin/metrics/team?rango=anio`);
+    expect(equipo).toEqual([{ nombre: "María Fernández", valor: 4 }]);
+  });
+
+  it("solo pide lo que permiten los permisos; si una sección falla, avisa", async () => {
+    const llamadas: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      llamadas.push(url);
+      if (url.includes("/citizens")) return new Response(null, { status: 503 });
+      if (url.includes("/participation"))
+        return new Response(
+          JSON.stringify({
+            masReacciones: [{ nombre: "IRI-2026-0001", valor: 1, href: "IRI-2026-0001" }],
+          }),
+          { status: 200 },
+        );
+      return new Response(JSON.stringify(CONTENIDO), { status: 200 });
+    });
+    const r = await indicadoresApi(
+      new Set(["metricas.participacion", "metricas.ciudadania"]),
+      "30d",
+    );
+    expect(llamadas.some((u) => u.includes("/content") || u.includes("/team"))).toBe(false);
+    expect(r.participacion?.masReacciones[0]!.href).toBe("/participaciones/IRI-2026-0001");
+    expect(r.ciudadania).toBeUndefined();
+    expect(r.incompletas).toBe(true);
+    expect(r.simulado).toBeUndefined();
+  });
+
+  it("el CSV conserva el BOM", async () => {
+    vi.stubGlobal(
+      "fetch",
+      async () => new Response("Sección;Indicador;Valor\r\n", { status: 200 }),
+    );
+    const r = await metricas.exportarMetricasApi("90d");
+    expect(r.estado === "OK" && r.csv.startsWith("\uFEFF")).toBe(true);
+  });
+});
+
+describe("Catálogos contra la API (R16)", () => {
+  it("lee los usos de cada valor", async () => {
+    simularFetch(
+      ...Array.from({ length: 6 }, () => ({
+        cuerpo: {
+          data: [{ id: "p1", valor: "Catedral", codigo: null, orden: 1, activo: true, usos: 7 }],
+        },
+      })),
+    );
+    const c = await catalogos.catalogosApi();
+    expect(c!.parroquias[0]).toEqual({ id: "p1", nombre: "Catedral", activo: true, usos: 7 });
+  });
+
+  it("el repetido dice cuál existe y el orden cambiado se informa", async () => {
+    simularFetch(
+      {
+        status: 409,
+        cuerpo: {
+          code: "CATALOGO_REPETIDO",
+          message: "x",
+          details: { id: "p9", valor: "El Cují", activo: false },
+        },
+      },
+      { cuerpo: { data: [{ id: "a" }, { id: "b" }] } },
+      { status: 422, cuerpo: { code: "ORDEN_INVALIDO", message: "x" } },
+    );
+    expect(await catalogos.guardarItemApi("parroquias", "el cuji")).toEqual({
+      estado: "REPETIDO",
+      existente: { id: "p9", nombre: "El Cují", activo: false },
+    });
+    expect(await catalogos.moverItemApi("parroquias", "a", 1)).toEqual({
+      estado: "ORDEN_INVALIDO",
+    });
+  });
+
+  it("un enlace de botón inválido en el borrador marca el campo", async () => {
+    simularFetch({
+      status: 400,
+      cuerpo: {
+        code: "VALIDATION_ERROR",
+        message: "x",
+        details: ["boton.Escribe un enlace que empiece por https:// o por /."],
+      },
+    });
+    const r = await noticias.guardarNoticiaApi("n-1", {
+      ...NOTICIA,
+      boton: { texto: "Ver", href: "www.algo" },
+    } as unknown as Parameters<typeof noticias.guardarNoticiaApi>[1]);
+    expect(r).toMatchObject({ estado: "INCOMPLETA", errores: { boton: expect.any(String) } });
   });
 });

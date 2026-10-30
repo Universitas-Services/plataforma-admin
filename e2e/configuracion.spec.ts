@@ -24,7 +24,7 @@ test("el Administrador agrega, renombra, ordena y desactiva un valor", async ({ 
   await catalogo.getByRole("button", { name: "Agregar a Parroquias" }).click();
   await dialogo.getByLabel("Nombre").fill("el cuji");
   await dialogo.getByRole("button", { name: "Guardar" }).click();
-  await expect(dialogo.getByText("Ya existe un valor con ese nombre.")).toBeVisible();
+  await expect(dialogo.getByText(/Ya existe «El Cují»/)).toBeVisible();
   await dialogo.getByRole("button", { name: "Cancelar" }).click();
 
   const renombrado = `${nombre} (renombrada)`;
@@ -39,6 +39,14 @@ test("el Administrador agrega, renombra, ordena y desactiva un valor", async ({ 
   await catalogo.getByRole("button", { name: `Desactivar «${renombrado}»` }).click();
   await expect(page.getByText(/Valor desactivado/)).toBeVisible();
   await expect(catalogo.getByRole("button", { name: `Activar «${renombrado}»` })).toBeVisible();
+
+  // Agregarlo de nuevo no crea otro: ofrece activar el que ya existe (guía R16).
+  await catalogo.getByRole("button", { name: "Agregar a Parroquias" }).click();
+  await dialogo.getByLabel("Nombre").fill(renombrado.toUpperCase());
+  await dialogo.getByRole("button", { name: "Guardar" }).click();
+  await dialogo.getByRole("button", { name: `Activar «${renombrado}»` }).click();
+  await expect(page.getByText(/Valor activado/)).toBeVisible();
+  await expect(catalogo.getByRole("button", { name: `Desactivar «${renombrado}»` })).toBeVisible();
 });
 
 test("el Operador no entra a Configuración", async ({ page }) => {

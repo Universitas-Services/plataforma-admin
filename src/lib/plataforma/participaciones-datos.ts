@@ -6,8 +6,6 @@ import {
   filaDeApi,
   listarParticipacionesApi,
   obtenerParticipacionApi,
-  participacionDeFila,
-  todasLasFilasApi,
 } from "@/lib/api/participaciones";
 import {
   bandeja,
@@ -127,14 +125,3 @@ export const porAtender = cache(async (alcaldiaId: string): Promise<number> => {
     return 0;
   }
 });
-
-/**
- * Con la API, todas las participaciones (sin historial) para las métricas del Tablero, hasta que
- * R13 las dé calculadas. Sin la API, undefined: las métricas leen el almacén.
- */
-export async function participacionesParaMetricas(): Promise<Participacion[] | undefined> {
-  if (!usaApi()) return undefined;
-  const r = await todasLasFilasApi();
-  if (r.estado !== "OK") sinAcceso(r.estado);
-  return r.filas.map(participacionDeFila);
-}

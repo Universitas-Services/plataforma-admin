@@ -417,13 +417,58 @@ export function csvCiudadanos(lista: Ciudadano[]) {
 /** Catálogos fijos por despliegue (seed de la base de datos): el panel solo los lee. */
 export const catalogosDe = (alm: Almacen, alcaldiaId: string) => alm.catalogos.get(alcaldiaId);
 
+/** Cuántos registros vivos usan cada valor, como `usos` de la API (guía R16 §2). */
+function usosDe(alm: Almacen, alcaldiaId: string, tipo: TipoCatalogo): Map<string, number> {
+  const m = new Map<string, number>();
+  const sumar = (v?: string) => v && m.set(v, (m.get(v) ?? 0) + 1);
+  const deAlc = <T extends { alcaldiaId: string }>(x: Iterable<T>) =>
+    [...x].filter((y) => y.alcaldiaId === alcaldiaId);
+  switch (tipo) {
+    case "parroquias":
+      for (const p of deAlc(alm.participaciones.values())) sumar(p.parroquia);
+      break;
+    case "categoriasTecnicas":
+      for (const p of deAlc(alm.participaciones.values())) sumar(p.categoriaTecnica);
+      break;
+    case "categoriasNoticias":
+      for (const n of deAlc(alm.noticias.values())) if (!n.eliminadaEl) sumar(n.categoria);
+      break;
+    case "categoriasDocumentos":
+      for (const d of deAlc(alm.documentos.values())) if (!d.eliminadoEl) sumar(d.categoria);
+      break;
+    case "ocupaciones":
+      for (const c of deAlc(alm.ciudadanos.values())) if (!c.anonimizadoEl) sumar(c.ocupacion);
+      break;
+    case "tiposOrganizacion":
+      for (const c of deAlc(alm.ciudadanos.values())) sumar(c.tipoEntidad);
+      break;
+  }
+  return m;
+}
+
+/** Los catálogos con los usos de cada valor (lo que muestra Configuración en la simulación). */
+export function catalogosConUsos(alm: Almacen, alcaldiaId: string) {
+  const cat = alm.catalogos.get(alcaldiaId);
+  if (!cat) return cat;
+  return Object.fromEntries(
+    (Object.keys(cat) as TipoCatalogo[]).map((tipo) => {
+      const usos = usosDe(alm, alcaldiaId, tipo);
+      return [tipo, cat[tipo].map((i) => ({ ...i, usos: usos.get(i.nombre) ?? 0 }))];
+    }),
+  ) as typeof cat;
+}
+
 /*
  * Edición de los desplegables del portal (R16): solo el Administrador (catalogos.editar). Los
  * valores no se borran: se desactivan, así lo ya guardado conserva su valor y los formularios
  * nuevos ofrecen solo los activos. El orden de la lista es el orden en que se ofrecen.
  */
 
-export type ResultadoCatalogo = { estado: "OK" | Error | "VACIO" | "REPETIDO" | "NO_EXISTE" };
+export type ResultadoCatalogo = {
+  estado: "OK" | Error | "VACIO" | "REPETIDO" | "NO_EXISTE" | "ORDEN_INVALIDO";
+  /** Con REPETIDO: el valor que ya existe (si está inactivo, se puede activar). */
+  existente?: { id: string; nombre: string; activo: boolean };
+};
 
 /** Largo máximo de un valor de catálogo. */
 export const NOMBRE_CATALOGO_MAX = 80;
@@ -458,8 +503,12 @@ export function guardarItem(
   const limpio = nombre.trim().replace(/\s+/g, " ").slice(0, NOMBRE_CATALOGO_MAX);
   if (!limpio) return { estado: "VACIO" };
   const items = itemsDe(alm, r.c.alcaldia.id, tipo);
-  if (items.some((i) => i.id !== id && plano(i.nombre) === plano(limpio)))
-    return { estado: "REPETIDO" };
+  const repetido = items.find((i) => i.id !== id && plano(i.nombre) === plano(limpio));
+  if (repetido)
+    return {
+      estado: "REPETIDO",
+      existente: { id: repetido.id, nombre: repetido.nombre, activo: repetido.activo },
+    };
   let antes: string | undefined;
   if (id) {
     const item = items.find((i) => i.id === id);

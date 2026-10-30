@@ -266,7 +266,13 @@ export const SLUG_CATALOGO: Record<TipoCatalogo, string> = {
   tiposOrganizacion: "tipos-entidad",
 };
 
-export type ItemCatalogo = { id: string; nombre: string; activo: boolean };
+export type ItemCatalogo = {
+  id: string;
+  nombre: string;
+  activo: boolean;
+  /** Registros vivos que usan el valor (guía R16): participaciones, noticias, perfiles… */
+  usos?: number;
+};
 
 /**
  * Cómo se ve una fase mientras no le toca (D3, modelo híbrido): las anteriores a la actual se

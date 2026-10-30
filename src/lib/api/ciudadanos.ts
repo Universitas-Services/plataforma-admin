@@ -225,18 +225,3 @@ export async function exportarCiudadanosApi(f: FiltrosCiudadanos) {
     return { estado: comun(e) };
   }
 }
-
-/**
- * Todos los ciudadanos (páginas de 100), para las métricas del Tablero hasta que R14 las dé
- * calculadas. Se corta en 5.000.
- */
-export async function todosLosCiudadanosApi() {
-  const items: Ciudadano[] = [];
-  for (let pagina = 1; pagina <= 50; pagina++) {
-    const r = await listarCiudadanosApi({}, pagina, 100);
-    if (r.estado !== "OK") return r;
-    items.push(...r.items);
-    if (pagina >= r.paginas) break;
-  }
-  return { estado: "OK" as const, items };
-}

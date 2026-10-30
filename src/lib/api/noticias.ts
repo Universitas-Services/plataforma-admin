@@ -154,9 +154,21 @@ export async function guardarNoticiaApi(id: string, campos: CamposNoticia) {
       };
     if (e instanceof ErrorApi && e.code === "MEDIO_AJENO")
       return { estado: "MEDIO_AJENO" as const };
+    // Un borrador puede llevar el botón a medio llenar, pero un enlace escrito tiene que ser
+    // válido (guía R16 §5): la API lo dice en la lista de `details`.
+    if (e instanceof ErrorApi && e.code === "VALIDATION_ERROR" && errorDeBoton(e))
+      return {
+        estado: "INCOMPLETA" as const,
+        errores: { boton: "Escribe un enlace que empiece por https:// o por /." },
+      };
     return comun(e);
   }
 }
+
+/** ¿El 400 es por el enlace del botón? */
+const errorDeBoton = (e: ErrorApi) =>
+  Array.isArray(e.details) &&
+  e.details.some((m) => typeof m === "string" && /boton|enlace que empiece/i.test(m));
 
 const RUTA: Record<Exclude<CambioEstado, "eliminar">, string> = {
   publicar: "publish",

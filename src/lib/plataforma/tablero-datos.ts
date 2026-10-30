@@ -1,30 +1,38 @@
 import "server-only";
-import { usaApi } from "@/lib/api/cliente";
-import { todosLosCiudadanosApi } from "@/lib/api/ciudadanos";
-import { listarNoticiasApi } from "@/lib/api/noticias";
-import type { DatosApiTablero } from "./metricas";
-import { participacionesParaMetricas } from "./participaciones-datos";
+import { metricasApi, type SeccionMetricas } from "@/lib/api/metricas";
+import type { ClaveRango, Indicadores } from "./metricas";
 
 /*
- * Con plataforma-api, lo que necesitan los indicadores del Tablero, según los permisos de quien
- * lo mira: la bandeja, las noticias con sus totales (R12) y los ciudadanos (R13). Lo que el rol
- * no puede leer queda vacío: nunca se mezclan cifras de ejemplo con las reales. Con R14 la API
- * dará los indicadores calculados por rango de fechas.
+ * Indicadores del Tablero con plataforma-api (guía R14): solo las secciones que permiten los
+ * permisos de quien lo mira (sin permiso la API responde 403). Si una sección falla, las demás se
+ * muestran igual y la página avisa: el Tablero es la portada del panel y no debe caer entero.
  */
-export async function datosApiTablero(
+
+const PERMISO: Record<SeccionMetricas, string> = {
+  participacion: "metricas.participacion",
+  contenido: "metricas.contenido",
+  ciudadania: "metricas.ciudadania",
+  equipo: "metricas.equipo",
+};
+
+export async function indicadoresApi(
   permisos: ReadonlySet<string>,
-): Promise<DatosApiTablero | undefined> {
-  if (!usaApi()) return undefined;
-  const [participaciones, noticias, ciudadanos] = await Promise.all([
-    permisos.has("metricas.participacion") && permisos.has("participaciones.evaluar")
-      ? participacionesParaMetricas()
-      : [],
-    permisos.has("metricas.contenido") && permisos.has("contenido.editar")
-      ? listarNoticiasApi().then((r) => (r.estado === "OK" ? r.items : []))
-      : [],
-    permisos.has("metricas.ciudadania") && permisos.has("ciudadanos.ver")
-      ? todosLosCiudadanosApi().then((r) => (r.estado === "OK" ? r.items : []))
-      : [],
+  clave: ClaveRango,
+): Promise<Indicadores> {
+  let incompletas = false;
+  const pedir = <S extends SeccionMetricas>(s: S) =>
+    permisos.has(PERMISO[s])
+      ? metricasApi(s, clave).catch((e: unknown) => {
+          console.error(`[admin] No se pudieron leer las métricas de ${s}:`, e);
+          incompletas = true;
+          return undefined;
+        })
+      : Promise.resolve(undefined);
+  const [participacion, contenido, ciudadania, equipo] = await Promise.all([
+    pedir("participacion"),
+    pedir("contenido"),
+    pedir("ciudadania"),
+    pedir("equipo"),
   ]);
-  return { participaciones: participaciones ?? [], noticias, ciudadanos };
+  return { participacion, contenido, ciudadania, equipo, incompletas };
 }

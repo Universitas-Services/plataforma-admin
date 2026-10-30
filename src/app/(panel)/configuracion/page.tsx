@@ -8,7 +8,7 @@ import { EncabezadoPagina } from "@/components/ui/piezas";
 import { EditorCatalogo } from "@/components/configuracion/editor-catalogo";
 import { usaApi } from "@/lib/api/cliente";
 import { catalogosApi } from "@/lib/api/catalogos";
-import { catalogosDe } from "@/lib/plataforma/alcaldia";
+import { catalogosConUsos } from "@/lib/plataforma/alcaldia";
 import { almacen, exigirEnAlcaldia } from "@/lib/plataforma/sesion";
 import { TIPOS_CATALOGO, type TipoCatalogo } from "@/lib/plataforma/tipos";
 
@@ -29,7 +29,7 @@ export default function ConfiguracionPage() {
 async function Contenido() {
   const c = await exigirEnAlcaldia("configuracion.ver", "/configuracion");
   await connection();
-  const catalogos = usaApi() ? await catalogosApi() : catalogosDe(almacen(), c.alcaldia.id);
+  const catalogos = usaApi() ? await catalogosApi() : catalogosConUsos(almacen(), c.alcaldia.id);
   const editable = c.permisos.has("catalogos.editar");
 
   return (

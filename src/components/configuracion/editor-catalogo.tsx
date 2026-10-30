@@ -26,6 +26,16 @@ import type { ItemCatalogo, TipoCatalogo } from "@/lib/plataforma/tipos";
 
 const NOMBRE_MAX = 80;
 
+/** «Usado en 3 registros»; sin el dato (catálogos fijos), nada. */
+const textoUsos = (n?: number) =>
+  n === undefined
+    ? ""
+    : n === 0
+      ? "Sin uso"
+      : n === 1
+        ? "Usado en 1 registro"
+        : `Usado en ${n} registros`;
+
 function DialogoItem({
   tipo,
   titulo,
@@ -42,6 +52,8 @@ function DialogoItem({
   errores: Record<string, string>;
 }) {
   const [nombre, setNombre] = useState(item?.nombre ?? "");
+  // El nombre ya existe pero está inactivo: se ofrece activarlo en vez de crear otro.
+  const [reactivar, setReactivar] = useState<{ id: string; nombre: string }>();
   const [pendiente, iniciar] = useTransition();
   const id = `item-${tipo}-${item?.id ?? "nuevo"}`;
   return (
@@ -60,7 +72,9 @@ function DialogoItem({
         onSubmit={(ev) => {
           ev.preventDefault();
           iniciar(async () => {
-            if (aplicar(await guardarItemAccion(tipo, nombre, item?.id))) onCerrar();
+            const r = await guardarItemAccion(tipo, nombre, item?.id);
+            if (aplicar(r)) onCerrar();
+            else setReactivar(r.reactivar);
           });
         }}
       >
@@ -77,6 +91,21 @@ function DialogoItem({
             className={`${claseCampo(errores.nombre)} h-11`}
           />
           <ErrorCampo id={`${id}-error`} error={errores.nombre} />
+          {reactivar && (
+            <button
+              type="button"
+              disabled={pendiente}
+              onClick={() =>
+                iniciar(async () => {
+                  if (aplicar(await activarItemAccion(tipo, reactivar.id, true))) onCerrar();
+                })
+              }
+              className={`${claseBoton.secundario} mt-3`}
+            >
+              <Power size={16} aria-hidden="true" />
+              Activar «{reactivar.nombre}»
+            </button>
+          )}
         </div>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" onClick={onCerrar} className={claseBoton.secundario}>
@@ -102,6 +131,8 @@ export function EditorCatalogo({
   items: ItemCatalogo[];
 }) {
   const [editando, setEditando] = useState<ItemCatalogo | "nuevo">();
+  // Desactivar un valor que ya se usa pide confirmación: el portal deja de ofrecerlo.
+  const [desactivando, setDesactivando] = useState<ItemCatalogo>();
   const [pendiente, iniciar] = useTransition();
   const r = useRespuesta();
   const activos = items.filter((i) => i.activo).length;
@@ -128,16 +159,19 @@ export function EditorCatalogo({
         <ul className="divide-y divide-fila">
           {items.map((i, n) => (
             <li key={i.id} className="flex flex-wrap items-center gap-1 px-4 py-1.5">
-              <span
-                className={`min-w-0 flex-1 py-1.5 ${i.activo ? "text-tinta" : "text-gris line-through"}`}
-              >
-                {i.nombre}
+              <div className="min-w-0 flex-1 py-1.5">
+                <span className={i.activo ? "text-tinta" : "text-gris line-through"}>
+                  {i.nombre}
+                </span>
                 {!i.activo && (
-                  <span className="ml-2 rounded-full bg-cabecera px-2 py-0.5 text-xs font-semibold text-gris no-underline">
+                  <span className="ml-2 rounded-full bg-cabecera px-2 py-0.5 text-xs font-semibold text-gris">
                     Inactivo
                   </span>
                 )}
-              </span>
+                {i.usos !== undefined && (
+                  <span className="block text-xs text-gris tabular-nums">{textoUsos(i.usos)}</span>
+                )}
+              </div>
               <button
                 type="button"
                 disabled={pendiente || n === 0}
@@ -169,9 +203,11 @@ export function EditorCatalogo({
                 type="button"
                 disabled={pendiente}
                 onClick={() =>
-                  iniciar(
-                    async () => void r.aplicar(await activarItemAccion(tipo, i.id, !i.activo)),
-                  )
+                  i.activo && (i.usos ?? 0) > 0
+                    ? setDesactivando(i)
+                    : iniciar(
+                        async () => void r.aplicar(await activarItemAccion(tipo, i.id, !i.activo)),
+                      )
                 }
                 className={claseBoton.enlace}
               >
@@ -199,6 +235,44 @@ export function EditorCatalogo({
           aplicar={r.aplicar}
           errores={r.errores}
         />
+      )}
+      {desactivando && (
+        <Dialogo
+          abierto
+          onCerrar={() => setDesactivando(undefined)}
+          titulo={`¿Desactivar «${desactivando.nombre}»?`}
+          descripcion={`${textoUsos(desactivando.usos)}.`}
+        >
+          <div className="mt-4 space-y-4 text-sm text-cuerpo">
+            <p>
+              Lo ya registrado conserva este valor, pero el portal deja de ofrecerlo en los
+              formularios nuevos. Puedes volver a activarlo cuando quieras.
+            </p>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setDesactivando(undefined)}
+                className={claseBoton.secundario}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={pendiente}
+                onClick={() =>
+                  iniciar(async () => {
+                    if (r.aplicar(await activarItemAccion(tipo, desactivando.id, false)))
+                      setDesactivando(undefined);
+                  })
+                }
+                className={claseBoton.peligro}
+              >
+                {pendiente && <Loader2 size={16} aria-hidden="true" className="animate-spin" />}
+                Desactivar
+              </button>
+            </div>
+          </div>
+        </Dialogo>
       )}
       <Aviso aviso={r.aviso} onCerrar={() => r.setAviso(undefined)} />
     </section>

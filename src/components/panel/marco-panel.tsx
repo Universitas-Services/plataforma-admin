@@ -5,7 +5,7 @@ import { ALCALDIA } from "@/config/alcaldia";
 import { ErrorApi } from "@/lib/api/cliente";
 import { porAtender as contarPorAtender } from "@/lib/plataforma/participaciones-datos";
 import { nombreCompleto } from "@/lib/plataforma/servicio";
-import { getContexto } from "@/lib/plataforma/sesion";
+import { esDemo, getContexto } from "@/lib/plataforma/sesion";
 import { NOMBRE_ROL } from "@/lib/plataforma/tipos";
 import { Linea } from "./linea";
 import { MenuUsuario } from "./menu-usuario";
@@ -45,7 +45,12 @@ export async function MarcoPanel({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[15.5rem_minmax(0,1fr)]">
       <aside className="sticky top-0 hidden h-dvh overflow-y-auto border-r border-linea bg-superficie lg:block">
-        <Linea estaciones={estaciones} sigla={ALCALDIA.sigla} nombreLinea={nombreLinea} />
+        <Linea
+          estaciones={estaciones}
+          sigla={ALCALDIA.sigla}
+          nombreLinea={nombreLinea}
+          demo={esDemo}
+        />
       </aside>
       <div className="flex min-w-0 flex-col">
         {u.rolPlataforma && (
@@ -61,6 +66,7 @@ export async function MarcoPanel({ children }: { children: ReactNode }) {
             estaciones={estaciones}
             sigla={ALCALDIA.sigla}
             nombreLinea={nombreLinea}
+            demo={esDemo}
           />
           <div className="flex min-w-0 flex-1 items-center gap-2 text-sm sm:gap-3">
             <span className="sm:hidden">

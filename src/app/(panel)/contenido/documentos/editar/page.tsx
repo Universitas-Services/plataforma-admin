@@ -7,36 +7,35 @@ import { EsqueletoEditor } from "@/components/ui/esqueletos";
 import { usaApi } from "@/lib/api/cliente";
 import { obtenerDocumentoApi } from "@/lib/api/documentos";
 import { obtenerDocumento } from "@/lib/plataforma/documentos";
-import { idsPrerender } from "@/lib/plataforma/servicio";
 import { almacen, exigirEnAlcaldia, idSesion, leerAviso } from "@/lib/plataforma/sesion";
 import { AvisoInicial } from "@/components/ui/aviso";
-import { documentosDemo } from "@/lib/plataforma/fixtures-contenido";
 
 export const metadata: Metadata = { title: "Documento" };
 
 /*
- * Todos los ids de ejemplo: en Netlify, un id que no se generó al compilar devuelve 500 (el
- * adaptador aún no sirve el App Shell de los parámetros no listados de Next 16.3+).
+ * El id va en la consulta (?id=), no en la ruta: en Netlify, una ruta [id] con un id que no se
+ * generó al compilar (los UUID de plataforma-api) respondía 500 y dejaba la pantalla en blanco.
  */
-export function generateStaticParams() {
-  return [
-    { id: "nuevo" },
-    ...documentosDemo(0).map(({ id }) => ({ id })),
-    ...idsPrerender("d").map((id) => ({ id })),
-  ];
-}
 
-export default function DocumentoPage({ params }: PageProps<"/contenido/documentos/[id]">) {
+export default function DocumentoPage({ searchParams }: PageProps<"/contenido/documentos/editar">) {
   return (
     <Suspense fallback={<EsqueletoEditor />}>
-      <Contenido params={params} />
+      <Contenido searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function Contenido({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const ctx = await exigirEnAlcaldia("contenido.editar", `/contenido/documentos/${id}`);
+async function Contenido({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { id: valor } = await searchParams;
+  const id = typeof valor === "string" ? valor : "";
+  const ctx = await exigirEnAlcaldia(
+    "contenido.editar",
+    `/contenido/documentos/editar?id=${encodeURIComponent(id)}`,
+  );
   const categorias = await valoresActivos("categoriasDocumentos", ctx.alcaldia.id);
   if (id === "nuevo") return <NuevoDocumento categorias={categorias} />;
   const r = usaApi()

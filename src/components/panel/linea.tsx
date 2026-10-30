@@ -25,11 +25,14 @@ export function Linea({
   estaciones,
   sigla,
   nombreLinea,
+  demo = false,
   alNavegar,
 }: {
   estaciones: Estacion[];
   sigla: string;
   nombreLinea: string;
+  /** Datos simulados: lo dice al pie del menú. */
+  demo?: boolean;
   alNavegar?: () => void;
 }) {
   const ruta = usePathname();
@@ -104,11 +107,13 @@ export function Linea({
           })}
         </ul>
       </nav>
-      <p className="mt-auto px-5 pb-5 text-xs text-gris">
-        <span className="rounded border border-dashed border-tenue px-2 py-1">
-          Datos de demostración
-        </span>
-      </p>
+      {demo && (
+        <p className="mt-auto px-5 pb-5 text-xs text-gris">
+          <span className="rounded border border-dashed border-tenue px-2 py-1">
+            Datos de demostración
+          </span>
+        </p>
+      )}
     </div>
   );
 }

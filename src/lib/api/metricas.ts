@@ -37,21 +37,25 @@ async function token() {
 }
 
 /** El folio o el id de la API → la ruta del panel (los rankings llevan a su ficha). */
-const conRuta = (filas: Fila[], base: string) =>
-  filas.map((f) => (f.href ? { ...f, href: `${base}/${encodeURIComponent(f.href)}` } : f));
+const conRuta = (filas: Fila[], ruta: (id: string) => string) =>
+  filas.map((f) => (f.href ? { ...f, href: ruta(encodeURIComponent(f.href)) } : f));
+
+const aParticipacion = (folio: string) => `/participaciones/${folio}`;
+const aNoticia = (id: string) => `/contenido/noticias/editar?id=${id}`;
+const aDocumento = (id: string) => `/contenido/documentos/editar?id=${id}`;
 
 function deApi<S extends SeccionMetricas>(seccion: S, d: Respuestas[S]): Respuestas[S] {
   if (seccion === "participacion") {
     const p = d as MetricasParticipacion;
-    return { ...p, masReacciones: conRuta(p.masReacciones, "/participaciones") } as Respuestas[S];
+    return { ...p, masReacciones: conRuta(p.masReacciones, aParticipacion) } as Respuestas[S];
   }
   if (seccion === "contenido") {
     const c = d as MetricasContenido;
     return {
       ...c,
-      masVistas: conRuta(c.masVistas, "/contenido/noticias"),
-      masValoradas: conRuta(c.masValoradas, "/contenido/noticias"),
-      masDescargados: conRuta(c.masDescargados, "/contenido/documentos"),
+      masVistas: conRuta(c.masVistas, aNoticia),
+      masValoradas: conRuta(c.masValoradas, aNoticia),
+      masDescargados: conRuta(c.masDescargados, aDocumento),
     } as Respuestas[S];
   }
   return d;

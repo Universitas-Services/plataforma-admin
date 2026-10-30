@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { EditorInicio, type NoticiaElegible } from "@/components/contenido/editor-inicio";
+import { EditorActores, EditorEncabezado } from "@/components/contenido/editor-portada";
+import { ACTORES_INICIAL, ENCABEZADO_INICIAL } from "@/lib/plataforma/sitio";
 import { PestanasContenido } from "@/components/contenido/pestanas";
 import { EsqueletoFormulario } from "@/components/ui/esqueletos";
 import { EncabezadoPagina } from "@/components/ui/piezas";
@@ -51,9 +53,9 @@ async function Contenido() {
       />
       <PestanasContenido />
       <p className="mb-6 max-w-3xl text-cuerpo">
-        El Inicio del portal es fijo, salvo el termómetro (en Proceso), el mensaje del alcalde y la
-        tarjeta con transiciones bajo el termómetro. «Noticias y novedades» y «La gente opina» se
-        llenan solas con lo más reciente, lo más visto y lo más valorado.
+        Aquí eliges el mensaje del alcalde, el encabezado y el Registro de actores. El termómetro se
+        edita en Proceso y la tarjeta con transiciones en su pestaña. «Noticias y novedades» y «La
+        gente opina» se llenan solas con lo más reciente, lo más visto y lo más valorado.
       </p>
       {r.retiradas.length > 0 && (
         <p
@@ -87,6 +89,8 @@ async function Contenido() {
             : []
         }
       />
+      <EditorEncabezado inicial={r.encabezado ?? ENCABEZADO_INICIAL} />
+      <EditorActores inicial={r.actores ?? ACTORES_INICIAL} />
     </>
   );
 }

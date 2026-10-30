@@ -23,7 +23,7 @@ test("la baja pedida se atiende anonimizando la cuenta", async ({ page }, info) 
     return;
   }
   await fila.click();
-  await page.waitForURL(/\/ciudadanos\/c-/);
+  await page.waitForURL(/\/ciudadanos\/ficha\?id=c-/);
   await expect(page.getByText(/Pidió la baja el/)).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Anonimizar la cuenta" }).click();
   const dialogo = page.getByRole("dialog");

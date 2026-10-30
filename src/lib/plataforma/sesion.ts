@@ -31,8 +31,9 @@ export const esDesarrollo = process.env.NODE_ENV !== "production";
 /**
  * Modo demostración: en desarrollo siempre; en un despliegue, con DEMO=1. Muestra en pantalla
  * los enlaces que en producción llegarían por correo y la cinta de entorno de demostración.
+ * Con plataforma-api los datos son reales: nunca es demostración, aunque quede DEMO=1.
  */
-export const esDemo = esDesarrollo || process.env.DEMO === "1";
+export const esDemo = (esDesarrollo || process.env.DEMO === "1") && !usaApi();
 
 /** Secreto de la firma de sesión. En Netlify: variable SESION_SECRETO. */
 function secreto() {

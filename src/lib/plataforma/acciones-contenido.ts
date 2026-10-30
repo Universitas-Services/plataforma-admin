@@ -77,7 +77,7 @@ export async function crearNoticiaAccion() {
     return ir(
       r.estado === "SIN_SESION" ? "/ingresar?volver=/contenido/noticias" : "/contenido/noticias",
     );
-  return ir(`/contenido/noticias/${r.id}`);
+  return ir(`/contenido/noticias/editar?id=${encodeURIComponent(r.id)}`);
 }
 
 /** Guarda el formulario completo (autoguardado o «Guardar cambios»). */
@@ -221,7 +221,7 @@ export async function crearDocumentoAccion(datos: unknown, archivo: unknown): Pr
   await guardarAviso("Documento subido: versión 1.0.");
   invalidar();
   refresh();
-  return ir(`/contenido/documentos/${r.documento.id}`);
+  return ir(`/contenido/documentos/editar?id=${encodeURIComponent(r.documento.id)}`);
 }
 
 export async function guardarDocumentoAccion(id: string, datos: unknown): Promise<Respuesta> {

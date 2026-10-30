@@ -1,4 +1,4 @@
-import { ChevronRight, FileText } from "lucide-react";
+import { ChevronRight, FileText, Globe } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
@@ -38,6 +38,23 @@ async function Contenido() {
         titulo="Configuración"
         bajada="Los desplegables que el portal ciudadano ofrece al registrarse y al participar."
       />
+      {c.permisos.has("sitio.editar") && (
+        <Link
+          href="/configuracion/sitio"
+          className="mb-3 flex max-w-3xl items-center justify-between gap-4 rounded-lg border border-linea bg-papel p-4 hover:border-tenue"
+        >
+          <span>
+            <span className="flex items-center gap-2 font-bold text-tinta">
+              <Globe size={18} aria-hidden="true" className="text-marca-texto" />
+              Datos del sitio
+            </span>
+            <span className="mt-0.5 block text-sm text-gris">
+              Alcalde, contacto, redes y enlaces del pie de página del portal.
+            </span>
+          </span>
+          <ChevronRight size={18} aria-hidden="true" className="shrink-0 text-gris" />
+        </Link>
+      )}
       {c.permisos.has("legal.editar") && (
         <Link
           href="/configuracion/textos-legales"

@@ -83,7 +83,11 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
         titulo="Contenido"
         bajada="Lo que tu alcaldía publica en el portal ciudadano."
         acciones={
-          <BotonEnlace href="/contenido/documentos/nuevo" variante="primario" Icono={Upload}>
+          <BotonEnlace
+            href="/contenido/documentos/editar?id=nuevo"
+            variante="primario"
+            Icono={Upload}
+          >
             Subir documento
           </BotonEnlace>
         }
@@ -234,7 +238,7 @@ function ListaDocumentos({
         {items.map((d) => (
           <li key={d.id} className="relative px-4 py-3 hover:bg-superficie">
             <Link
-              href={`/contenido/documentos/${d.id}`}
+              href={`/contenido/documentos/editar?id=${encodeURIComponent(d.id)}`}
               className="font-semibold text-tinta after:absolute after:inset-0 after:content-['']"
             >
               {d.titulo}
@@ -292,7 +296,7 @@ function ListaDocumentos({
               <tr key={d.id} className="relative border-t border-fila hover:bg-superficie">
                 <td className="max-w-[26rem] px-3 py-3.5">
                   <Link
-                    href={`/contenido/documentos/${d.id}`}
+                    href={`/contenido/documentos/editar?id=${encodeURIComponent(d.id)}`}
                     className="font-semibold text-tinta after:absolute after:inset-0 after:content-['']"
                   >
                     {d.titulo}

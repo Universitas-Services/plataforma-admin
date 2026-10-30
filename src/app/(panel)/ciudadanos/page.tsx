@@ -234,7 +234,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
                     <tr key={x.id} className="border-t border-fila">
                       <td className="w-full max-w-0 px-3 py-3">
                         <Link
-                          href={`/ciudadanos/${x.id}`}
+                          href={`/ciudadanos/ficha?id=${encodeURIComponent(x.id)}`}
                           className="flex items-center gap-2 font-semibold text-marca-texto hover:underline"
                         >
                           <Icono size={16} aria-hidden="true" className="shrink-0 text-gris" />

@@ -240,7 +240,7 @@ export function metricasContenido(alm: Almacen, alcaldiaId: string, r: Rango): M
     alcance.likes += t.likes;
     alcance.dislikes += t.dislikes;
     const titulo = n.titulo || "Sin título";
-    href.set(titulo, `/contenido/noticias/${n.id}`);
+    href.set(titulo, `/contenido/noticias/editar?id=${n.id}`);
     if (t.vistas) vistas.set(titulo, t.vistas);
     if (t.likes) likes.set(titulo, t.likes);
   }
@@ -256,7 +256,7 @@ export function metricasContenido(alm: Almacen, alcaldiaId: string, r: Rango): M
     const t = enRango(alm.descargas.get(`documento:${d.id}`), r).vistas;
     if (t) descargas.set(d.titulo, t);
   }
-  const hrefDoc = new Map(docs.map((d) => [d.titulo, `/contenido/documentos/${d.id}`]));
+  const hrefDoc = new Map(docs.map((d) => [d.titulo, `/contenido/documentos/editar?id=${d.id}`]));
   const vistasDia = porDia(alm.interacciones, "noticia:", "vistas");
 
   return {

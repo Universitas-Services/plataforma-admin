@@ -17,7 +17,7 @@ async function nuevaNoticia(page: Page) {
   await page.goto("/contenido/noticias");
   await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: "Nueva noticia" }).click();
-  await page.waitForURL(/\/contenido\/noticias\/[\w-]+$/, { timeout: 30_000 });
+  await page.waitForURL(/\/contenido\/noticias\/editar\?id=[\w-]+$/, { timeout: 30_000 });
   const id = page.url().split("/").at(-1)!;
   creadas.push(id);
   await expect(page.getByRole("heading", { name: "Noticia sin título" })).toBeVisible();

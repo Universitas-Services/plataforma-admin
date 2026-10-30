@@ -36,7 +36,9 @@ test("documento: se sube, recibe una versión nueva, se oficializa y se elimina"
     await page.getByRole("option", { name: "Minutas" }).click();
     await page.getByRole("button", { name: "Subir documento" }).click();
     // La ficha nueva, no «/nuevo».
-    await page.waitForURL(/\/contenido\/documentos\/(?!nuevo$)[\w-]+$/, { timeout: 30_000 });
+    await page.waitForURL(/\/contenido\/documentos\/editar\?id=(?!nuevo$)[\w-]+$/, {
+      timeout: 30_000,
+    });
     creados.push(["documentos", page.url().split("/").at(-1)!]);
     await expect(page.getByText("Documento subido: versión 1.0.")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: titulo })).toBeVisible();

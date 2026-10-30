@@ -1108,8 +1108,8 @@ describe("Métricas del Tablero contra la API (R14)", () => {
     );
     const c = await metricas.metricasApi("contenido", "7d");
     expect(llamadas[0]!.url).toBe(`${API}/admin/metrics/content?rango=7d`);
-    expect(c.masVistas[0]!.href).toBe("/contenido/noticias/n-1");
-    expect(c.masDescargados[0]!.href).toBe("/contenido/documentos/d-1");
+    expect(c.masVistas[0]!.href).toBe("/contenido/noticias/editar?id=n-1");
+    expect(c.masDescargados[0]!.href).toBe("/contenido/documentos/editar?id=d-1");
     const equipo = await metricas.metricasApi("equipo", "anio");
     expect(llamadas[1]!.url).toBe(`${API}/admin/metrics/team?rango=anio`);
     expect(equipo).toEqual([{ nombre: "María Fernández", valor: 4 }]);

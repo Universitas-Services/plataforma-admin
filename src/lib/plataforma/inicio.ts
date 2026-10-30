@@ -1,6 +1,7 @@
 import { contextoDe, registrar } from "./servicio";
 import type { Almacen, ConteoDia } from "./tipos";
 import type { Noticia } from "@/lib/contenido/tipos";
+import type { Actores, Encabezado } from "./sitio";
 
 /*
  * Lo que el Inicio del portal muestra elegido por la alcaldía (backlog de refactorización 1.11):
@@ -46,6 +47,9 @@ export type VistaInicio = {
   /** Noticias de texto publicadas: las que pueden ir en el mensaje del alcalde. */
   candidatosMensaje: Noticia[];
   retiradas: string[];
+  /** Encabezado y Registro de actores (R17); sin guardar, el panel usa los valores de hoy. */
+  encabezado?: Encabezado;
+  actores?: Actores;
 };
 
 export function inicioDe(
@@ -64,6 +68,8 @@ export function inicioDe(
     mensajeAlcalde: publicada(alm, alm.inicio.mensajeAlcalde),
     candidatosMensaje: publicadas.filter((n) => n.formato === "TEXTO"),
     retiradas,
+    encabezado: alm.inicio.encabezado,
+    actores: alm.inicio.actores,
   };
 }
 

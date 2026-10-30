@@ -217,6 +217,13 @@ async function Contenido({
         </div>
 
         <Bloque titulo="Documentos" id="documentos">
+          {/* R18: los documentos son la verificación para propuestas formales, aparte del perfil. */}
+          {!(x.documentosCompletos ?? x.documentos.length > 0) && !anonimizada && (
+            <p className="mb-3 text-sm text-ambar-texto">
+              Sin verificar: le faltan documentos. Puede opinar, pero aún no puede enviar propuestas
+              formales.
+            </p>
+          )}
           {x.documentos.length ? (
             <ul className="space-y-2">
               {x.documentos.map((d) => (

@@ -228,6 +228,11 @@ export type Ciudadano = {
   representante?: { nombre: string; cedula: string; condicion: string };
   perfilCompleto: boolean;
   documentos: DocumentoAutor[];
+  /**
+   * Cargó los documentos de la verificación para propuestas formales (R18, `documentosEstado` de
+   * la API). Sin el dato, la ficha lo deduce de si hay documentos.
+   */
+  documentosCompletos?: boolean;
   membresia: { estado: "ACTIVA" | "SUSPENDIDA"; desde: string; motivo?: string };
   registradoEl: string;
   ejemplo?: boolean;

@@ -19,6 +19,8 @@ type FilaApi = {
   documento: string;
   telefono?: string;
   perfilEstado: "COMPLETO" | "INCOMPLETO";
+  /** R18: documentos de la verificación para propuestas formales (por llegar a la API). */
+  documentosEstado?: "COMPLETO" | "PENDIENTE";
   cuenta: Ciudadano["membresia"];
   bajaSolicitadaEl?: string;
   anonimizadoEl?: string;
@@ -54,6 +56,7 @@ export const ciudadanoDeApi = (f: FilaApi | DetalleApi): Ciudadano => ({
   documento: f.documento,
   telefono: f.telefono,
   perfilCompleto: f.perfilEstado === "COMPLETO",
+  ...(f.documentosEstado ? { documentosCompletos: f.documentosEstado === "COMPLETO" } : {}),
   membresia: f.cuenta,
   bajaSolicitadaEl: f.bajaSolicitadaEl,
   anonimizadoEl: f.anonimizadoEl,

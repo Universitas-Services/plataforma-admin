@@ -18,9 +18,26 @@ const nextConfig: NextConfig = {
     proxyClientMaxBodySize: "32mb",
   },
   partialPrefetching: true,
-  // «Contenido» abre en Noticias. Como redirección de configuración, sin página que prerenderizar.
   async redirects() {
-    return [{ source: "/contenido", destination: "/contenido/noticias", permanent: false }];
+    return [
+      // «Contenido» abre en Noticias. Como redirección de configuración, sin página que prerenderizar.
+      { source: "/contenido", destination: "/contenido/noticias", permanent: false },
+      /*
+       * Las fichas llevan el id en la consulta (?id=): en Netlify, una ruta [id] con un UUID que
+       * no se generó al compilar respondía 500. Las direcciones viejas (enlaces guardados o
+       * compartidos) siguen funcionando.
+       */
+      {
+        source: "/ciudadanos/:id((?!ficha$|exportar$)[^/]+)",
+        destination: "/ciudadanos/ficha?id=:id",
+        permanent: false,
+      },
+      ...["noticias", "documentos", "banners"].map((t) => ({
+        source: `/contenido/${t}/:id((?!editar$)[^/]+)`,
+        destination: `/contenido/${t}/editar?id=:id`,
+        permanent: false,
+      })),
+    ];
   },
   turbopack: {
     rules: {

@@ -131,7 +131,7 @@ export function ListaBanners({ items, ordenable }: { items: FilaBanner[]; ordena
               </div>
             </div>
             <Link
-              href={`/contenido/banners/${b.id}`}
+              href={`/contenido/banners/editar?id=${encodeURIComponent(b.id)}`}
               className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-control border border-linea px-3 text-sm font-semibold text-tinta hover:border-tenue"
             >
               <Pencil size={16} aria-hidden="true" />

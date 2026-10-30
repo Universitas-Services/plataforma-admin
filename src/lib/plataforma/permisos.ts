@@ -24,6 +24,8 @@ export const PERMISOS = [
   "legal.editar",
   /** Crear, renombrar, ordenar y activar los desplegables del portal (R16). */
   "catalogos.editar",
+  /** Datos del sitio: alcalde, contacto, redes y enlaces del pie de página (R17). */
+  "sitio.editar",
 ] as const;
 
 export type Permiso = (typeof PERMISOS)[number];
@@ -82,6 +84,7 @@ export const SECCIONES: Seccion[] = [
 /** Rutas dentro de una sección que exigen un permiso propio (no salen en el menú). */
 const SUBSECCIONES: Seccion[] = [
   { href: "/configuracion/textos-legales", etiqueta: "Textos legales", permiso: "legal.editar" },
+  { href: "/configuracion/sitio", etiqueta: "Datos del sitio", permiso: "sitio.editar" },
 ];
 
 /** Las estaciones que ve un usuario según sus permisos. */

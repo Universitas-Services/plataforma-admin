@@ -1,3 +1,4 @@
+import type { Actores, DatosSitio, Encabezado } from "./sitio";
 import type { Banner, Documento, Medio, Noticia } from "@/lib/contenido/tipos";
 import type { Ubicacion } from "@/lib/ubicacion";
 
@@ -324,7 +325,14 @@ export type Almacen = {
    * Lo que el Inicio del portal muestra elegido por la alcaldía: la noticia de texto del
    * mensaje del alcalde. La tarjeta con transiciones tiene sus diapositivas en `banners`.
    */
-  inicio: { mensajeAlcalde?: string };
+  inicio: {
+    mensajeAlcalde?: string;
+    /** Encabezado y Registro de actores del Inicio (R17); sin guardar, los valores de hoy. */
+    encabezado?: Encabezado;
+    actores?: Actores;
+  };
+  /** Datos del sitio (R17): alcalde, contacto, redes y enlaces del pie de página. */
+  sitio?: DatosSitio;
   /** Vistas y reacciones por elemento: `noticia:<id>` o `aporte:<folio>` (backlog 1.14). */
   interacciones: Map<string, Interaccion>;
   /** Descargas de cada documento (para las métricas). */

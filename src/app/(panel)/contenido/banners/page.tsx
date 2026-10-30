@@ -52,7 +52,7 @@ async function Contenido({ searchParams }: { searchParams: SearchParams }) {
         titulo="Contenido"
         bajada="Lo que tu alcaldía publica en el portal ciudadano."
         acciones={
-          <BotonEnlace href="/contenido/banners/nuevo" variante="primario" Icono={Plus}>
+          <BotonEnlace href="/contenido/banners/editar?id=nuevo" variante="primario" Icono={Plus}>
             Nueva diapositiva
           </BotonEnlace>
         }

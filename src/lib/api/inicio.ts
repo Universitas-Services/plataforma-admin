@@ -3,6 +3,7 @@ import { ErrorApi, pedirApi } from "./cliente";
 import { deApi as noticiaDeApi } from "./noticias";
 import { tokensDeCookie } from "./sesion-api";
 import type { VistaInicio } from "@/lib/plataforma/inicio";
+import type { Actores, Encabezado } from "@/lib/plataforma/sitio";
 
 /*
  * Mensaje del alcalde contra plataforma-api (guía R10: GET y PUT /admin/home, permiso
@@ -37,12 +38,17 @@ export async function inicioApi(): Promise<VistaInicio | { estado: Fallo }> {
       mensajeAlcalde: NoticiaApi | null;
       candidatosMensaje: NoticiaApi[];
       retiradas: string[];
+      /** R17: sin guardar todavía, la API los omite y el panel usa los valores de hoy. */
+      encabezado?: Encabezado | null;
+      actores?: Actores | null;
     }>("/admin/home", { token: t });
     return {
       estado: "OK",
       mensajeAlcalde: r.mensajeAlcalde ? noticiaDeApi(r.mensajeAlcalde) : undefined,
       candidatosMensaje: r.candidatosMensaje.map(noticiaDeApi),
       retiradas: r.retiradas ?? [],
+      encabezado: r.encabezado ?? undefined,
+      actores: r.actores ?? undefined,
     };
   } catch (e) {
     return fallo(e);

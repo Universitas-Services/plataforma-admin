@@ -4,38 +4,36 @@ import { Suspense } from "react";
 import { FormularioBanner } from "@/components/contenido/formulario-banner";
 import { EsqueletoEditor } from "@/components/ui/esqueletos";
 import { obtenerBanner } from "@/lib/plataforma/banners";
-import { idsPrerender } from "@/lib/plataforma/servicio";
 import { almacen, exigirEnAlcaldia, idSesion } from "@/lib/plataforma/sesion";
 import { usaApi } from "@/lib/api/cliente";
 import { obtenerBannerApi } from "@/lib/api/banners";
-import { bannersDemo } from "@/lib/plataforma/fixtures-contenido";
 
 export const metadata: Metadata = { title: "Diapositiva" };
 
 /*
- * Todos los ids de ejemplo: en Netlify, un id que no se generó al compilar devuelve 500 (el
- * adaptador aún no sirve el App Shell de los parámetros no listados de Next 16.3+). Con
- * plataforma-api los ids son UUID: revisar en el deploy que abrir una diapositiva no dé 500.
+ * El id va en la consulta (?id=), no en la ruta: en Netlify, una ruta [id] con un id que no se
+ * generó al compilar (los UUID de plataforma-api) respondía 500 y dejaba la pantalla en blanco.
  */
-export function generateStaticParams() {
-  return [
-    { id: "nuevo" },
-    ...bannersDemo(0).map(({ id }) => ({ id })),
-    ...idsPrerender("b").map((id) => ({ id })),
-  ];
-}
 
-export default function BannerPage({ params }: PageProps<"/contenido/banners/[id]">) {
+export default function BannerPage({ searchParams }: PageProps<"/contenido/banners/editar">) {
   return (
     <Suspense fallback={<EsqueletoEditor />}>
-      <Contenido params={params} />
+      <Contenido searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function Contenido({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  await exigirEnAlcaldia("contenido.editar", `/contenido/banners/${id}`);
+async function Contenido({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { id: valor } = await searchParams;
+  const id = typeof valor === "string" ? valor : "";
+  await exigirEnAlcaldia(
+    "contenido.editar",
+    `/contenido/banners/editar?id=${encodeURIComponent(id)}`,
+  );
   if (id === "nuevo") return <FormularioBanner />;
   const r = usaApi() ? await obtenerBannerApi(id) : obtenerBanner(almacen(), await idSesion(), id);
   if (r.estado !== "OK") notFound();

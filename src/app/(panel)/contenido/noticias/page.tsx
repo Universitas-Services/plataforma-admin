@@ -304,7 +304,7 @@ function ListaNoticias({
           return (
             <li key={n.id} className="relative px-4 py-3 hover:bg-superficie">
               <Link
-                href={`/contenido/noticias/${n.id}`}
+                href={`/contenido/noticias/editar?id=${encodeURIComponent(n.id)}`}
                 className="font-semibold text-tinta after:absolute after:inset-0 after:content-['']"
               >
                 {n.destacada && (
@@ -387,7 +387,7 @@ function ListaNoticias({
                 <tr key={n.id} className="relative border-t border-fila hover:bg-superficie">
                   <td className="max-w-[28rem] px-3 py-3.5">
                     <Link
-                      href={`/contenido/noticias/${n.id}`}
+                      href={`/contenido/noticias/editar?id=${encodeURIComponent(n.id)}`}
                       className="font-semibold text-tinta after:absolute after:inset-0 after:content-['']"
                     >
                       {n.destacada && (

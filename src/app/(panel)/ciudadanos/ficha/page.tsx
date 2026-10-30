@@ -10,20 +10,13 @@ import { EstadoVacio, InsigniaEstado } from "@/components/ui/piezas";
 import { leerCiudadano } from "@/lib/plataforma/ciudadanos-datos";
 import { exigirEnAlcaldia } from "@/lib/plataforma/sesion";
 import { TIPOS_PARTICIPACION } from "@/lib/plataforma/tipos";
-import { ciudadanosDemo } from "@/lib/plataforma/fixtures-alcaldia";
-import { participacionesDemo } from "@/lib/plataforma/fixtures-participaciones";
 
 export const metadata: Metadata = { title: "Ficha del ciudadano" };
 
 /*
- * Todos los ids de ejemplo: en Netlify, un id que no se generó al compilar devuelve 500 (el
- * adaptador aún no sirve el App Shell de los parámetros no listados de Next 16.3+). Con
- * plataforma-api los ids son UUID, como en las noticias: revisar en el deploy que abrir una ficha
- * real no dé 500.
+ * El id va en la consulta (?id=), no en la ruta: en Netlify, una ruta [id] con un id que no se
+ * generó al compilar (los UUID de plataforma-api) respondía 500 y dejaba la pantalla en blanco.
  */
-export function generateStaticParams() {
-  return ciudadanosDemo(participacionesDemo(0), 0).map(({ id }) => ({ id }));
-}
 
 const fechaCorta = new Intl.DateTimeFormat("es-VE", {
   day: "numeric",
@@ -39,10 +32,10 @@ const DOCUMENTO = {
   ENTIDAD: "Documento de la organización",
 };
 
-export default function CiudadanoPage({ params }: PageProps<"/ciudadanos/[id]">) {
+export default function CiudadanoPage({ searchParams }: PageProps<"/ciudadanos/ficha">) {
   return (
     <Suspense fallback={<EsqueletoEditor />}>
-      <Contenido params={params} />
+      <Contenido searchParams={searchParams} />
     </Suspense>
   );
 }
@@ -68,9 +61,17 @@ function Dato({ k, v }: { k: string; v?: ReactNode }) {
   );
 }
 
-async function Contenido({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const c = await exigirEnAlcaldia("ciudadanos.ver", `/ciudadanos/${id}`);
+async function Contenido({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { id: valor } = await searchParams;
+  const id = typeof valor === "string" ? valor : "";
+  const c = await exigirEnAlcaldia(
+    "ciudadanos.ver",
+    `/ciudadanos/ficha?id=${encodeURIComponent(id)}`,
+  );
   await connection();
   const x = await leerCiudadano(c.alcaldia.id, decodeURIComponent(id));
 

@@ -10,32 +10,36 @@ import { obtenerNoticiaApi } from "@/lib/api/noticias";
 import { obtenerNoticia } from "@/lib/plataforma/contenido";
 import { totalesDe } from "@/lib/plataforma/inicio";
 import type { ConteoDia } from "@/lib/plataforma/tipos";
-import { idsPrerender } from "@/lib/plataforma/servicio";
 import { almacen, exigirEnAlcaldia, idSesion } from "@/lib/plataforma/sesion";
-import { noticiasDemo } from "@/lib/plataforma/fixtures-contenido";
 
 export const metadata: Metadata = { title: "Editar noticia" };
 
 /*
- * Todos los ids de ejemplo: en Netlify, un id que no se generó al compilar devuelve 500 (el
- * adaptador aún no sirve el App Shell de los parámetros no listados de Next 16.3+). Con
- * plataforma-api los ids son UUID: revisar en el deploy que abrir una noticia nueva no dé 500.
+ * El id va en la consulta (?id=), no en la ruta: en Netlify, una ruta [id] con un id que no se
+ * generó al compilar (los UUID de plataforma-api) respondía 500 y dejaba la pantalla en blanco.
  */
-export function generateStaticParams() {
-  return [...noticiasDemo(0).map(({ id }) => ({ id })), ...idsPrerender("n").map((id) => ({ id }))];
-}
 
-export default function EditarNoticiaPage({ params }: PageProps<"/contenido/noticias/[id]">) {
+export default function EditarNoticiaPage({
+  searchParams,
+}: PageProps<"/contenido/noticias/editar">) {
   return (
     <Suspense fallback={<EsqueletoEditor />}>
-      <Contenido params={params} />
+      <Contenido searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function Contenido({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const ctx = await exigirEnAlcaldia("contenido.editar", `/contenido/noticias/${id}`);
+async function Contenido({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { id: valor } = await searchParams;
+  const id = typeof valor === "string" ? valor : "";
+  const ctx = await exigirEnAlcaldia(
+    "contenido.editar",
+    `/contenido/noticias/editar?id=${encodeURIComponent(id)}`,
+  );
   // La lista depende de la hora (las programadas vencidas se publican al leer).
   await connection();
   const r = usaApi()

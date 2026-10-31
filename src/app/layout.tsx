@@ -1,21 +1,26 @@
 import type { Metadata, Viewport } from "next";
-import { Montserrat, Roboto } from "next/font/google";
+import localFont from "next/font/local";
 import { ALCALDIA } from "@/config/alcaldia";
 import { esDemo } from "@/lib/plataforma/sesion";
 import "./globals.css";
 
-// Las mismas fuentes del portal ciudadano: Montserrat para títulos y Roboto para el texto.
-const montserrat = Montserrat({
+/*
+ * Las mismas fuentes del portal ciudadano: Montserrat para títulos y Roboto para el texto.
+ * Van en el repositorio (./fuentes, alfabeto latino, versiones variables de Google Fonts, licencia
+ * OFL 1.1): con next/font/google el build dependía de lo que respondiera Google y fallaba cuando
+ * servía los archivos con otra forma de dirección (31-10-2026).
+ */
+const montserrat = localFont({
+  src: "./fuentes/montserrat-latin.woff2",
+  weight: "600 800",
   variable: "--font-montserrat",
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
   display: "swap",
 });
 
-const roboto = Roboto({
+const roboto = localFont({
+  src: "./fuentes/roboto-latin.woff2",
+  weight: "400 700",
   variable: "--font-roboto",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 

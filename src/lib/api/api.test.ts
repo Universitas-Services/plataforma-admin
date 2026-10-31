@@ -1004,6 +1004,12 @@ describe("Ciudadanos contra la API (R13)", () => {
       documento: "V-14.***.890",
       bajaSolicitadaEl: FILA.bajaSolicitadaEl,
     });
+    // Sin `documentosEstado` (la API aún no lo da) no se informa; con él, se traduce (R18).
+    expect(r.items[0]).not.toHaveProperty("documentosCompletos");
+    expect(
+      ciudadanos.ciudadanoDeApi({ ...FILA, documentosEstado: "PENDIENTE" } as never)
+        .documentosCompletos,
+    ).toBe(false);
   });
 
   it("suspende con motivo, reactiva sin él y anonimiza solo con la baja pedida", async () => {

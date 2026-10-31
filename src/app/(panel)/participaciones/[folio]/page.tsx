@@ -288,19 +288,11 @@ async function Contenido({ params }: { params: Promise<{ folio: string }> }) {
           {p.codigoVerificacion && (
             <Bloque titulo="Acuse de recibo" id="acuse">
               <p className="mb-3 text-sm text-gris">
-                Lo recibió el ciudadano al enviar el aporte: con estos datos puede probar qué envió
+                Lo recibió el ciudadano al enviar el aporte: con este código puede probar qué envió
                 y cuándo.
               </p>
               <dl className="grid gap-3">
                 <Dato k="Código de verificación" v={p.codigoVerificacion} />
-                <Dato
-                  k="Huella del contenido (SHA-256)"
-                  v={
-                    <span className="font-mono text-sm [overflow-wrap:anywhere]">
-                      {p.hashContenido}
-                    </span>
-                  }
-                />
               </dl>
             </Bloque>
           )}
